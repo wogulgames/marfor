@@ -247,21 +247,28 @@ class PivotRenderer {
         
         if (config.mode === 'split-columns') {
             // Режим разбивки по столбцам (как в Google Sheets)
+            
+            // Первый уровень заголовков - метрики
             html += '<tr>';
-            
-            // Заголовки для строк (временные поля)
             config.rows.forEach(rowField => {
-                html += `<th class="pivot-header">${rowField.label}</th>`;
+                html += `<th class="pivot-header" rowspan="2">${rowField.label}</th>`;
             });
-            
-            // Заголовки для столбцов (срезы)
-            const columnKeys = pivotData.getColumnKeys();
-            columnKeys.forEach(colKey => {
-                const colFields = pivotData.getColumnFields(colKey);
-                const colLabel = config.columns.map(colField => colFields[colField.name]).join(' - ');
-                html += `<th class="pivot-header">${colLabel || colKey}</th>`;
+            config.values.forEach(valueField => {
+                const columnKeys = pivotData.getColumnKeys();
+                html += `<th class="pivot-header metric-header" colspan="${columnKeys.length}">${valueField.label}</th>`;
             });
+            html += '</tr>';
             
+            // Второй уровень заголовков - срезы
+            html += '<tr>';
+            config.values.forEach(valueField => {
+                const columnKeys = pivotData.getColumnKeys();
+                columnKeys.forEach(colKey => {
+                    const colFields = pivotData.getColumnFields(colKey);
+                    const colLabel = config.columns.map(colField => colFields[colField.name]).join(' - ');
+                    html += `<th class="pivot-header slice-header">${colLabel || colKey}</th>`;
+                });
+            });
             html += '</tr>';
         } else if (config.mode === 'time-series') {
             // Режим временных рядов
@@ -321,11 +328,12 @@ class PivotRenderer {
                     html += `<td class="pivot-cell">${rowFields[rowField.name] || ''}</td>`;
                 });
                 
-                // Значения для каждого столбца (среза)
-                columnKeys.forEach(colKey => {
-                    const value = config.values.length > 0 ? 
-                        pivotData.getValue(rowKey, colKey, config.values[0].name) : 0;
-                    html += `<td class="pivot-cell" style="text-align: right;">${this.formatValue(value)}</td>`;
+                // Значения для каждой метрики и каждого столбца (среза)
+                config.values.forEach(valueField => {
+                    columnKeys.forEach(colKey => {
+                        const value = pivotData.getValue(rowKey, colKey, valueField.name);
+                        html += `<td class="pivot-cell" style="text-align: right;">${this.formatValue(value)}</td>`;
+                    });
                 });
                 
                 html += '</tr>';
