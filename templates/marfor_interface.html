@@ -3834,7 +3834,10 @@
                                         
                                         // Отладка структуры данных и фильтра
                                         console.log('🔍 Первая строка данных:', currentPivotData[0]);
+                                        console.log('🔍 Ключи первой строки:', Object.keys(currentPivotData[0]));
                                         console.log('🔍 Значение year в первой строке:', currentPivotData[0].year);
+                                        console.log('🔍 Есть ли year в строке:', 'year' in currentPivotData[0]);
+                                        console.log('🔍 hasOwnProperty year:', currentPivotData[0].hasOwnProperty('year'));
                                         console.log('🔍 Фильтр year:', activeFilters[0]);
                                         console.log('🔍 minValue фильтра:', activeFilters[0].minValue);
                                         console.log('🔍 maxValue фильтра:', activeFilters[0].maxValue);
