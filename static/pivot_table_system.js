@@ -858,6 +858,20 @@ function renderNewPivotTable(rawData, mappingData, mode = 'normal', splitBySlice
         renderer.render(pivotData, config);
         
         console.log('Новая сводная таблица успешно отрендерена');
+        
+        // Автоматически создаем фильтры после рендеринга
+        if (typeof createAutoFilters === 'function') {
+            console.log('Вызываем createAutoFilters()...');
+            try {
+                createAutoFilters();
+                console.log('createAutoFilters() вызвана успешно');
+            } catch (error) {
+                console.error('Ошибка в createAutoFilters():', error);
+            }
+        } else {
+            console.log('Функция createAutoFilters не найдена');
+        }
+        
         return true;
     } catch (error) {
         console.error('Ошибка при рендеринге новой сводной таблицы:', error);
