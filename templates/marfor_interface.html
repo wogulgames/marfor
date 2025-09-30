@@ -3773,6 +3773,7 @@
             fetch(`/api/get_time_series_data/${currentSessionId}?${params}`)
                 .then(response => response.json())
                 .then(data => {
+                    console.log('🎯 === ПОЛУЧЕН ОТВЕТ ОТ API (второй fetch) ===');
                     console.log('Получены данные временных рядов:', data);
                     if (data.success) {
                         if (data.data.pivot_table) {
