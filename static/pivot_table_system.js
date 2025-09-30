@@ -202,6 +202,7 @@ class PivotData {
 class PivotRenderer {
     constructor(containerId) {
         this.containerId = containerId;
+        this.collapsedTimeFields = new Set(); // Отслеживаем свернутые временные поля
     }
     
     render(pivotData, config) {
@@ -274,9 +275,16 @@ class PivotRenderer {
             // Режим временных рядов
             html += '<tr>';
             
-            // Заголовки для временных полей (строки)
-            config.rows.forEach(rowField => {
-                html += `<th class="pivot-header">${rowField.label}</th>`;
+            // Заголовки для видимых временных полей (строки) с поддержкой коллапсирования
+            const visibleTimeFields = this.getVisibleTimeFields(config);
+            visibleTimeFields.forEach(rowField => {
+                const isCollapsible = this.hasChildTimeFields(config, rowField);
+                const isCollapsed = this.isTimeFieldCollapsed(rowField.name);
+                const collapseIcon = isCollapsible ? 
+                    `<span class="collapse-icon" onclick="toggleTimeFieldCollapse('${rowField.name}')" style="cursor: pointer; margin-right: 5px;">${isCollapsed ? '+' : '−'}</span>` : 
+                    '<span style="margin-right: 12px;"></span>';
+                
+                html += `<th class="pivot-header time-header" data-field="${rowField.name}" data-level="${rowField.level}">${collapseIcon}${rowField.label}</th>`;
             });
             
             // Заголовки для метрик (значения)
@@ -345,9 +353,10 @@ class PivotRenderer {
             rowKeys.forEach(rowKey => {
                 html += '<tr>';
                 
-                // Значения временных полей (строки)
+                // Значения видимых временных полей (строки)
                 const rowFields = pivotData.getRowFields(rowKey);
-                config.rows.forEach(rowField => {
+                const visibleTimeFields = this.getVisibleTimeFields(config);
+                visibleTimeFields.forEach(rowField => {
                     html += `<td class="pivot-cell">${rowFields[rowField.name] || ''}</td>`;
                 });
                 
@@ -434,6 +443,42 @@ class PivotRenderer {
             }).format(value);
         }
         return value || '';
+    }
+    
+    // Методы для работы с коллапсированием временных полей
+    hasChildTimeFields(config, field) {
+        // Проверяем, есть ли дочерние временные поля с более высоким уровнем
+        return config.rows.some(otherField => 
+            otherField.type === 'time' && otherField.level > field.level
+        );
+    }
+    
+    isTimeFieldCollapsed(fieldName) {
+        return this.collapsedTimeFields.has(fieldName);
+    }
+    
+    toggleTimeFieldCollapse(fieldName) {
+        if (this.collapsedTimeFields.has(fieldName)) {
+            this.collapsedTimeFields.delete(fieldName);
+        } else {
+            this.collapsedTimeFields.add(fieldName);
+        }
+        console.log('Переключено состояние коллапсирования для поля:', fieldName, 'Свернуто:', this.collapsedTimeFields.has(fieldName));
+    }
+    
+    getVisibleTimeFields(config) {
+        // Возвращаем только видимые временные поля (не свернутые)
+        return config.rows.filter(field => {
+            if (field.type !== 'time') return true;
+            
+            // Проверяем, не свернут ли родительский элемент
+            const parentField = config.rows.find(parent => 
+                parent.type === 'time' && parent.level < field.level && 
+                this.collapsedTimeFields.has(parent.name)
+            );
+            
+            return !parentField;
+        });
     }
 }
 
@@ -545,6 +590,12 @@ function renderNewPivotTable(rawData, mappingData, mode = 'normal', splitBySlice
         
         // Рендерим таблицу
         const renderer = new PivotRenderer('timeSeriesChartContainer');
+        
+        // Сохраняем ссылки для перерисовки при коллапсировании
+        window.currentPivotRenderer = renderer;
+        window.currentPivotData = pivotData;
+        window.currentPivotConfig = config;
+        
         renderer.render(pivotData, config);
         
         console.log('Новая сводная таблица успешно отрендерена');
@@ -576,6 +627,21 @@ if (typeof window !== 'undefined') {
     window.PivotRenderer = PivotRenderer;
     window.createPivotConfigFromMapping = createPivotConfigFromMapping;
     window.renderNewPivotTable = renderNewPivotTable;
+    
+    // Глобальная функция для переключения состояния коллапсирования
+    window.toggleTimeFieldCollapse = function(fieldName) {
+        console.log('Переключение коллапсирования для поля:', fieldName);
+        
+        // Находим активный рендерер (если есть)
+        if (window.currentPivotRenderer) {
+            window.currentPivotRenderer.toggleTimeFieldCollapse(fieldName);
+            
+            // Перерисовываем таблицу
+            if (window.currentPivotData && window.currentPivotConfig) {
+                window.currentPivotRenderer.render(window.currentPivotData, window.currentPivotConfig);
+            }
+        }
+    };
     
     console.log('Новая система сводной таблицы загружена и доступна в глобальной области видимости');
     console.log('Доступные функции:', {
