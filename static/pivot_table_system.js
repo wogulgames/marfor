@@ -58,6 +58,7 @@ class PivotFilter {
         if (!this.isActive) return true;
         
         const value = row[this.fieldName];
+        console.log(`🔍 value: ${value}, fieldType: ${this.fieldType}`);
         if (value === null || value === undefined) return false;
         
         if (this.fieldType === 'text') {
