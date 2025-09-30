@@ -3831,6 +3831,12 @@
                                     const activeFilters = window.currentFilters.filter(f => f.isActive);
                                     if (activeFilters.length > 0) {
                                         console.log('🔍 Активные фильтры:', activeFilters.length, activeFilters.map(f => f.fieldName));
+                                        
+                                        // Отладка структуры данных и фильтра
+                                        console.log('🔍 Первая строка данных:', currentPivotData[0]);
+                                        console.log('🔍 Фильтр year:', activeFilters[0]);
+                                        console.log('🔍 Тест фильтра на первой строке:', activeFilters[0].matches(currentPivotData[0]));
+                                        
                                         const filteredData = currentPivotData.filter(row => {
                                             return activeFilters.every(filter => filter.matches(row));
                                         });
