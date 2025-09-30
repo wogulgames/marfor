@@ -257,9 +257,19 @@ class PivotRenderer {
             
             // Первый уровень заголовков - метрики
             html += '<tr>';
-            config.rows.forEach(rowField => {
-                html += `<th class="pivot-header" rowspan="2">${rowField.label}</th>`;
+            
+            // Заголовки для временных полей (строки) с поддержкой коллапсирования
+            const visibleTimeFields = this.getVisibleTimeFields(config);
+            visibleTimeFields.forEach(rowField => {
+                const isCollapsible = this.hasChildTimeFields(config, rowField);
+                const isCollapsed = this.isTimeFieldCollapsed(rowField.name);
+                const collapseIcon = isCollapsible ? 
+                    `<span class="collapse-icon" onclick="toggleTimeFieldCollapse('${rowField.name}')" style="cursor: pointer; margin-right: 5px;">${isCollapsed ? '+' : '−'}</span>` : 
+                    '<span style="margin-right: 12px;"></span>';
+                
+                html += `<th class="pivot-header time-header" data-field="${rowField.name}" data-level="${rowField.level}" rowspan="2">${collapseIcon}${rowField.label}</th>`;
             });
+            
             config.values.forEach(valueField => {
                 const columnKeys = pivotData.getColumnKeys();
                 html += `<th class="pivot-header metric-header" colspan="${columnKeys.length}">${valueField.label}</th>`;
@@ -336,9 +346,10 @@ class PivotRenderer {
             rowKeys.forEach(rowKey => {
                 html += '<tr>';
                 
-                // Значения строк (временные поля)
+                // Значения видимых временных полей (строки)
                 const rowFields = pivotData.getRowFields(rowKey);
-                config.rows.forEach(rowField => {
+                const visibleTimeFields = this.getVisibleTimeFields(config);
+                visibleTimeFields.forEach(rowField => {
                     html += `<td class="pivot-cell">${rowFields[rowField.name] || ''}</td>`;
                 });
                 
