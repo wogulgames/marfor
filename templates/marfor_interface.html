@@ -896,6 +896,10 @@
             if (currentPivotData) {
                 console.log('Обновляем таблицу с новой системой');
                 const mappingData = JSON.parse(sessionStorage.getItem('dataMapping') || '{}');
+                // Добавляем выбранные метрики в данные маппинга
+                if (window.selectedMetrics) {
+                    mappingData.selectedMetrics = window.selectedMetrics;
+                }
                 const mode = selectedSlice ? 'split-columns' : 'time-series';
                 renderNewPivotTable(currentPivotData, mappingData, mode, selectedSlice);
             } else {
@@ -1503,7 +1507,7 @@
                                                     <label class="form-check-label fw-bold" for="selectAllMetrics">
                                                         Выбрать все
                                                     </label>
-                                                </div>
+                                </div>
                                             </li>
                                             <li><hr class="dropdown-divider"></li>
                                             <div id="metricsCheckboxes">
@@ -1677,18 +1681,18 @@
                     availableMetrics = getMetricsFromDataInfo(dataInfo);
                 }
             } else {
-                // Получаем настройки маппинга
-                const mappingConfig = JSON.parse(sessionStorage.getItem('dataMapping') || '{}');
-                
-                // Заполняем селекты колонками
-                processedData.columns.forEach((col, index) => {
-                    // Метрики - только колонки с ролью "metric"
-                    const columnMapping = mappingConfig.columns?.find(c => c.name === col);
-                    if (columnMapping && columnMapping.role === 'metric') {
+            // Получаем настройки маппинга
+            const mappingConfig = JSON.parse(sessionStorage.getItem('dataMapping') || '{}');
+            
+            // Заполняем селекты колонками
+            processedData.columns.forEach((col, index) => {
+                // Метрики - только колонки с ролью "metric"
+                const columnMapping = mappingConfig.columns?.find(c => c.name === col);
+                if (columnMapping && columnMapping.role === 'metric') {
                         availableMetrics.push(col);
-                    } else if (!mappingConfig.columns && processedData.dtypes[col] && 
-                        (processedData.dtypes[col].includes('int') || processedData.dtypes[col].includes('float'))) {
-                        // Fallback: если нет маппинга, используем числовые колонки
+                } else if (!mappingConfig.columns && processedData.dtypes[col] && 
+                    (processedData.dtypes[col].includes('int') || processedData.dtypes[col].includes('float'))) {
+                    // Fallback: если нет маппинга, используем числовые колонки
                         availableMetrics.push(col);
                     }
                 });
@@ -1768,7 +1772,7 @@
                     const columnMapping = mappingConfig.columns?.find(c => c.name === col);
                     if (columnMapping && columnMapping.role === 'metric') {
                         metrics.push(col);
-                    } else if (!mappingConfig.columns && dataInfo.dtypes && dataInfo.dtypes[col] && 
+                } else if (!mappingConfig.columns && dataInfo.dtypes && dataInfo.dtypes[col] && 
                         (dataInfo.dtypes[col].includes('int') || dataInfo.dtypes[col].includes('float'))) {
                         // Fallback: если нет маппинга, используем числовые колонки
                         metrics.push(col);
@@ -1965,6 +1969,10 @@
                             
                             // Получаем данные маппинга
                             const mappingData = JSON.parse(sessionStorage.getItem('dataMapping') || '{}');
+                            // Добавляем выбранные метрики в данные маппинга
+                            if (window.selectedMetrics) {
+                                mappingData.selectedMetrics = window.selectedMetrics;
+                            }
                             
                             // Используем новую систему сводных таблиц
                             if (typeof renderNewPivotTable === 'function') {
@@ -2577,19 +2585,23 @@
                             
                             // Получаем данные маппинга
                             const mappingData = JSON.parse(sessionStorage.getItem('dataMapping') || '{}');
+                            // Добавляем выбранные метрики в данные маппинга
+                            if (window.selectedMetrics) {
+                                mappingData.selectedMetrics = window.selectedMetrics;
+                            }
                             
                             // Используем новую систему сводных таблиц
                             if (typeof renderNewPivotTable === 'function') {
                                 const mode = selectedSlice ? 'split-columns' : 'time-series';
                                 renderNewPivotTable(currentPivotData, mappingData, mode, selectedSlice);
-                    } else {
+            } else {
                                 console.error('Функция renderNewPivotTable не найдена');
                             }
             } else {
                             console.log('Нет сводной таблицы, показываем только график');
                             renderTimeSeriesChart(data.data);
                         }
-            } else {
+                    } else {
                         console.error('Ошибка загрузки данных:', data);
                         if (chartContainer) {
                             const errorMessage = data.message || data.error || 'Неизвестная ошибка';
