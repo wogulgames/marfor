@@ -359,6 +359,29 @@
         .metrics-checkbox-item .form-check-input {
             margin-right: 0.5rem;
         }
+        
+        /* Стили для дропбокса срезов */
+        #slicesDropdownMenu {
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        
+        .slices-radio-item {
+            padding: 0.25rem 1rem;
+            cursor: pointer;
+        }
+        
+        .slices-radio-item:hover {
+            background-color: #f8f9fa;
+        }
+        
+        .slices-radio-item .form-check {
+            margin: 0;
+        }
+        
+        .slices-radio-item .form-check-input {
+            margin-right: 0.5rem;
+        }
     </style>
 </head>
 <body>
@@ -1517,6 +1540,30 @@
                                     </div>
                                 </div>
                             </div>
+                            <div class="row mb-3">
+                                <div class="col-md-12">
+                                    <label class="form-label">Разбивка по срезам (опционально)</label>
+                                    <div class="dropdown">
+                                        <button class="btn btn-outline-secondary dropdown-toggle w-100" type="button" id="slicesDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                                            <span id="slicesDropdownText">Только временные ряды</span>
+                                        </button>
+                                        <ul class="dropdown-menu w-100" id="slicesDropdownMenu">
+                                            <li class="dropdown-item-text">
+                                                <div class="form-check">
+                                                    <input class="form-check-input" type="radio" name="sliceSelection" id="noSliceSelection" value="" onchange="updateSelectedSlice()" checked>
+                                                    <label class="form-check-label fw-bold" for="noSliceSelection">
+                                                        Только временные ряды
+                                                    </label>
+                                                </div>
+                                            </li>
+                                            <li><hr class="dropdown-divider"></li>
+                                            <div id="slicesRadioButtons">
+                                                <!-- Радиокнопки срезов будут добавлены динамически -->
+                                            </div>
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
                             <div class="text-center">
                                 <button class="btn btn-primary" onclick="loadTimeSeriesData()">
                                     <i class="fas fa-chart-line me-2"></i>Построить график
@@ -1706,30 +1753,19 @@
                 selectFirstMetric(availableMetrics[0]);
             }
             
-            // Заполняем селект разбивки по срезам
-            const splitBySliceSelect = document.getElementById('splitBySlice');
-            if (splitBySliceSelect) {
-                // Очищаем предыдущие опции
-                splitBySliceSelect.innerHTML = '<option value="">Без разбивки</option>';
-                
-                // Получаем настройки маппинга
-                const mappingConfig = JSON.parse(sessionStorage.getItem('dataMapping') || '{}');
-                
-                // Добавляем срезы из маппинга
-                if (mappingConfig && mappingConfig.columns) {
-                    mappingConfig.columns.forEach(col => {
-                        if (col.role === 'slice') {
-                            const option = document.createElement('option');
-                            option.value = col.name;
-                            option.textContent = col.name;
-                            splitBySliceSelect.appendChild(option);
-                        }
-                    });
-                }
-                
-                // Восстанавливаем ранее выбранное значение
-                if (selectedSliceForSplit) {
-                    splitBySliceSelect.value = selectedSliceForSplit;
+            // Заполняем дропбокс разбивки по срезам
+            const availableSlices = getSlicesFromDataInfo(processedData || {});
+            createSlicesRadioButtons(availableSlices);
+            
+            console.log('Доступные срезы:', availableSlices);
+            
+            // Восстанавливаем ранее выбранный срез
+            if (selectedSliceForSplit) {
+                const radioId = 'slice_' + selectedSliceForSplit.replace(/[^a-zA-Z0-9]/g, '_');
+                const radio = document.getElementById(radioId);
+                if (radio) {
+                    radio.checked = true;
+                    updateSelectedSlice();
                 }
             }
             
@@ -1844,6 +1880,74 @@
             });
             
             updateSelectedMetrics();
+        }
+
+        // Функция для получения срезов из dataInfo или mappingConfig
+        function getSlicesFromDataInfo(dataInfo) {
+            const mappingConfig = JSON.parse(sessionStorage.getItem('dataMapping') || '{}');
+            const slices = [];
+            
+            if (mappingConfig.columns) {
+                mappingConfig.columns.forEach(col => {
+                    // Срезы - это колонки с ролью "dimension", которые не являются временными рядами
+                    if (col.role === 'dimension' && (!col.time_series || col.time_series === '') && col.include) {
+                        slices.push({
+                            name: col.name,
+                            level: col.nesting_level || 0
+                        });
+                    }
+                });
+                
+                // Сортируем срезы по уровню
+                slices.sort((a, b) => a.level - b.level);
+            }
+            
+            return slices;
+        }
+
+        // Функция для создания радиокнопок срезов
+        function createSlicesRadioButtons(availableSlices) {
+            const slicesRadioButtons = document.getElementById('slicesRadioButtons');
+            slicesRadioButtons.innerHTML = '';
+            
+            availableSlices.forEach(slice => {
+                const li = document.createElement('li');
+                const radioId = 'slice_' + slice.name.replace(/[^a-zA-Z0-9]/g, '_');
+                
+                li.className = 'slices-radio-item';
+                li.innerHTML = '<div class="form-check"><input class="form-check-input" type="radio" name="sliceSelection" id="' + radioId + '" value="' + slice.name + '" onchange="updateSelectedSlice()"><label class="form-check-label" for="' + radioId + '">' + slice.name + ' (уровень ' + slice.level + ')</label></div>';
+                
+                slicesRadioButtons.appendChild(li);
+            });
+            
+            console.log('Создано радиокнопок срезов:', availableSlices.length);
+        }
+
+        // Функция для обновления выбранного среза
+        function updateSelectedSlice() {
+            const radioButtons = document.querySelectorAll('input[name="sliceSelection"]');
+            const slicesDropdownText = document.getElementById('slicesDropdownText');
+            let selectedSlice = '';
+            
+            radioButtons.forEach(radio => {
+                if (radio.checked) {
+                    selectedSlice = radio.value;
+                }
+            });
+            
+            // Обновляем текст дропбокса
+            if (!selectedSlice) {
+                slicesDropdownText.textContent = 'Только временные ряды';
+            } else {
+                slicesDropdownText.textContent = selectedSlice;
+            }
+            
+            // Сохраняем выбранный срез в глобальной переменной
+            window.selectedSlice = selectedSlice;
+            selectedSliceForSplit = selectedSlice;
+            
+            // Обновляем сводную таблицу при изменении среза
+            updatePivotTableWithSplit();
         }
 
         function loadTimeSeriesData() {
