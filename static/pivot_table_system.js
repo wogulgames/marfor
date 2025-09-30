@@ -57,7 +57,7 @@ class PivotData {
         this.groupByRowsAndColumns(config, renderer);
         
         // Создаем перекрестную таблицу
-        this.createCrossTable(config);
+        this.createCrossTable(config, renderer);
         
         return this;
     }
@@ -104,12 +104,15 @@ class PivotData {
         });
     }
     
-    createCrossTable(config) {
+    createCrossTable(config, renderer = null) {
         this.crossTable.clear();
+        
+        // Получаем видимые поля для создания ключей
+        const visibleRowFields = renderer ? renderer.getVisibleTimeFields(config) : config.rows;
         
         console.log('Создание перекрестной таблицы:', {
             rawDataLength: this.rawData.length,
-            rows: config.rows.map(r => r.name),
+            visibleRows: visibleRowFields.map(r => r.name),
             columns: config.columns.map(c => c.name),
             values: config.values.map(v => v.name)
         });
@@ -120,7 +123,7 @@ class PivotData {
                 console.log(`Строка ${index}:`, row);
             }
             
-            const rowKey = this.createRowKey(row, config.rows);
+            const rowKey = this.createRowKey(row, visibleRowFields);
             const colKey = this.createColumnKey(row, config.columns);
             
             if (!this.crossTable.has(rowKey)) {
@@ -196,8 +199,21 @@ class PivotData {
         return 0;
     }
     
-    getRowFields(rowKey) {
-        return this.rowGroups.get(rowKey)?.fields || {};
+    getRowFields(rowKey, visibleFields = null) {
+        const allFields = this.rowGroups.get(rowKey)?.fields || {};
+        
+        // Если переданы видимые поля, возвращаем только их
+        if (visibleFields) {
+            const result = {};
+            visibleFields.forEach(field => {
+                if (allFields.hasOwnProperty(field.name)) {
+                    result[field.name] = allFields[field.name];
+                }
+            });
+            return result;
+        }
+        
+        return allFields;
     }
     
     getColumnFields(colKey) {
@@ -347,8 +363,8 @@ class PivotRenderer {
                 html += '<tr>';
                 
                 // Значения видимых временных полей (строки)
-                const rowFields = pivotData.getRowFields(rowKey);
                 const visibleTimeFields = this.getVisibleTimeFields(config);
+                const rowFields = pivotData.getRowFields(rowKey, visibleTimeFields);
                 visibleTimeFields.forEach(rowField => {
                     html += `<td class="pivot-cell">${rowFields[rowField.name] || ''}</td>`;
                 });
