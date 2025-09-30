@@ -207,12 +207,14 @@
         .pivot-total-row {
             background-color: #f8f9fa !important;
             border-top: 2px solid #007bff !important;
+            border-bottom: 2px solid #007bff !important;
         }
         
         .pivot-total-cell {
             background-color: #f8f9fa !important;
             font-weight: bold !important;
             border-top: 2px solid #007bff !important;
+            border-bottom: 2px solid #007bff !important;
         }
         
         .pivot-total-row:hover {
@@ -221,6 +223,13 @@
         
         .pivot-total-cell:hover {
             background-color: #e9ecef !important;
+        }
+        
+        /* Дополнительное визуальное разделение для Total вверху */
+        .pivot-total-row td:first-child {
+            font-weight: bold;
+            color: #007bff;
+            text-align: center;
         }
         
         .pivot-table-split .metric-subheader {

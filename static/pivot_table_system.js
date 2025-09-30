@@ -381,6 +381,9 @@ class PivotRenderer {
     createRowsHTML(pivotData, config) {
         let html = '<tbody>';
         
+        // Добавляем строку Total в самом начале
+        html += this.createTotalRowHTML(pivotData, config);
+        
         if (config.mode === 'split-columns') {
             // Режим разбивки по столбцам
             const rowKeys = pivotData.getRowKeys();
@@ -491,9 +494,6 @@ class PivotRenderer {
             });
         }
         
-        // Добавляем строку Total
-        html += this.createTotalRowHTML(pivotData, config);
-        
         html += '</tbody>';
         return html;
     }
@@ -518,9 +518,10 @@ class PivotRenderer {
             const columnKeys = pivotData.getColumnKeys();
             const totals = pivotData.calculateTotals(config);
             
-            // Пустые ячейки для временных полей
-            visibleTimeFields.forEach(() => {
-                html += '<td class="pivot-cell pivot-total-cell"></td>';
+            // Ячейки для временных полей с "Total" в первой
+            visibleTimeFields.forEach((field, index) => {
+                const cellContent = index === 0 ? '<strong>Total</strong>' : '';
+                html += `<td class="pivot-cell pivot-total-cell">${cellContent}</td>`;
             });
             
             // Итоговые значения для каждой метрики и каждого столбца (среза)
@@ -536,9 +537,10 @@ class PivotRenderer {
             const visibleTimeFields = this.getVisibleTimeFields(config);
             const totals = pivotData.calculateTotals(config);
             
-            // Пустые ячейки для временных полей
-            visibleTimeFields.forEach(() => {
-                html += '<td class="pivot-cell pivot-total-cell"></td>';
+            // Ячейки для временных полей с "Total" в первой
+            visibleTimeFields.forEach((field, index) => {
+                const cellContent = index === 0 ? '<strong>Total</strong>' : '';
+                html += `<td class="pivot-cell pivot-total-cell">${cellContent}</td>`;
             });
             
             // Итоговые значения для метрик (суммируем по всем столбцам)
@@ -555,9 +557,10 @@ class PivotRenderer {
             const visibleTimeFields = this.getVisibleTimeFields(config);
             const totals = pivotData.calculateTotals(config);
             
-            // Пустые ячейки для временных полей
-            visibleTimeFields.forEach(() => {
-                html += '<td class="pivot-cell pivot-total-cell"></td>';
+            // Ячейки для временных полей с "Total" в первой
+            visibleTimeFields.forEach((field, index) => {
+                const cellContent = index === 0 ? '<strong>Total</strong>' : '';
+                html += `<td class="pivot-cell pivot-total-cell">${cellContent}</td>`;
             });
             
             // Итоговые значения для метрик
