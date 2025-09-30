@@ -236,24 +236,25 @@
         .filter-card {
             border: 1px solid #dee2e6;
             border-radius: 0.375rem;
-            margin-bottom: 1rem;
+            margin-bottom: 0.75rem;
             background-color: #f8f9fa;
         }
         
         .filter-header {
             background-color: #e9ecef;
-            padding: 0.75rem 1rem;
+            padding: 0.5rem 0.75rem;
             border-bottom: 1px solid #dee2e6;
             font-weight: 600;
             color: #495057;
+            font-size: 0.875rem;
         }
         
         .filter-body {
-            padding: 1rem;
+            padding: 0.75rem;
         }
         
         .filter-checkbox-list {
-            max-height: 200px;
+            max-height: 150px;
             overflow-y: auto;
             border: 1px solid #dee2e6;
             border-radius: 0.25rem;
@@ -262,8 +263,9 @@
         }
         
         .filter-checkbox-item {
-            padding: 0.25rem 0;
+            padding: 0.2rem 0;
             border-bottom: 1px solid #f8f9fa;
+            font-size: 0.875rem;
         }
         
         .filter-checkbox-item:last-child {
@@ -271,7 +273,7 @@
         }
         
         .filter-slider-container {
-            padding: 1rem 0;
+            padding: 0.5rem 0;
         }
         
         .filter-slider-label {
@@ -528,6 +530,19 @@
         
         .slices-radio-item .form-check-input {
             margin-right: 0.5rem;
+        }
+        
+        /* Компактное отображение фильтров в сетке */
+        #filtersContainer {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 0.75rem;
+        }
+        
+        @media (max-width: 768px) {
+            #filtersContainer {
+                grid-template-columns: 1fr;
+            }
         }
     </style>
 </head>
@@ -1628,11 +1643,19 @@
             const preview = document.getElementById('dataPreview');
             preview.innerHTML = `
                 <div class="alert alert-success">
-                    <h6><i class="fas fa-check-circle me-2"></i>Данные обработаны и готовы к прогнозированию</h6>
-                    <p><strong>Размер:</strong> ${processedData.shape[0]} строк, ${processedData.shape[1]} колонок</p>
-                    <p><strong>Колонки:</strong> ${processedData.columns.join(', ')}</p>
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="mb-1"><i class="fas fa-check-circle me-2"></i>Данные обработаны и готовы к прогнозированию</h6>
+                            <p class="mb-0"><strong>Размер:</strong> ${processedData.shape[0]} строк, ${processedData.shape[1]} колонок</p>
                 </div>
-                <div class="row mt-3">
+                        <button class="btn btn-outline-success btn-sm" type="button" data-bs-toggle="collapse" data-bs-target="#dataDetails" aria-expanded="false" aria-controls="dataDetails">
+                            <i class="fas fa-chevron-down me-1"></i>Подробнее
+                        </button>
+                    </div>
+                    <div class="collapse mt-3" id="dataDetails">
+                        <hr>
+                        <p><strong>Колонки:</strong> ${processedData.columns.join(', ')}</p>
+                        <div class="row">
                     <div class="col-md-6">
                         <h6><i class="fas fa-clock me-2"></i>Временные ряды</h6>
                         <ul class="list-unstyled">
@@ -1646,7 +1669,6 @@
                         </ul>
                     </div>
                 </div>
-                <div class="row mt-3">
                     <div class="col-md-12">
                         <h6><i class="fas fa-cogs me-2"></i>Правила обработки данных</h6>
                         <ul class="list-unstyled">
@@ -1690,7 +1712,7 @@
                         </div>
                         <div class="card-body">
                             <div class="row mb-3">
-                                <div class="col-md-12">
+                                <div class="col-md-6">
                                     <label class="form-label">Метрики</label>
                                     <div class="dropdown">
                                         <button class="btn btn-outline-secondary dropdown-toggle w-100" type="button" id="metricsDropdown" data-bs-toggle="dropdown" aria-expanded="false">
@@ -1703,19 +1725,17 @@
                                                     <label class="form-check-label fw-bold" for="selectAllMetrics">
                                                         Выбрать все
                                                     </label>
-                                </div>
+                                                </div>
                                             </li>
                                             <li><hr class="dropdown-divider"></li>
                                             <div id="metricsCheckboxes">
                                                 <!-- Чекбоксы метрик будут добавлены динамически -->
-                                </div>
+                                            </div>
                                         </ul>
-                            </div>
+                                    </div>
                                 </div>
-                            </div>
-                            <div class="row mb-3">
-                                <div class="col-md-12">
-                                    <label class="form-label">Разбивка по срезам (опционально)</label>
+                                <div class="col-md-6">
+                                    <label class="form-label">Разбивка по срезам</label>
                                     <div class="dropdown">
                                         <button class="btn btn-outline-secondary dropdown-toggle w-100" type="button" id="slicesDropdown" data-bs-toggle="dropdown" aria-expanded="false">
                                             <span id="slicesDropdownText">Только временные ряды</span>
@@ -1727,12 +1747,12 @@
                                                     <label class="form-check-label fw-bold" for="noSliceSelection">
                                                         Только временные ряды
                                                     </label>
-                                                </div>
+                                </div>
                                             </li>
                                             <li><hr class="dropdown-divider"></li>
                                             <div id="slicesRadioButtons">
                                                 <!-- Радиокнопки срезов будут добавлены динамически -->
-                                            </div>
+                            </div>
                                         </ul>
                                     </div>
                                 </div>
@@ -1742,13 +1762,13 @@
                             <div class="row mb-3">
                                 <div class="col-md-12">
                                     <div class="card">
-                                        <div class="card-header">
+                                        <div class="card-header d-flex justify-content-between align-items-center">
                                             <h6 class="mb-0">
                                                 <i class="fas fa-filter me-2"></i>Фильтры
-                                                <button class="btn btn-sm btn-outline-secondary float-end" onclick="resetAllFilters()">
-                                                    <i class="fas fa-undo me-1"></i>Сбросить все
-                                                </button>
                                             </h6>
+                                            <button class="btn btn-sm btn-outline-secondary" onclick="resetAllFilters()">
+                                                <i class="fas fa-undo me-1"></i>Сбросить все
+                                            </button>
                                         </div>
                                         <div class="card-body">
                                             <div id="filtersContainer">
@@ -3860,7 +3880,7 @@
                                         });
                                         console.log(`🎯 Фильтрация данных: ${currentPivotData.length} -> ${filteredData.length} строк`);
                                         renderNewPivotTable(filteredData, mappingData, mode, selectedSlice);
-                                    } else {
+                } else {
                                         console.log('⚠️ Нет активных фильтров, используем все данные');
                                         renderNewPivotTable(currentPivotData, mappingData, mode, selectedSlice);
                                     }
@@ -3875,7 +3895,7 @@
             } else {
                                 console.error('Функция renderNewPivotTable не найдена');
                             }
-            } else {
+                    } else {
                             console.log('Нет сводной таблицы, показываем только график');
                             renderTimeSeriesChart(data.data);
                         }
@@ -3885,10 +3905,10 @@
                             const errorMessage = data.message || data.error || 'Неизвестная ошибка';
                             chartContainer.innerHTML = `<div class="alert alert-danger">Ошибка загрузки данных: ${errorMessage}</div>`;
                         }
-                }
-            })
-            .catch(error => {
-                console.error('Error:', error);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
                     alert('Ошибка при загрузке данных');
                     if (chartContainer) {
                         chartContainer.innerHTML = '<div class="alert alert-danger">Ошибка загрузки данных</div>';
