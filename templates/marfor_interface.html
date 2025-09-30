@@ -2101,7 +2101,7 @@
                 }
             }
             
-            console.log('Дропбокс метрик заполнен:', availableMetrics);
+            console.log('Дропбокс основного поля заполнен:', availablePrimaryFields);
         }
 
         // Функции для работы с фильтрами
@@ -3413,6 +3413,14 @@
                             
                             // Используем новую систему сводных таблиц
                             if (typeof renderNewPivotTable === 'function') {
+                                // Получаем значение для разбивки
+                                let splitValue = '';
+                                if (pivotState.currentPivotMode === 'time-series') {
+                                    splitValue = selectedSlice || '';
+                                } else {
+                                    splitValue = window.selectedTimeSeries || '';
+                                }
+                                
                                 const mode = pivotState.currentPivotMode === 'time-series' ? 
                                     (splitValue ? 'split-columns' : 'time-series') : 
                                     (splitValue ? 'split-columns' : 'slices');
@@ -4134,6 +4142,14 @@
                             
                             // Используем новую систему сводных таблиц
                             if (typeof renderNewPivotTable === 'function') {
+                                // Получаем значение для разбивки
+                                let splitValue = '';
+                                if (pivotState.currentPivotMode === 'time-series') {
+                                    splitValue = selectedSlice || '';
+                                } else {
+                                    splitValue = window.selectedTimeSeries || '';
+                                }
+                                
                                 const mode = pivotState.currentPivotMode === 'time-series' ? 
                                     (splitValue ? 'split-columns' : 'time-series') : 
                                     (splitValue ? 'split-columns' : 'slices');
