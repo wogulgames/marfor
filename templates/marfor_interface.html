@@ -3836,8 +3836,13 @@
                                         console.log('🔍 Первая строка данных:', currentPivotData[0]);
                                         console.log('🔍 Ключи первой строки:', Object.keys(currentPivotData[0]));
                                         console.log('🔍 Значение year в первой строке:', currentPivotData[0].year);
+                                        console.log('🔍 Тип значения year:', typeof currentPivotData[0].year);
                                         console.log('🔍 Есть ли year в строке:', 'year' in currentPivotData[0]);
                                         console.log('🔍 hasOwnProperty year:', currentPivotData[0].hasOwnProperty('year'));
+                                        
+                                        // Проверим несколько строк с разными значениями year
+                                        const yearsInData = [...new Set(currentPivotData.slice(0, 100).map(row => row.year))].sort();
+                                        console.log('🔍 Уникальные значения year в первых 100 строках:', yearsInData);
                                         console.log('🔍 Фильтр year:', activeFilters[0]);
                                         console.log('🔍 minValue фильтра:', activeFilters[0].minValue);
                                         console.log('🔍 maxValue фильтра:', activeFilters[0].maxValue);
