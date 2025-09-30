@@ -50,11 +50,11 @@ class PivotData {
         this.crossTable = new Map();
     }
     
-    process(config) {
+    process(config, renderer = null) {
         console.log('Обработка данных сводной таблицы с конфигурацией:', config);
         
         // Группируем данные по строкам и столбцам
-        this.groupByRowsAndColumns(config);
+        this.groupByRowsAndColumns(config, renderer);
         
         // Создаем перекрестную таблицу
         this.createCrossTable(config);
@@ -62,17 +62,22 @@ class PivotData {
         return this;
     }
     
-    groupByRowsAndColumns(config) {
+    groupByRowsAndColumns(config, renderer = null) {
         this.rowGroups.clear();
         this.columnGroups.clear();
         
-        // Группировка по строкам
+        // Получаем видимые временные поля для группировки строк
+        const visibleRowFields = renderer ? renderer.getVisibleTimeFields(config) : config.rows;
+        
+        console.log('Группировка строк по полям:', visibleRowFields.map(f => f.name));
+        
+        // Группировка по строкам (только по видимым временным полям)
         this.rawData.forEach(row => {
-            const rowKey = this.createRowKey(row, config.rows);
+            const rowKey = this.createRowKey(row, visibleRowFields);
             if (!this.rowGroups.has(rowKey)) {
                 this.rowGroups.set(rowKey, {
                     key: rowKey,
-                    fields: this.extractFieldValues(row, config.rows),
+                    fields: this.extractFieldValues(row, visibleRowFields),
                     rows: []
                 });
             }
@@ -94,7 +99,8 @@ class PivotData {
         
         console.log('Группировка завершена:', {
             rowGroups: this.rowGroups.size,
-            columnGroups: this.columnGroups.size
+            columnGroups: this.columnGroups.size,
+            visibleRowFields: visibleRowFields.length
         });
     }
     
@@ -584,12 +590,12 @@ function renderNewPivotTable(rawData, mappingData, mode = 'normal', splitBySlice
         // Создаем конфигурацию
         const config = createPivotConfigFromMapping(mappingData, mode, splitBySlice);
         
-        // Обрабатываем данные
-        const pivotData = new PivotData(rawData);
-        pivotData.process(config);
-        
-        // Рендерим таблицу
+        // Создаем рендерер
         const renderer = new PivotRenderer('timeSeriesChartContainer');
+        
+        // Обрабатываем данные с учетом состояния коллапсирования
+        const pivotData = new PivotData(rawData);
+        pivotData.process(config, renderer);
         
         // Сохраняем ссылки для перерисовки при коллапсировании
         window.currentPivotRenderer = renderer;
@@ -636,9 +642,20 @@ if (typeof window !== 'undefined') {
         if (window.currentPivotRenderer) {
             window.currentPivotRenderer.toggleTimeFieldCollapse(fieldName);
             
-            // Перерисовываем таблицу
+            // Переобрабатываем данные с учетом нового состояния коллапсирования
             if (window.currentPivotData && window.currentPivotConfig) {
-                window.currentPivotRenderer.render(window.currentPivotData, window.currentPivotConfig);
+                // Получаем исходные данные
+                const rawData = window.currentPivotData.rawData;
+                
+                // Создаем новые данные с обновленной группировкой
+                const newPivotData = new PivotData(rawData);
+                newPivotData.process(window.currentPivotConfig, window.currentPivotRenderer);
+                
+                // Обновляем ссылку на данные
+                window.currentPivotData = newPivotData;
+                
+                // Перерисовываем таблицу
+                window.currentPivotRenderer.render(newPivotData, window.currentPivotConfig);
             }
         }
     };
