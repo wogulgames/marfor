@@ -908,8 +908,16 @@
         // Функция для обновления таблицы с разбивкой по столбцам (новая система)
         function updatePivotTableWithSplit() {
             console.log('updatePivotTableWithSplit вызвана');
-            const splitBySliceSelect = document.getElementById('splitBySlice');
-            const selectedSlice = splitBySliceSelect ? splitBySliceSelect.value : '';
+            
+            // Получаем выбранный срез из нового дропбокса
+            let selectedSlice = '';
+            const radioButtons = document.querySelectorAll('input[name="sliceSelection"]');
+            radioButtons.forEach(radio => {
+                if (radio.checked) {
+                    selectedSlice = radio.value;
+                }
+            });
+            
             console.log('Выбранный срез для разбивки:', selectedSlice);
             
             // Сохраняем выбранное значение в глобальную переменную
@@ -2006,8 +2014,15 @@
             // Передаем режим сводной таблицы
             params.append('pivot_mode', pivotState.pivotMode || 'slices');
             // Передаем параметр разбивки по срезам (приоритет у глобальной переменной)
-            const splitBySliceSelect = document.getElementById('splitBySlice');
-            const sliceValue = selectedSliceForSplit || (splitBySliceSelect ? splitBySliceSelect.value : '');
+            let sliceValue = selectedSliceForSplit || '';
+            if (!sliceValue) {
+                const radioButtons = document.querySelectorAll('input[name="sliceSelection"]');
+                radioButtons.forEach(radio => {
+                    if (radio.checked) {
+                        sliceValue = radio.value;
+                    }
+                });
+            }
             if (sliceValue) {
                 params.append('split_by_slice', sliceValue);
                 console.log('Добавлен параметр split_by_slice:', sliceValue);
@@ -2067,8 +2082,16 @@
                             console.log('Первая строка сохраненных данных:', currentPivotData[0]);
                             
                             // Показываем и сводную таблицу, и график
-                            const splitBySliceSelect = document.getElementById('splitBySlice');
-                            const selectedSlice = selectedSliceForSplit || (splitBySliceSelect ? splitBySliceSelect.value : '');
+                            // Получаем выбранный срез из нового дропбокса
+                            let selectedSlice = selectedSliceForSplit || '';
+                            if (!selectedSlice) {
+                                const radioButtons = document.querySelectorAll('input[name="sliceSelection"]');
+                                radioButtons.forEach(radio => {
+                                    if (radio.checked) {
+                                        selectedSlice = radio.value;
+                                    }
+                                });
+                            }
                             console.log('Вызываем новую систему сводной таблицы с selectedSlice:', selectedSlice);
                             
                             // Получаем данные маппинга
@@ -2123,8 +2146,15 @@
                                 console.log('Создали сводную таблицу из данных:', currentPivotData.length, 'строк');
                                 
                                 // Показываем сводную таблицу
-                                const splitBySliceSelect = document.getElementById('splitBySlice');
-                                const selectedSlice = selectedSliceForSplit || (splitBySliceSelect ? splitBySliceSelect.value : '');
+                                let selectedSlice = selectedSliceForSplit || '';
+                                if (!selectedSlice) {
+                                    const radioButtons = document.querySelectorAll('input[name="sliceSelection"]');
+                                    radioButtons.forEach(radio => {
+                                        if (radio.checked) {
+                                            selectedSlice = radio.value;
+                                        }
+                                    });
+                                }
                                 renderPivotTableAndChart(pivotData, data.data, selectedSlice);
                             } else {
                                 console.log('Нет данных для отображения');
@@ -2683,8 +2713,16 @@
                             console.log('Сохранили данные для новой системы:', currentPivotData.length, 'строк');
                             
                             // Показываем и сводную таблицу, и график
-                            const splitBySliceSelect = document.getElementById('splitBySlice');
-                            const selectedSlice = selectedSliceForSplit || (splitBySliceSelect ? splitBySliceSelect.value : '');
+                            // Получаем выбранный срез из нового дропбокса
+                            let selectedSlice = selectedSliceForSplit || '';
+                            if (!selectedSlice) {
+                                const radioButtons = document.querySelectorAll('input[name="sliceSelection"]');
+                                radioButtons.forEach(radio => {
+                                    if (radio.checked) {
+                                        selectedSlice = radio.value;
+                                    }
+                                });
+                            }
                             console.log('Вызываем новую систему сводной таблицы с selectedSlice:', selectedSlice);
                             
                             // Получаем данные маппинга
