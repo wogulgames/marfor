@@ -387,15 +387,16 @@ function createPivotConfigFromMapping(mappingData, mode = 'normal', splitBySlice
     mappingData.columns.forEach(col => {
         console.log('Обрабатываем колонку:', col);
         if (col.role === 'metric') {
-            // Добавляем только выбранную метрику
-            if (col.name === mappingData.selectedMetric || !mappingData.selectedMetric) {
+            // Добавляем только первую метрику по умолчанию
+            if (metricFields.length === 0) {
                 metricFields.push(new PivotField(col.name, col.name, 'metric'));
-                console.log('Добавлена метрика:', col.name);
+                console.log('Добавлена первая метрика:', col.name);
             }
         } else if (col.time_series && col.time_series !== '') {
             timeFields.push(new PivotField(col.name, col.name, 'time', col.nesting_level || 0));
             console.log('Добавлено временное поле:', col.name);
-        } else if (col.role === 'slice') {
+        } else if (col.role === 'dimension' && col.include) {
+            // Добавляем измерения как срезы
             sliceFields.push(new PivotField(col.name, col.name, 'slice', col.nesting_level || 0));
             console.log('Добавлено поле среза:', col.name);
         }

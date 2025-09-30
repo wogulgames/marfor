@@ -1842,8 +1842,18 @@
                             // Показываем и сводную таблицу, и график
                             const splitBySliceSelect = document.getElementById('splitBySlice');
                             const selectedSlice = selectedSliceForSplit || (splitBySliceSelect ? splitBySliceSelect.value : '');
-                            console.log('Вызываем renderPivotTableAndChart с selectedSlice:', selectedSlice);
-                            renderPivotTableAndChart(data.data.pivot_table, data.data, selectedSlice);
+                            console.log('Вызываем новую систему сводной таблицы с selectedSlice:', selectedSlice);
+                            
+                            // Получаем данные маппинга
+                            const mappingData = JSON.parse(sessionStorage.getItem('dataMapping') || '{}');
+                            
+                            // Используем новую систему сводных таблиц
+                            if (typeof renderNewPivotTable === 'function') {
+                                const mode = selectedSlice ? 'split-columns' : 'time-series';
+                                renderNewPivotTable(currentPivotData, mappingData, mode, selectedSlice);
+                            } else {
+                                console.error('Функция renderNewPivotTable не найдена');
+                            }
                         } else {
                             console.log('Нет сводной таблицы в ответе сервера');
                             console.log('Данные от сервера:', data.data);
@@ -2446,8 +2456,18 @@
                             // Показываем и сводную таблицу, и график
                             const splitBySliceSelect = document.getElementById('splitBySlice');
                             const selectedSlice = selectedSliceForSplit || (splitBySliceSelect ? splitBySliceSelect.value : '');
-                            console.log('Вызываем renderPivotTableAndChart с selectedSlice:', selectedSlice);
-                            renderPivotTableAndChart(data.data.pivot_table, data.data, selectedSlice);
+                            console.log('Вызываем новую систему сводной таблицы с selectedSlice:', selectedSlice);
+                            
+                            // Получаем данные маппинга
+                            const mappingData = JSON.parse(sessionStorage.getItem('dataMapping') || '{}');
+                            
+                            // Используем новую систему сводных таблиц
+                            if (typeof renderNewPivotTable === 'function') {
+                                const mode = selectedSlice ? 'split-columns' : 'time-series';
+                                renderNewPivotTable(currentPivotData, mappingData, mode, selectedSlice);
+                            } else {
+                                console.error('Функция renderNewPivotTable не найдена');
+                            }
                         } else {
                             console.log('Нет сводной таблицы, показываем только график');
                             renderTimeSeriesChart(data.data);
