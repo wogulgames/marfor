@@ -1,0 +1,720 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MARFOR - Маппинг данных</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        .hero-section {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 40px 0;
+        }
+        .mapping-card {
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
+        }
+        .column-mapping {
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 15px;
+            background: #f8f9fa;
+        }
+        .column-header {
+            background: #e3f2fd;
+            padding: 10px;
+            border-radius: 5px;
+            margin-bottom: 10px;
+            font-weight: bold;
+        }
+        .data-type-badge {
+            font-size: 0.8em;
+            padding: 2px 8px;
+        }
+        .preview-table {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .stats-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 10px;
+            padding: 20px;
+            text-align: center;
+        }
+        .step-indicator {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 30px;
+        }
+        .step {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: #e0e0e0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 10px;
+            font-weight: bold;
+        }
+        .step.active {
+            background: #667eea;
+            color: white;
+        }
+        .step.completed {
+            background: #28a745;
+            color: white;
+        }
+    </style>
+</head>
+<body>
+    <!-- Навигация -->
+    <nav class="navbar navbar-expand-lg navbar-dark" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+        <div class="container">
+            <a class="navbar-brand" href="/">
+                <i class="fas fa-chart-line me-2"></i>MARFOR
+            </a>
+            <div class="navbar-nav ms-auto">
+                <span class="navbar-text me-3">
+                    <i class="fas fa-database me-2"></i>Маппинг данных
+                </span>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Индикатор шагов -->
+    <div class="container mt-4">
+        <div class="step-indicator">
+            <div class="step completed">1</div>
+            <div class="step active">2</div>
+            <div class="step">3</div>
+            <div class="step">4</div>
+        </div>
+        <div class="text-center mb-4">
+            <h5>Шаг 2: Маппинг и подготовка данных</h5>
+            <p class="text-muted">Настройте типы данных и обработку пустых значений</p>
+        </div>
+    </div>
+
+    <div class="container">
+        <!-- Статистика данных -->
+        <div class="row mb-4">
+            <div class="col-md-3">
+                <div class="stats-card">
+                    <h3 id="totalRows">0</h3>
+                    <p>Строк данных</p>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="stats-card">
+                    <h3 id="totalColumns">0</h3>
+                    <p>Колонок</p>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="stats-card">
+                    <h3 id="numericColumns">0</h3>
+                    <p>Числовых</p>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="stats-card">
+                    <h3 id="textColumns">0</h3>
+                    <p>Текстовых</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="row">
+            <!-- Маппинг колонок -->
+            <div class="col-md-8">
+                <div class="mapping-card">
+                    <div class="card-header">
+                        <h5><i class="fas fa-cogs me-2"></i>Маппинг колонок</h5>
+                    </div>
+                    <div class="card-body">
+                        <div id="columnMappings">
+                            <!-- Колонки будут добавлены динамически -->
+                        </div>
+                        
+
+                    </div>
+                </div>
+            </div>
+
+            <!-- Предпросмотр данных -->
+            <div class="col-md-4">
+                <div class="mapping-card">
+                    <div class="card-header">
+                        <h5><i class="fas fa-eye me-2"></i>Предпросмотр данных</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="preview-table">
+                            <table class="table table-sm table-striped">
+                                <thead id="previewHeader">
+                                    <!-- Заголовки будут добавлены динамически -->
+                                </thead>
+                                <tbody id="previewBody">
+                                    <!-- Данные будут добавлены динамически -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Настройки обработки данных -->
+        <div class="row mt-4">
+            <div class="col-12">
+                <div class="mapping-card">
+                    <div class="card-header">
+                        <h5><i class="fas fa-tools me-2"></i>Настройки обработки данных</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-4">
+                                <h6>Обработка пустых значений</h6>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="missingValues" id="removeRows" value="remove">
+                                    <label class="form-check-label" for="removeRows">
+                                        Удалить строки с пустыми значениями
+                                    </label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="missingValues" id="fillZeros" value="zeros" checked>
+                                    <label class="form-check-label" for="fillZeros">
+                                        Заменить нулями (числовые поля)
+                                    </label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="missingValues" id="fillMean" value="mean">
+                                    <label class="form-check-label" for="fillMean">
+                                        Заменить средним значением
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <h6>Обработка выбросов</h6>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="detectOutliers">
+                                    <label class="form-check-label" for="detectOutliers">
+                                        Обнаружить выбросы
+                                    </label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="removeOutliers">
+                                    <label class="form-check-label" for="removeOutliers">
+                                        Удалить выбросы
+                                    </label>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">Порог выбросов (стандартных отклонений)</label>
+                                    <input type="number" class="form-control" id="outlierThreshold" value="3" min="1" max="5" step="0.1">
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <h6>Нормализация данных</h6>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="normalizeData">
+                                    <label class="form-check-label" for="normalizeData">
+                                        Нормализовать числовые данные
+                                    </label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="logTransform">
+                                    <label class="form-check-label" for="logTransform">
+                                        Логарифмическое преобразование
+                                    </label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="createFeatures">
+                                    <label class="form-check-label" for="createFeatures">
+                                        Создать временные признаки
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Кнопки действий -->
+        <div class="row mt-4">
+            <div class="col-12 text-center">
+                <button class="btn btn-secondary me-3" onclick="goBack()">
+                    <i class="fas fa-arrow-left me-2"></i>Назад
+                </button>
+                <button class="btn btn-primary me-3" onclick="previewData()">
+                    <i class="fas fa-eye me-2"></i>Предпросмотр
+                </button>
+                <button class="btn btn-warning me-2" onclick="saveMappingDraft()">
+                    <i class="fas fa-save me-2"></i>Сохранить черновик
+                </button>
+                <button class="btn btn-success" onclick="applyMapping()">
+                    <i class="fas fa-check me-2"></i>Применить маппинг
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        let dataInfo = null;
+        let currentSessionId = null;
+
+        // Загружаем данные из sessionStorage
+        window.onload = function() {
+            const savedData = sessionStorage.getItem('uploadedData');
+            if (savedData) {
+                dataInfo = JSON.parse(savedData);
+                currentSessionId = sessionStorage.getItem('sessionId');
+                initializeMapping();
+            } else {
+                // Если нет данных, перенаправляем на загрузку
+                window.location.href = '/forecast';
+            }
+        };
+
+        function initializeMapping() {
+            updateStats();
+            createColumnMappings();
+            createDataPreview();
+        }
+
+        function updateStats() {
+            document.getElementById('totalRows').textContent = dataInfo.shape[0].toLocaleString();
+            document.getElementById('totalColumns').textContent = dataInfo.shape[1];
+            
+            let numericCount = 0;
+            let textCount = 0;
+            
+            dataInfo.columns.forEach((col, index) => {
+                const dtype = dataInfo.dtypes[col];
+                if (dtype.includes('int') || dtype.includes('float')) {
+                    numericCount++;
+                } else {
+                    textCount++;
+                }
+            });
+            
+            document.getElementById('numericColumns').textContent = numericCount;
+            document.getElementById('textColumns').textContent = textCount;
+        }
+
+        function createColumnMappings() {
+            const container = document.getElementById('columnMappings');
+            container.innerHTML = '';
+
+            // Добавляем заголовки таблицы
+            const headerDiv = document.createElement('div');
+            headerDiv.className = 'column-mapping';
+            headerDiv.innerHTML = `
+                <div class="column-header">
+                        <div class="row align-items-center">
+                            <div class="col-md-2">
+                                <strong>Колонка</strong>
+                            </div>
+                            <div class="col-md-1">
+                                <strong>Пустые</strong>
+                            </div>
+                            <div class="col-md-2">
+                                <strong>Роль</strong>
+                            </div>
+                            <div class="col-md-2">
+                                <strong>Временной ряд</strong>
+                            </div>
+                            <div class="col-md-1">
+                                <strong>Уровень</strong>
+                            </div>
+                            <div class="col-md-2">
+                                <strong>Тип данных</strong>
+                            </div>
+                            <div class="col-md-1">
+                                <strong>Включить</strong>
+                            </div>
+                        </div>
+                </div>
+            `;
+            container.appendChild(headerDiv);
+
+            dataInfo.columns.forEach((col, index) => {
+                const dtype = dataInfo.dtypes[col];
+                const missingCount = dataInfo.missing_values[col];
+                const missingPercent = ((missingCount / dataInfo.shape[0]) * 100).toFixed(1);
+
+                const columnDiv = document.createElement('div');
+                columnDiv.className = 'column-mapping';
+                columnDiv.innerHTML = `
+                    <div class="column-header">
+                        <div class="row align-items-center">
+                            <div class="col-md-2">
+                                <strong>${col}</strong>
+                                <span class="badge ${getDataTypeBadgeClass(dtype)} data-type-badge ms-2">
+                                    ${getDataTypeName(dtype)}
+                                </span>
+                            </div>
+                            <div class="col-md-1">
+                                <small class="text-muted">${missingCount} (${missingPercent}%)</small>
+                            </div>
+                            <div class="col-md-2">
+                                <select class="form-select form-select-sm" id="role_${index}" onchange="updateColumnRole(${index}, this.value)">
+                                    <option value="auto" ${dtype.includes('int') || dtype.includes('float') ? 'selected' : ''}>Авто</option>
+                                    <option value="metric" ${dtype.includes('int') || dtype.includes('float') ? 'selected' : ''}>Metric</option>
+                                    <option value="dimension" ${!dtype.includes('int') && !dtype.includes('float') ? 'selected' : ''}>Dimension</option>
+                                    <option value="skip">Пропустить</option>
+                                </select>
+                            </div>
+                            <div class="col-md-2">
+                                <select class="form-select form-select-sm" id="time_series_${index}" onchange="updateTimeSeries(${index}, this.value)">
+                                    <option value="">Не временной ряд</option>
+                                    <option value="date">Дата</option>
+                                    <option value="year">Год</option>
+                                    <option value="month">Месяц</option>
+                                    <option value="week">Неделя</option>
+                                    <option value="quarter">Квартал</option>
+                                    <option value="halfyear">Полугодие</option>
+                                </select>
+                            </div>
+                            <div class="col-md-1">
+                                <select class="form-select form-select-sm" id="nesting_level_${index}" onchange="updateNestingLevel(${index}, this.value)">
+                                    <option value="0">0</option>
+                                    <option value="1">1</option>
+                                    <option value="2">2</option>
+                                    <option value="3">3</option>
+                                    <option value="4">4</option>
+                                    <option value="5">5</option>
+                                    <option value="6">6</option>
+                                </select>
+                            </div>
+                            <div class="col-md-2">
+                                <select class="form-select form-select-sm" id="type_${index}" onchange="updateColumnType(${index}, this.value)">
+                                    <option value="auto" ${dtype.includes('int') || dtype.includes('float') ? 'selected' : ''}>Авто</option>
+                                    <option value="numeric">Числовой</option>
+                                    <option value="text">Текстовый</option>
+                                    <option value="date">Дата</option>
+                                    <option value="category">Категория</option>
+                                </select>
+                            </div>
+                            <div class="col-md-1">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="include_${index}" checked>
+                                    <label class="form-check-label" for="include_${index}">
+                                        Включить
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                container.appendChild(columnDiv);
+            });
+        }
+
+
+        function createDataPreview() {
+            const header = document.getElementById('previewHeader');
+            const body = document.getElementById('previewBody');
+            
+            // Заголовки
+            header.innerHTML = '';
+            dataInfo.columns.forEach(col => {
+                const th = document.createElement('th');
+                th.textContent = col;
+                header.appendChild(th);
+            });
+            
+            // Данные (первые 5 строк)
+            body.innerHTML = '';
+            dataInfo.sample_data.forEach(row => {
+                const tr = document.createElement('tr');
+                dataInfo.columns.forEach(col => {
+                    const td = document.createElement('td');
+                    td.textContent = row[col] || '';
+                    td.style.fontSize = '0.8em';
+                    tr.appendChild(td);
+                });
+                body.appendChild(tr);
+            });
+        }
+
+        function getDataTypeName(dtype) {
+            if (dtype.includes('int')) return 'Целое';
+            if (dtype.includes('float')) return 'Дробное';
+            if (dtype.includes('object')) return 'Текст';
+            return 'Неизвестно';
+        }
+
+        function getDataTypeBadgeClass(dtype) {
+            if (dtype.includes('int') || dtype.includes('float')) return 'bg-primary';
+            if (dtype.includes('object')) return 'bg-info';
+            return 'bg-secondary';
+        }
+
+        function updateColumnType(index, type) {
+            // Обновляем тип колонки
+            console.log(`Колонка ${index} изменена на тип: ${type}`);
+        }
+
+        function updateColumnRole(index, role) {
+            console.log(`Column ${index} role updated to: ${role}`);
+            // Автоматически обновляем тип данных в зависимости от роли
+            const typeSelect = document.getElementById(`type_${index}`);
+            if (typeSelect) {
+                if (role === 'metric') {
+                    typeSelect.value = 'numeric';
+                } else if (role === 'dimension') {
+                    typeSelect.value = 'text';
+                }
+            }
+        }
+
+        function updateTimeSeries(index, timeSeriesType) {
+            console.log(`Column ${index} time series updated to: ${timeSeriesType}`);
+            // Если выбран временной ряд, автоматически устанавливаем роль как dimension
+            if (timeSeriesType && timeSeriesType !== '') {
+                const roleSelect = document.getElementById(`role_${index}`);
+                if (roleSelect) {
+                    roleSelect.value = 'dimension';
+                }
+                
+                // Автоматически устанавливаем уровень вложенности для временных рядов
+                const nestingSelect = document.getElementById(`nesting_level_${index}`);
+                if (nestingSelect) {
+                    const defaultLevels = {
+                        'year': '1',
+                        'halfyear': '2', 
+                        'quarter': '3',
+                        'month': '4',
+                        'week': '5',
+                        'date': '6'
+                    };
+                    nestingSelect.value = defaultLevels[timeSeriesType] || '0';
+                }
+            }
+        }
+
+        function updateNestingLevel(index, level) {
+            console.log(`Column ${index} nesting level updated to: ${level}`);
+        }
+
+        function previewData() {
+            // Показываем предпросмотр обработанных данных
+            alert('Функция предпросмотра будет реализована');
+        }
+
+        function applyMapping() {
+            // Собираем настройки маппинга
+            const mapping = collectMappingData();
+
+            // Показываем индикатор загрузки
+            const button = event.target;
+            const originalText = button.innerHTML;
+            button.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Применение маппинга...';
+            button.disabled = true;
+
+            // Отправляем маппинг на сервер
+            fetch('/api/apply_mapping', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    session_id: currentSessionId,
+                    mapping: mapping
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Сохраняем обработанные данные
+                    sessionStorage.setItem('processedData', JSON.stringify(data.processed_data_info));
+                    sessionStorage.setItem('dataMapping', JSON.stringify(mapping));
+                    
+                    // Показываем успех
+                    showSuccessMessage('Маппинг применен успешно!');
+                    
+                    // Переходим к следующему шагу через 2 секунды
+                    setTimeout(() => {
+                        window.location.href = '/forecast';
+                    }, 2000);
+                } else {
+                    showErrorMessage(data.message);
+                    button.innerHTML = originalText;
+                    button.disabled = false;
+                }
+            })
+            .catch(error => {
+                showErrorMessage('Ошибка при применении маппинга: ' + error.message);
+                button.innerHTML = originalText;
+                button.disabled = false;
+            });
+        }
+
+        function showSuccessMessage(message) {
+            const alert = document.createElement('div');
+            alert.className = 'alert alert-success alert-dismissible fade show';
+            alert.innerHTML = `
+                ${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            `;
+            document.querySelector('.container').insertBefore(alert, document.querySelector('.container').firstChild);
+        }
+
+        function showErrorMessage(message) {
+            const alert = document.createElement('div');
+            alert.className = 'alert alert-danger alert-dismissible fade show';
+            alert.innerHTML = `
+                ${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            `;
+            document.querySelector('.container').insertBefore(alert, document.querySelector('.container').firstChild);
+        }
+
+        function goBack() {
+            window.location.href = '/forecast';
+        }
+
+        function collectMappingData() {
+            // Собираем настройки маппинга
+            const mapping = {
+                columns: [],
+                // Обработка данных
+                missingValues: document.getElementById('missingValues')?.value || 'zeros',
+                detectOutliers: document.getElementById('detectOutliers')?.checked || false,
+                removeOutliers: document.getElementById('removeOutliers')?.checked || false,
+                outlierThreshold: parseFloat(document.getElementById('outlierThreshold')?.value) || 3,
+                normalizeData: document.getElementById('normalizeData')?.checked || false,
+                logTransform: document.getElementById('logTransform')?.checked || false,
+                createFeatures: document.getElementById('createFeatures')?.checked || false
+            };
+
+            // Собираем настройки колонок
+            if (dataInfo && dataInfo.columns) {
+                dataInfo.columns.forEach((col, index) => {
+                    const checkbox = document.getElementById(`include_${index}`);
+                    const typeSelect = document.getElementById(`type_${index}`);
+                    const roleSelect = document.getElementById(`role_${index}`);
+                    const timeSeriesSelect = document.getElementById(`time_series_${index}`);
+                    const nestingSelect = document.getElementById(`nesting_level_${index}`);
+                    
+                    mapping.columns.push({
+                        name: col,
+                        index: index,
+                        type: typeSelect?.value || 'auto',
+                        role: roleSelect?.value || 'auto',
+                        time_series: timeSeriesSelect?.value || '',
+                        nesting_level: parseInt(nestingSelect?.value) || 0,
+                        include: checkbox?.checked !== false // по умолчанию true
+                    });
+                });
+            }
+
+            return mapping;
+        }
+
+        function saveMappingDraft() {
+            const mapping = collectMappingData();
+            
+            // Сохраняем черновик в localStorage
+            localStorage.setItem('mappingDraft', JSON.stringify(mapping));
+            
+            alert('Черновик маппинга сохранен!');
+        }
+
+        function loadMappingDraft() {
+            const draft = localStorage.getItem('mappingDraft');
+            if (draft) {
+                try {
+                    const mapping = JSON.parse(draft);
+                    
+                    // Восстанавливаем настройки
+                    if (mapping.columns) {
+                        mapping.columns.forEach((col, index) => {
+                            const checkbox = document.getElementById(`include_${index}`);
+                            if (checkbox) {
+                                checkbox.checked = col.include;
+                            }
+                            
+                            const typeSelect = document.getElementById(`type_${index}`);
+                            if (typeSelect) {
+                                typeSelect.value = col.type || 'auto';
+                            }
+                            
+                            const roleSelect = document.getElementById(`role_${index}`);
+                            if (roleSelect) {
+                                roleSelect.value = col.role || 'auto';
+                            }
+                            
+                            const timeSeriesSelect = document.getElementById(`time_series_${index}`);
+                            if (timeSeriesSelect) {
+                                timeSeriesSelect.value = col.time_series || '';
+                            }
+                            
+                            const nestingSelect = document.getElementById(`nesting_level_${index}`);
+                            if (nestingSelect) {
+                                nestingSelect.value = col.nesting_level || '0';
+                            }
+                        });
+                    }
+                    
+                    
+                    
+                    // Восстанавливаем настройки обработки
+                    const missingValuesEl = document.getElementById('missingValues');
+                    if (missingValuesEl && mapping.missingValues) {
+                        missingValuesEl.value = mapping.missingValues;
+                    }
+                    
+                    const detectOutliersEl = document.getElementById('detectOutliers');
+                    if (detectOutliersEl && mapping.detectOutliers !== undefined) {
+                        detectOutliersEl.checked = mapping.detectOutliers;
+                    }
+                    
+                    const removeOutliersEl = document.getElementById('removeOutliers');
+                    if (removeOutliersEl && mapping.removeOutliers !== undefined) {
+                        removeOutliersEl.checked = mapping.removeOutliers;
+                    }
+                    
+                    const outlierThresholdEl = document.getElementById('outlierThreshold');
+                    if (outlierThresholdEl && mapping.outlierThreshold !== undefined) {
+                        outlierThresholdEl.value = mapping.outlierThreshold;
+                    }
+                    
+                    const normalizeDataEl = document.getElementById('normalizeData');
+                    if (normalizeDataEl && mapping.normalizeData !== undefined) {
+                        normalizeDataEl.checked = mapping.normalizeData;
+                    }
+                    
+                    const logTransformEl = document.getElementById('logTransform');
+                    if (logTransformEl && mapping.logTransform !== undefined) {
+                        logTransformEl.checked = mapping.logTransform;
+                    }
+                    
+                    const createFeaturesEl = document.getElementById('createFeatures');
+                    if (createFeaturesEl && mapping.createFeatures !== undefined) {
+                        createFeaturesEl.checked = mapping.createFeatures;
+                    }
+                    
+                    console.log('Черновик маппинга загружен');
+                } catch (error) {
+                    console.error('Ошибка при загрузке черновика:', error);
+                }
+            }
+        }
+
+        // Загружаем данные при загрузке страницы
+        document.addEventListener('DOMContentLoaded', function() {
+            // Загружаем черновик после небольшой задержки
+            setTimeout(loadMappingDraft, 500);
+        });
+    </script>
+</body>
+</html>

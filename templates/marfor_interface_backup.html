@@ -1,0 +1,3911 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MARFOR - Маркетинговый инструмент прогнозирования</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        .hero-section {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 60px 0;
+        }
+        .module-card {
+            transition: transform 0.3s ease;
+            border: none;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            height: 100%;
+        }
+        .module-card:hover {
+            transform: translateY(-5px);
+        }
+        .module-icon {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+        }
+        .upload-area {
+            border: 2px dashed #667eea;
+            border-radius: 10px;
+            padding: 40px;
+            text-align: center;
+            transition: all 0.3s ease;
+        }
+        .upload-area:hover {
+            border-color: #764ba2;
+            background-color: #f8f9ff;
+        }
+        .config-section {
+            background-color: #f8f9fa;
+            border-radius: 10px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        .results-tabs {
+            margin-top: 20px;
+        }
+        .chart-container {
+            background-color: white;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 10px 0;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            position: relative;
+            height: 400px;
+        }
+        
+        .pivot-toggle {
+            cursor: pointer;
+            font-weight: bold;
+            margin-right: 5px;
+            color: #007bff;
+        }
+        
+        .pivot-toggle:hover {
+            color: #0056b3;
+        }
+        
+        .pivot-header {
+            cursor: pointer;
+            user-select: none;
+        }
+        
+        .pivot-row.collapsed {
+            display: none;
+        }
+        
+        .pivot-cell.hidden {
+            display: none;
+        }
+        
+        #pivotTable {
+            table-layout: fixed;
+            width: 100%;
+        }
+        
+        #pivotTable th[style*="visibility: hidden"],
+        #pivotTable td[style*="visibility: hidden"] {
+            border: none !important;
+        }
+        
+        #pivotTable th,
+        #pivotTable td {
+            transition: width 0.2s ease, padding 0.2s ease;
+        }
+        
+        #pivotTable th,
+        #pivotTable td {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .data-table {
+            background-color: white;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 10px 0;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+        .table-responsive {
+            max-height: 500px;
+            overflow-y: auto;
+        }
+        
+        /* Стили для таблицы с разбивкой по столбцам */
+        .pivot-table-split-container {
+            overflow-x: auto;
+            overflow-y: auto;
+            max-height: 300px;
+            border: 1px solid #dee2e6;
+            border-radius: 0.375rem;
+            width: 100%;
+        }
+        
+        .pivot-table-split {
+            min-width: max-content;
+            width: max-content;
+            border-collapse: separate;
+            border-spacing: 0;
+        }
+        
+        /* Столбцы временных рядов */
+        .pivot-table-split .time-column {
+            background-color: #e9ecef !important;
+            color: #212529 !important;
+            border-right: 2px solid #adb5bd;
+            white-space: nowrap;
+            font-weight: 500;
+            min-width: 80px;
+            width: auto;
+        }
+        
+        /* Столбцы метрик с адаптивной шириной */
+        .pivot-table-split .metric-column {
+            min-width: 120px;
+            width: auto;
+            white-space: nowrap;
+            text-align: right;
+            padding: 8px 12px;
+        }
+        
+        /* Заголовки метрик */
+        .pivot-table-split .metric-header {
+            min-width: 120px;
+            width: auto;
+            text-align: center;
+            background-color: #495057 !important;
+            white-space: nowrap;
+        }
+        
+        .pivot-table-split .metric-subheader {
+            min-width: 120px;
+            width: auto;
+            text-align: center;
+            background-color: #6c757d !important;
+            white-space: nowrap;
+        }
+
+        /* Стили для горизонтального скролла в стиле Google Analytics */
+        .pivot-table-ga-container {
+            overflow-x: auto;
+            overflow-y: auto;
+            max-height: 400px;
+            width: 100%;
+            border: 1px solid #dee2e6;
+            border-radius: 0.375rem;
+            position: relative;
+        }
+        
+        /* Стилизация скроллбаров */
+        .pivot-table-ga-container::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        
+        .pivot-table-ga-container::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 4px;
+        }
+        
+        .pivot-table-ga-container::-webkit-scrollbar-thumb {
+            background: #c1c1c1;
+            border-radius: 4px;
+        }
+        
+        .pivot-table-ga-container::-webkit-scrollbar-thumb:hover {
+            background: #a8a8a8;
+        }
+
+        .pivot-table-ga {
+            min-width: max-content;
+            width: max-content;
+            border-collapse: separate;
+            border-spacing: 0;
+        }
+
+        /* Фиксированные колонки времени */
+        .pivot-table-ga .sticky-time-column {
+            position: sticky;
+            left: 0;
+            z-index: 2;
+            background-color: #e9ecef !important;
+            color: #212529 !important;
+            border-right: 2px solid #adb5bd;
+            font-weight: 500;
+            min-width: 80px;
+            width: auto;
+        }
+
+        /* Фиксированные колонки метрик */
+        .pivot-table-ga .sticky-metric-column {
+            position: sticky;
+            left: 80px; /* После первой колонки времени */
+            z-index: 1;
+            background-color: #f8f9fa !important;
+            color: #212529 !important;
+            border-right: 1px solid #dee2e6;
+            min-width: 120px;
+            width: auto;
+            text-align: right;
+            white-space: nowrap;
+        }
+
+        /* Обычные колонки метрик (не фиксированные) */
+        .pivot-table-ga .scrollable-metric-column {
+            min-width: 120px;
+            width: auto;
+            text-align: right;
+            white-space: nowrap;
+            background-color: #ffffff;
+            border-right: 1px solid #dee2e6;
+        }
+
+        /* Заголовки */
+        .pivot-table-ga .sticky-time-header {
+            position: sticky;
+            left: 0;
+            z-index: 3;
+            background-color: #495057 !important;
+            color: white !important;
+            border-right: 2px solid #adb5bd;
+            font-weight: 600;
+            min-width: 80px;
+            width: auto;
+        }
+
+        .pivot-table-ga .sticky-metric-header {
+            position: sticky;
+            left: 80px;
+            z-index: 2;
+            background-color: #6c757d !important;
+            color: white !important;
+            border-right: 1px solid #495057;
+            font-weight: 600;
+            min-width: 120px;
+            width: auto;
+        }
+
+        .pivot-table-ga .scrollable-metric-header {
+            background-color: #6c757d !important;
+            color: white !important;
+            border-right: 1px solid #495057;
+            font-weight: 600;
+            min-width: 120px;
+            width: auto;
+        }
+
+        /* Подзаголовки */
+        .pivot-table-ga .sticky-metric-subheader {
+            position: sticky;
+            left: 80px;
+            z-index: 2;
+            background-color: #6c757d !important;
+            color: white !important;
+            border-right: 1px solid #495057;
+            font-weight: 500;
+            min-width: 120px;
+            width: auto;
+        }
+
+        .pivot-table-ga .scrollable-metric-subheader {
+            background-color: #6c757d !important;
+            color: white !important;
+            border-right: 1px solid #495057;
+            font-weight: 500;
+            min-width: 120px;
+            width: auto;
+        }
+        .metric-card {
+            background-color: #e3f2fd;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 10px 0;
+            text-align: center;
+        }
+        .metric-value {
+            font-size: 1.8em;
+            font-weight: bold;
+            color: #1976d2;
+        }
+        .dependency-matrix {
+            overflow-x: auto;
+        }
+        .loading {
+            text-align: center;
+            padding: 40px;
+        }
+        .spinner-border {
+            width: 3rem;
+            height: 3rem;
+        }
+        .nav-tabs .nav-link.active {
+            background-color: #007bff;
+            color: white;
+            border-color: #007bff;
+        }
+        .nav-tabs .nav-link {
+            color: #007bff;
+        }
+        .nav-tabs .nav-link:hover {
+            border-color: #e9ecef #e9ecef #dee2e6;
+        }
+        .scenario-input {
+            margin-bottom: 15px;
+        }
+        .download-section {
+            background-color: #f8f9fa;
+            border-radius: 10px;
+            padding: 20px;
+            margin: 20px 0;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <!-- Навигация -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container">
+            <a class="navbar-brand" href="#">
+                <i class="fas fa-chart-line me-2"></i>
+                <strong>MARFOR</strong>
+            </a>
+            <span class="navbar-text">Маркетинговый инструмент прогнозирования</span>
+        </div>
+    </nav>
+
+    <!-- Главная секция -->
+    <section class="hero-section">
+        <div class="container text-center">
+            <h1 class="display-4 mb-4">
+                <i class="fas fa-chart-line me-3"></i>
+                MARFOR
+            </h1>
+            <p class="lead mb-4">Универсальный инструмент для прогнозирования и бюджетирования маркетинга</p>
+            <p class="mb-0">Три мощных модуля: трендовый прогноз, анализ зависимостей и моделирование сценариев</p>
+        </div>
+    </section>
+
+    <!-- Основной контент -->
+    <div class="container my-5">
+        <!-- Область для отображения данных проекта -->
+        <div id="dataPreview"></div>
+
+        <!-- Загрузка данных -->
+        <div class="card mb-4" id="uploadSection">
+            <div class="card-header">
+                <h4><i class="fas fa-upload me-2"></i>Загрузка данных</h4>
+            </div>
+            <div class="card-body">
+                <div class="upload-area" id="uploadArea">
+                    <i class="fas fa-cloud-upload-alt fa-3x text-muted mb-3"></i>
+                    <h5>Создать новый проект</h5>
+                    <p class="text-muted">Загрузите файл с данными для создания проекта</p>
+                    <div class="mb-3">
+                        <label for="projectNameInput" class="form-label">Название проекта</label>
+                        <input type="text" class="form-control" id="projectNameInput" placeholder="Введите название проекта" required>
+                    </div>
+                    <input type="file" id="fileInput" class="d-none" accept=".csv,.xlsx,.xls">
+                    <button class="btn btn-primary" onclick="document.getElementById('fileInput').click()">
+                        <i class="fas fa-folder-open me-2"></i>Выбрать файл
+                    </button>
+                </div>
+                <div id="uploadStatus" class="mt-3"></div>
+                <div id="dataPreview" class="mt-3"></div>
+            </div>
+        </div>
+
+        <!-- Модуль 1: Трендовый прогноз -->
+        <div class="card mb-4" id="trendModule" style="display: none;">
+            <div class="card-header">
+                <h4><i class="fas fa-chart-line me-2"></i>Модуль 1: Трендовый прогноз</h4>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="config-section">
+                            <h6>Настройки прогноза</h6>
+                            <div class="mb-3">
+                                <label class="form-label">Целевая метрика</label>
+                                <select class="form-select" id="trendTargetMetric">
+                                    <option value="revenue_total">revenue_total</option>
+                                </select>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Количество периодов</label>
+                                <input type="number" class="form-control" id="trendPeriods" value="16" min="1" max="60">
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Модель прогнозирования</label>
+                                <select class="form-select" id="trendModel">
+                                    <option value="hybrid">Гибридная (автовыбор)</option>
+                                    <option value="prophet">Prophet</option>
+                                    <option value="random_forest">Random Forest</option>
+                                    <option value="linear">Линейная регрессия</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="config-section">
+                            <h6>Параметры каскадной модели</h6>
+                            <div class="form-check mb-2">
+                                <input class="form-check-input" type="checkbox" id="enableCascade" checked>
+                                <label class="form-check-label" for="enableCascade">
+                                    Включить каскадную обработку
+                                </label>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Уровень агрегации</label>
+                                <select class="form-select" id="cascadeLevel">
+                                    <option value="region_to">По регионам</option>
+                                    <option value="subdivision">По подразделениям</option>
+                                    <option value="category">По категориям</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="text-center">
+                    <button class="btn btn-primary btn-lg" onclick="runTrendForecast()">
+                        <i class="fas fa-chart-line me-2"></i>Запустить трендовый прогноз
+                    </button>
+                </div>
+                <div id="trendResults" class="mt-4"></div>
+            </div>
+        </div>
+
+        <!-- Модуль 2: Анализ зависимостей -->
+        <div class="card mb-4" id="dependenciesModule" style="display: none;">
+            <div class="card-header">
+                <h4><i class="fas fa-link me-2"></i>Модуль 2: Анализ зависимостей</h4>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="config-section">
+                            <h6>Настройки анализа</h6>
+                            <div class="mb-3">
+                                <label class="form-label">Бюджетное поле</label>
+                                <select class="form-select" id="budgetField">
+                                    <option value="ads_cost">ads_cost</option>
+                                </select>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Целевые метрики</label>
+                                <div id="targetMetricsList"></div>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Метод анализа</label>
+                                <select class="form-select" id="dependencyMethod">
+                                    <option value="correlation">Корреляционный анализ</option>
+                                    <option value="regression">Регрессионный анализ</option>
+                                    <option value="causality">Анализ причинности</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="config-section">
+                            <h6>Фильтры каналов</h6>
+                            <div class="mb-3">
+                                <label class="form-label">Платные каналы</label>
+                                <input type="text" class="form-control" id="paidChannels" placeholder="paid_apps,paid_web">
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Органические каналы</label>
+                                <input type="text" class="form-control" id="organicChannels" placeholder="organic_apps,organic_web">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="text-center">
+                    <button class="btn btn-success btn-lg" onclick="runDependencyAnalysis()">
+                        <i class="fas fa-link me-2"></i>Анализировать зависимости
+                    </button>
+                </div>
+                <div id="dependenciesResults" class="mt-4"></div>
+            </div>
+        </div>
+
+        <!-- Модуль 3: Моделирование -->
+        <div class="card mb-4" id="simulationModule" style="display: none;">
+            <div class="card-header">
+                <h4><i class="fas fa-flask me-2"></i>Модуль 3: Моделирование сценариев</h4>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="config-section">
+                            <h6>Параметры моделирования</h6>
+                            <div class="mb-3">
+                                <label class="form-label">Базовое поле для изменения</label>
+                                <select class="form-select" id="simulationField">
+                                    <option value="ads_cost">ads_cost</option>
+                                </select>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Период моделирования</label>
+                                <input type="number" class="form-control" id="simulationPeriods" value="12" min="1" max="60">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="config-section">
+                            <h6>Сценарии</h6>
+                            <div class="scenario-input">
+                                <label class="form-label">Сценарий 1: Консервативный</label>
+                                <input type="number" class="form-control" id="scenario1" value="10" step="5" placeholder="Изменение в %">
+                            </div>
+                            <div class="scenario-input">
+                                <label class="form-label">Сценарий 2: Оптимистичный</label>
+                                <input type="number" class="form-control" id="scenario2" value="30" step="5" placeholder="Изменение в %">
+                            </div>
+                            <div class="scenario-input">
+                                <label class="form-label">Сценарий 3: Пессимистичный</label>
+                                <input type="number" class="form-control" id="scenario3" value="-20" step="5" placeholder="Изменение в %">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="text-center">
+                    <button class="btn btn-warning btn-lg" onclick="runSimulation()">
+                        <i class="fas fa-flask me-2"></i>Запустить моделирование
+                    </button>
+                </div>
+                <div id="simulationResults" class="mt-4"></div>
+            </div>
+        </div>
+
+        <!-- Результаты -->
+        <div class="results-tabs" id="resultsSection" style="display: none;">
+            <ul class="nav nav-tabs" id="resultsTabs" role="tablist">
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link active" id="charts-tab" data-bs-toggle="tab" data-bs-target="#charts" type="button" role="tab">
+                        <i class="fas fa-chart-bar me-2"></i>Графики
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="tables-tab" data-bs-toggle="tab" data-bs-target="#tables" type="button" role="tab">
+                        <i class="fas fa-table me-2"></i>Таблицы
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="analysis-tab" data-bs-toggle="tab" data-bs-target="#analysis" type="button" role="tab">
+                        <i class="fas fa-analytics me-2"></i>Анализ
+                    </button>
+                </li>
+            </ul>
+            <div class="tab-content" id="resultsTabContent">
+                <div class="tab-pane fade show active" id="charts" role="tabpanel">
+                    <div id="chartsContent"></div>
+                </div>
+                <div class="tab-pane fade" id="tables" role="tabpanel">
+                    <div id="tablesContent"></div>
+                </div>
+                <div class="tab-pane fade" id="analysis" role="tabpanel">
+                    <div id="analysisContent"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Скачивание результатов -->
+        <div class="download-section" id="downloadSection" style="display: none;">
+            <h4><i class="fas fa-download me-2"></i>Скачать результаты</h4>
+            <p>Ваш анализ готов! Вы можете скачать результаты в различных форматах.</p>
+            <div class="row">
+                <div class="col-md-4">
+                    <button class="btn btn-success w-100" onclick="downloadCSV()">
+                        <i class="fas fa-file-csv me-2"></i>Скачать CSV
+                    </button>
+                </div>
+                <div class="col-md-4">
+                    <button class="btn btn-primary w-100" onclick="downloadExcel()">
+                        <i class="fas fa-file-excel me-2"></i>Скачать Excel
+                    </button>
+                </div>
+                <div class="col-md-4">
+                    <button class="btn btn-info w-100" onclick="downloadReport()">
+                        <i class="fas fa-file-pdf me-2"></i>Скачать отчет
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Подвал -->
+    <footer class="bg-dark text-white text-center py-4">
+        <div class="container">
+            <p class="mb-0">&copy; 2024 MARFOR - Маркетинговый инструмент прогнозирования</p>
+        </div>
+    </footer>
+
+    <!-- Модальное окно сохранения проекта -->
+    <div class="modal fade" id="saveProjectModal" tabindex="-1" aria-labelledby="saveProjectModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="saveProjectModalLabel">
+                        <i class="fas fa-save me-2"></i>Сохранить проект
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="projectName" class="form-label">Название проекта</label>
+                        <input type="text" class="form-control" id="projectName" placeholder="Введите название проекта">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Что будет сохранено:</label>
+                        <ul class="list-unstyled">
+                            <li><i class="fas fa-check text-success me-2"></i>Загруженные данные</li>
+                            <li><i class="fas fa-check text-success me-2"></i>Настройки маппинга</li>
+                            <li><i class="fas fa-check text-success me-2"></i>Обработанные данные</li>
+                            <li><i class="fas fa-check text-success me-2"></i>Временные ряды и срезы</li>
+                        </ul>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+                    <button type="button" class="btn btn-primary" onclick="saveProject()">
+                        <i class="fas fa-save me-2"></i>Сохранить
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        let currentSessionId = null;
+        let dataColumns = [];
+        let currentModule = null;
+        let currentResults = {};
+        let currentChart = null; // Глобальная переменная для хранения текущего графика
+        
+        // Глобальная переменная для хранения состояния сводной таблицы
+        let pivotState = {
+            expandedLevels: new Set(),
+            currentData: null,
+            pivotMode: 'time-series', // 'time-series' или 'slices'
+            originalHierarchy: null // Сохраняем исходную иерархию для фильтров
+        };
+
+        // Обработка загрузки файла
+        document.addEventListener('DOMContentLoaded', function() {
+            const fileInput = document.getElementById('fileInput');
+            const uploadArea = document.getElementById('uploadArea');
+            
+            if (fileInput) {
+                fileInput.addEventListener('change', handleFileUpload);
+            }
+            
+            if (uploadArea) {
+                uploadArea.addEventListener('click', () => {
+                    document.getElementById('fileInput').click();
+                });
+                uploadArea.addEventListener('dragover', handleDragOver);
+                uploadArea.addEventListener('drop', handleDrop);
+            }
+        });
+
+        function handleDragOver(e) {
+            e.preventDefault();
+            e.currentTarget.style.borderColor = '#764ba2';
+        }
+
+        function handleDrop(e) {
+            e.preventDefault();
+            e.currentTarget.style.borderColor = '#667eea';
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                handleFile(files[0]);
+            }
+        }
+
+        function handleFileUpload(e) {
+            const file = e.target.files[0];
+            if (file) {
+                handleFile(file);
+            }
+        }
+
+        function handleFile(file) {
+            const projectName = document.getElementById('projectNameInput').value.trim();
+            
+            if (!projectName) {
+                showError('uploadStatus', 'Введите название проекта');
+                return;
+            }
+            
+            const formData = new FormData();
+            formData.append('file', file);
+
+            showLoading('uploadStatus', 'Загрузка файла и создание проекта...');
+
+            fetch('/upload', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    currentSessionId = data.session_id;
+                    dataColumns = data.data_info.columns;
+                    
+                    // Сохраняем данные в sessionStorage для маппинга
+                    sessionStorage.setItem('sessionId', currentSessionId);
+                    sessionStorage.setItem('uploadedData', JSON.stringify(data.data_info));
+                    
+                    // Автоматически создаем проект
+                    createProject(projectName, data.data_info);
+                } else {
+                    showError('uploadStatus', data.message);
+                }
+            })
+            .catch(error => {
+                showError('uploadStatus', 'Ошибка при загрузке файла: ' + error.message);
+            });
+        }
+
+        function createProject(projectName, dataInfo) {
+            const saveData = {
+                name: projectName,
+                session_id: currentSessionId,
+                data_mapping: {},
+                processed_data: dataInfo
+            };
+            
+            fetch('/api/save_project', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(saveData)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showSuccess('uploadStatus', `Проект "${projectName}" создан успешно!`);
+                    showDataPreview(dataInfo);
+                    populateFieldSelects();
+                    showMappingButton();
+                    
+                    // Сохраняем ID проекта
+                    sessionStorage.setItem('currentProjectId', data.project_id);
+                } else {
+                    showError('uploadStatus', 'Ошибка при создании проекта: ' + data.message);
+                }
+            })
+            .catch(error => {
+                showError('uploadStatus', 'Ошибка при создании проекта: ' + error.message);
+            });
+        }
+
+        function showDataPreview(dataInfo, projectName = null) {
+            const preview = document.getElementById('dataPreview');
+            const projectTitle = projectName ? `<h4><i class="fas fa-folder me-2"></i>Проект: ${projectName}</h4>` : '';
+            
+            preview.innerHTML = `
+                ${projectTitle}
+                <div class="alert alert-info">
+                    <h6><i class="fas fa-info-circle me-2"></i>Информация о данных</h6>
+                    <p><strong>Размер:</strong> ${dataInfo.shape[0]} строк, ${dataInfo.shape[1]} колонок</p>
+                    <p><strong>Колонки:</strong> ${dataInfo.columns.join(', ')}</p>
+                </div>
+                <div class="mt-3">
+                    <button class="btn btn-primary btn-sm" onclick="showDataTable()">
+                        <i class="fas fa-table me-2"></i>Показать превью данных (первые 50 строк)
+                    </button>
+                </div>
+                <div id="dataTableContainer" class="mt-3" style="display: none;">
+                    <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
+                        <table class="table table-sm table-striped">
+                            <thead id="dataTableHeader"></thead>
+                            <tbody id="dataTableBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+            `;
+        }
+
+        function showMappingButton() {
+            const preview = document.getElementById('dataPreview');
+            const mappingButton = document.createElement('div');
+            mappingButton.className = 'text-center mt-3';
+            mappingButton.innerHTML = `
+                <button class="btn btn-primary btn-lg" onclick="goToMapping()">
+                    <i class="fas fa-cogs me-2"></i>Настроить маппинг данных
+                </button>
+                <p class="text-muted mt-2">Настройте типы данных и обработку пустых значений</p>
+            `;
+            preview.appendChild(mappingButton);
+        }
+
+        function addNewProjectButton() {
+            const preview = document.getElementById('dataPreview');
+            const newProjectButton = document.createElement('div');
+            newProjectButton.className = 'text-center mt-3';
+            newProjectButton.innerHTML = `
+                <button class="btn btn-outline-secondary btn-sm" onclick="createNewProject()">
+                    <i class="fas fa-plus me-2"></i>Создать новый проект
+                </button>
+            `;
+            preview.appendChild(newProjectButton);
+        }
+
+        function createNewProject() {
+            // Очищаем sessionStorage
+            sessionStorage.clear();
+            
+            // Показываем интерфейс создания нового проекта
+            const uploadSection = document.getElementById('uploadSection');
+            if (uploadSection) {
+                uploadSection.style.display = 'block';
+            }
+            
+            // Очищаем предпросмотр
+            const preview = document.getElementById('dataPreview');
+            preview.innerHTML = '';
+            
+            // Очищаем статус загрузки
+            const uploadStatus = document.getElementById('uploadStatus');
+            uploadStatus.innerHTML = '';
+            
+            // Очищаем глобальные переменные
+            currentSessionId = null;
+            dataColumns = [];
+            processedData = null;
+            dataMapping = null;
+        }
+
+        function goToMapping() {
+            window.location.href = '/forecast/mapping';
+        }
+
+        function populateFieldSelects() {
+            // Заполняем селекты для всех модулей
+            const selects = [
+                'trendTargetMetric', 'budgetField', 'simulationField'
+            ];
+            
+            selects.forEach(selectId => {
+                const select = document.getElementById(selectId);
+                if (select) {
+                    select.innerHTML = '';
+                    dataColumns.forEach(col => {
+                        const option = new Option(col, col);
+                        select.add(option);
+                    });
+                }
+            });
+
+            // Заполняем список целевых метрик для анализа зависимостей
+            const targetMetricsList = document.getElementById('targetMetricsList');
+            targetMetricsList.innerHTML = '';
+            dataColumns.forEach(col => {
+                if (col.includes('traffic') || col.includes('revenue') || col.includes('transaction')) {
+                    const div = document.createElement('div');
+                    div.className = 'form-check';
+                    div.innerHTML = `
+                        <input class="form-check-input" type="checkbox" value="${col}" id="metric_${col}" checked>
+                        <label class="form-check-label" for="metric_${col}">${col}</label>
+                    `;
+                    targetMetricsList.appendChild(div);
+                }
+            });
+        }
+
+        function showModule(moduleName) {
+            if (!currentSessionId) {
+                alert('Сначала загрузите данные!');
+                return;
+            }
+
+            // Скрываем все модули
+            document.getElementById('trendModule').style.display = 'none';
+            document.getElementById('dependenciesModule').style.display = 'none';
+            document.getElementById('simulationModule').style.display = 'none';
+
+            // Показываем выбранный модуль
+            currentModule = moduleName;
+            document.getElementById(moduleName + 'Module').style.display = 'block';
+        }
+
+        function runTrendForecast() {
+            const config = {
+                target_metric: document.getElementById('trendTargetMetric').value,
+                periods: parseInt(document.getElementById('trendPeriods').value),
+                model: document.getElementById('trendModel').value,
+                enable_cascade: document.getElementById('enableCascade').checked,
+                cascade_level: document.getElementById('cascadeLevel').value
+            };
+
+            showLoading('trendResults', 'Выполнение трендового прогноза...');
+
+            fetch('/trend_forecast', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(config)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    currentResults.trend = data;
+                    showTrendResults(data);
+                    showResultsSection();
+                } else {
+                    showError('trendResults', data.message);
+                }
+            })
+            .catch(error => {
+                showError('trendResults', 'Ошибка при выполнении прогноза: ' + error.message);
+            });
+        }
+
+        function runDependencyAnalysis() {
+            const targetMetrics = Array.from(document.querySelectorAll('#targetMetricsList input:checked')).map(cb => cb.value);
+            const config = {
+                budget_field: document.getElementById('budgetField').value,
+                target_metrics: targetMetrics,
+                method: document.getElementById('dependencyMethod').value,
+                paid_channels: document.getElementById('paidChannels').value.split(',').map(s => s.trim()),
+                organic_channels: document.getElementById('organicChannels').value.split(',').map(s => s.trim())
+            };
+
+            showLoading('dependenciesResults', 'Анализ зависимостей...');
+
+            fetch('/dependency_analysis', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(config)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    currentResults.dependencies = data;
+                    showDependencyResults(data);
+                    showResultsSection();
+                } else {
+                    showError('dependenciesResults', data.message);
+                }
+            })
+            .catch(error => {
+                showError('dependenciesResults', 'Ошибка при анализе зависимостей: ' + error.message);
+            });
+        }
+
+        function runSimulation() {
+            const config = {
+                simulation_field: document.getElementById('simulationField').value,
+                periods: parseInt(document.getElementById('simulationPeriods').value),
+                scenarios: [
+                    { name: 'Консервативный', change: parseInt(document.getElementById('scenario1').value) },
+                    { name: 'Оптимистичный', change: parseInt(document.getElementById('scenario2').value) },
+                    { name: 'Пессимистичный', change: parseInt(document.getElementById('scenario3').value) }
+                ]
+            };
+
+            showLoading('simulationResults', 'Моделирование сценариев...');
+
+            fetch('/simulation', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(config)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    currentResults.simulation = data;
+                    showSimulationResults(data);
+                    showResultsSection();
+                } else {
+                    showError('simulationResults', data.message);
+                }
+            })
+            .catch(error => {
+                showError('simulationResults', 'Ошибка при моделировании: ' + error.message);
+            });
+        }
+
+        function showTrendResults(data) {
+            const container = document.getElementById('trendResults');
+            let html = '<h6><i class="fas fa-chart-line me-2"></i>Результаты трендового прогноза</h6>';
+            
+            if (data.forecast_data) {
+                html += `
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="metric-card">
+                                <div class="metric-value">${data.forecast_data.total_forecast.toLocaleString()}</div>
+                                <div>Общий прогноз</div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="metric-card">
+                                <div class="metric-value">${data.forecast_data.growth_rate.toFixed(1)}%</div>
+                                <div>Темп роста</div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+            
+            container.innerHTML = html;
+        }
+
+        function showDependencyResults(data) {
+            const container = document.getElementById('dependenciesResults');
+            let html = '<h6><i class="fas fa-link me-2"></i>Результаты анализа зависимостей</h6>';
+            
+            if (data.dependencies) {
+                html += '<div class="dependency-matrix">';
+                html += '<table class="table table-striped">';
+                html += '<thead><tr><th>Метрика</th><th>Корреляция с бюджетом</th><th>Сила влияния</th></tr></thead><tbody>';
+                
+                for (const [metric, info] of Object.entries(data.dependencies)) {
+                    const strength = Math.abs(info.correlation) > 0.7 ? 'Сильная' : 
+                                   Math.abs(info.correlation) > 0.3 ? 'Умеренная' : 'Слабая';
+                    html += `<tr>
+                        <td>${metric}</td>
+                        <td>${info.correlation.toFixed(3)}</td>
+                        <td><span class="badge ${Math.abs(info.correlation) > 0.7 ? 'bg-danger' : 
+                                               Math.abs(info.correlation) > 0.3 ? 'bg-warning' : 'bg-secondary'}">${strength}</span></td>
+                    </tr>`;
+                }
+                html += '</tbody></table></div>';
+            }
+            
+            container.innerHTML = html;
+        }
+
+        function showSimulationResults(data) {
+            const container = document.getElementById('simulationResults');
+            let html = '<h6><i class="fas fa-flask me-2"></i>Результаты моделирования</h6>';
+            
+            if (data.scenarios) {
+                html += '<div class="row">';
+                for (const [scenarioName, result] of Object.entries(data.scenarios)) {
+                    html += `
+                        <div class="col-md-4">
+                            <div class="card">
+                                <div class="card-body text-center">
+                                    <h6>${scenarioName}</h6>
+                                    <div class="metric-value">${result.revenue_impact.toFixed(1)}%</div>
+                                    <div>Влияние на выручку</div>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }
+                html += '</div>';
+            }
+            
+            container.innerHTML = html;
+        }
+
+        function showResultsSection() {
+            document.getElementById('resultsSection').style.display = 'block';
+            document.getElementById('downloadSection').style.display = 'block';
+            updateResultsTabs();
+        }
+
+        function updateResultsTabs() {
+            // Обновляем содержимое вкладок на основе текущих результатов
+            updateChartsTab();
+            updateTablesTab();
+            updateAnalysisTab();
+        }
+
+        function updateChartsTab() {
+            const container = document.getElementById('chartsContent');
+            let html = '';
+            
+            if (currentResults.trend && currentResults.trend.chart_data) {
+                html += '<div class="chart-container">';
+                html += '<h6>График трендового прогноза</h6>';
+                html += `<canvas id="trendChart"></canvas>`;
+                html += '</div>';
+            }
+            
+            if (currentResults.dependencies && currentResults.dependencies.chart_data) {
+                html += '<div class="chart-container">';
+                html += '<h6>Матрица зависимостей</h6>';
+                html += `<canvas id="dependencyChart"></canvas>`;
+                html += '</div>';
+            }
+            
+            if (currentResults.simulation && currentResults.simulation.chart_data) {
+                html += '<div class="chart-container">';
+                html += '<h6>Сравнение сценариев</h6>';
+                html += `<canvas id="simulationChart"></canvas>`;
+                html += '</div>';
+            }
+            
+            container.innerHTML = html;
+            
+            // Создаем графики
+            createCharts();
+        }
+
+        function updateTablesTab() {
+            const container = document.getElementById('tablesContent');
+            let html = '';
+            
+            if (currentResults.trend && currentResults.trend.forecast_data) {
+                html += '<div class="data-table">';
+                html += '<h6>Данные трендового прогноза</h6>';
+                html += '<div class="table-responsive">';
+                html += '<table class="table table-striped">';
+                html += '<thead><tr><th>Период</th><th>Прогноз</th><th>Доверительный интервал</th></tr></thead>';
+                html += '<tbody>';
+                
+                currentResults.trend.forecast_data.periods.forEach(period => {
+                    html += `<tr>
+                        <td>${period.date}</td>
+                        <td>${period.forecast.toLocaleString()}</td>
+                        <td>${period.lower_bound.toLocaleString()} - ${period.upper_bound.toLocaleString()}</td>
+                    </tr>`;
+                });
+                
+                html += '</tbody></table></div></div>';
+            }
+            
+            container.innerHTML = html;
+        }
+
+        function updateAnalysisTab() {
+            const container = document.getElementById('analysisContent');
+            let html = '<h6>Сводный анализ</h6>';
+            
+            if (currentResults.trend) {
+                html += '<div class="alert alert-info">';
+                html += '<h6>Трендовый прогноз</h6>';
+                html += `<p>Модель: ${currentResults.trend.model_used}</p>`;
+                html += `<p>Точность: ${currentResults.trend.accuracy.toFixed(3)}</p>`;
+                html += '</div>';
+            }
+            
+            if (currentResults.dependencies) {
+                html += '<div class="alert alert-success">';
+                html += '<h6>Анализ зависимостей</h6>';
+                html += `<p>Найдено зависимостей: ${Object.keys(currentResults.dependencies.dependencies || {}).length}</p>`;
+                html += '</div>';
+            }
+            
+            if (currentResults.simulation) {
+                html += '<div class="alert alert-warning">';
+                html += '<h6>Моделирование</h6>';
+                html += `<p>Проанализировано сценариев: ${Object.keys(currentResults.simulation.scenarios || {}).length}</p>`;
+                html += '</div>';
+            }
+            
+            container.innerHTML = html;
+        }
+
+        function createCharts() {
+            // Создаем графики с помощью Chart.js
+            if (currentResults.trend && currentResults.trend.chart_data) {
+                const ctx = document.getElementById('trendChart');
+                if (ctx) {
+                    new Chart(ctx, {
+                        type: 'line',
+                        data: currentResults.trend.chart_data,
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            scales: {
+                                y: {
+                                    beginAtZero: true
+                                }
+                            }
+                        }
+                    });
+                }
+            }
+        }
+
+        function downloadCSV() {
+            if (currentSessionId) {
+                window.open(`/download/csv/${currentSessionId}`, '_blank');
+            }
+        }
+
+        function downloadExcel() {
+            if (currentSessionId) {
+                window.open(`/download/excel/${currentSessionId}`, '_blank');
+            }
+        }
+
+        function downloadReport() {
+            if (currentSessionId) {
+                window.open(`/download/report/${currentSessionId}`, '_blank');
+            }
+        }
+
+        // Вспомогательные функции
+        function showLoading(elementId, message) {
+            const element = document.getElementById(elementId);
+            element.innerHTML = `<div class="loading"><div class="spinner-border text-primary" role="status"></div><p class="mt-2">${message}</p></div>`;
+        }
+
+        function showSuccess(elementId, message) {
+            const element = document.getElementById(elementId);
+            element.innerHTML = `<div class="alert alert-success"><i class="fas fa-check me-2"></i>${message}</div>`;
+        }
+
+        function showError(elementId, message) {
+            const element = document.getElementById(elementId);
+            element.innerHTML = `<div class="alert alert-danger"><i class="fas fa-exclamation-triangle me-2"></i>${message}</div>`;
+        }
+
+        // Глобальные переменные для обработанных данных
+        let processedData = null;
+        let dataMapping = null;
+
+        // Проверяем наличие загруженного проекта при загрузке страницы
+        window.addEventListener('DOMContentLoaded', function() {
+            console.log('DOMContentLoaded вызван');
+            // Проверяем параметр проекта в URL
+            const urlParams = new URLSearchParams(window.location.search);
+            const projectId = urlParams.get('project');
+            console.log('projectId из URL:', projectId);
+            
+            if (projectId) {
+                console.log('Вызываем loadProjectFromUrl с projectId:', projectId);
+                // Загружаем проект по ID из URL
+                loadProjectFromUrl(projectId);
+            } else {
+                // Проверяем sessionStorage
+                const savedProcessedData = sessionStorage.getItem('processedData');
+                const savedDataMapping = sessionStorage.getItem('dataMapping');
+                const savedDataInfo = sessionStorage.getItem('dataInfo') || sessionStorage.getItem('uploadedData');
+                const savedSessionId = sessionStorage.getItem('sessionId');
+                
+                if (savedDataInfo && savedSessionId) {
+                    // Загружен существующий проект
+                    currentSessionId = savedSessionId;
+                    const dataInfo = JSON.parse(savedDataInfo);
+                    dataColumns = dataInfo.columns;
+                    
+                    // Скрываем интерфейс создания нового проекта
+                    const uploadSection = document.getElementById('uploadSection');
+                    if (uploadSection) {
+                        uploadSection.style.display = 'none';
+                    }
+                    
+                    // Показываем информацию о загруженном проекте
+                    showDataPreview(dataInfo);
+                    populateFieldSelects();
+                    
+                    // Добавляем кнопку для создания нового проекта
+                    addNewProjectButton();
+                    
+                    if (savedProcessedData && savedDataMapping) {
+                        // Есть обработанные данные
+                        processedData = JSON.parse(savedProcessedData);
+                        dataMapping = JSON.parse(savedDataMapping);
+                        
+                        // Проверяем, есть ли настройки маппинга
+                        if (dataMapping && Object.keys(dataMapping).length > 0) {
+                            showProcessedDataPreview(processedData, dataMapping);
+                        } else {
+                            // Нет настроек маппинга, показываем кнопку для настройки
+                            showMappingButton();
+                        }
+                    } else {
+                        // Показываем кнопку для перехода к маппингу
+                        showMappingButton();
+                    }
+                }
+            }
+        });
+
+        function loadProjectFromUrl(projectId) {
+            console.log('loadProjectFromUrl вызвана с projectId:', projectId);
+            // Загружаем данные проекта через API
+            fetch(`/api/load_project/${projectId}`)
+                .then(response => response.json())
+                .then(data => {
+                    console.log('Ответ от сервера:', data);
+                    if (data.success) {
+                        console.log('Проект успешно загружен:', data.project);
+                        const project = data.project;
+                        
+                        // Сохраняем данные в sessionStorage (без full_data для экономии места)
+                        sessionStorage.setItem('sessionId', project.session_id);
+                        
+                        // Создаем dataInfo без full_data для localStorage
+                        const dataInfoForStorage = { ...project.data_info };
+                        delete dataInfoForStorage.full_data; // Удаляем полные данные
+                        
+                        // Безопасное сохранение в sessionStorage с обработкой ошибок
+                        try {
+                            sessionStorage.setItem('dataInfo', JSON.stringify(dataInfoForStorage));
+                            sessionStorage.setItem('uploadedData', JSON.stringify(dataInfoForStorage));
+                            sessionStorage.setItem('dataMapping', JSON.stringify(project.data_mapping));
+                            sessionStorage.setItem('processedData', JSON.stringify(project.processed_data));
+                            sessionStorage.setItem('currentProjectId', project.id);
+                        } catch (error) {
+                            console.warn('Ошибка сохранения в sessionStorage:', error);
+                            // Очищаем старые данные и пробуем снова
+                            sessionStorage.clear();
+                            sessionStorage.setItem('sessionId', project.session_id);
+                            sessionStorage.setItem('dataInfo', JSON.stringify(dataInfoForStorage));
+                            sessionStorage.setItem('dataMapping', JSON.stringify(project.data_mapping));
+                            sessionStorage.setItem('currentProjectId', project.id);
+                        }
+                        
+                        // Устанавливаем глобальные переменные
+                        dataInfo = project.data_info;
+                        currentSessionId = project.session_id;
+                        processedData = project.processed_data;
+                        dataMapping = project.data_mapping;
+                        dataColumns = project.data_info.columns;
+                        
+                        // Скрываем интерфейс создания нового проекта
+                        const uploadSection = document.getElementById('uploadSection');
+                        if (uploadSection) {
+                            uploadSection.style.display = 'none';
+                        }
+                        
+                        // Показываем информацию о загруженном проекте
+                        showDataPreview(dataInfo, project.name);
+                        populateFieldSelects();
+                        populateTimeSeriesSelects();
+                        
+                        // Добавляем кнопку для создания нового проекта
+                        addNewProjectButton();
+                        
+                        // Проверяем, есть ли настройки маппинга
+                        if (dataMapping && Object.keys(dataMapping).length > 0) {
+                            showProcessedDataPreview(processedData, dataMapping);
+                        } else {
+                            // Нет настроек маппинга, сразу переходим к маппингу
+                            window.location.href = '/forecast/mapping';
+                        }
+                    } else {
+                        alert('Ошибка загрузки проекта: ' + data.message);
+                        // Возвращаемся на главную страницу
+                        window.location.href = '/';
+                    }
+                })
+                .catch(error => {
+                    console.error('Ошибка при загрузке проекта:', error);
+                    alert('Ошибка при загрузке проекта: ' + error.message);
+                    // Возвращаемся на главную страницу
+                    window.location.href = '/';
+                });
+        }
+
+        function showProcessedDataPreview(processedData, mapping) {
+            const preview = document.getElementById('dataPreview');
+            preview.innerHTML = `
+                <div class="alert alert-success">
+                    <h6><i class="fas fa-check-circle me-2"></i>Данные обработаны и готовы к прогнозированию</h6>
+                    <p><strong>Размер:</strong> ${processedData.shape[0]} строк, ${processedData.shape[1]} колонок</p>
+                    <p><strong>Колонки:</strong> ${processedData.columns.join(', ')}</p>
+                </div>
+                <div class="row mt-3">
+                    <div class="col-md-6">
+                        <h6><i class="fas fa-clock me-2"></i>Временные ряды</h6>
+                        <ul class="list-unstyled">
+                            ${getTimeSeriesInfo(mapping)}
+                        </ul>
+                    </div>
+                    <div class="col-md-6">
+                        <h6><i class="fas fa-layer-group me-2"></i>Срезы</h6>
+                        <ul class="list-unstyled">
+                            ${getSlicesInfo(mapping)}
+                        </ul>
+                    </div>
+                </div>
+                <div class="row mt-3">
+                    <div class="col-md-12">
+                        <h6><i class="fas fa-cogs me-2"></i>Правила обработки данных</h6>
+                        <ul class="list-unstyled">
+                            <li><strong>Обработка пропусков:</strong> ${mapping.missingValues || 'Не указано'}</li>
+                            <li><strong>Обнаружение выбросов:</strong> ${mapping.detectOutliers ? 'Включено' : 'Отключено'}</li>
+                            <li><strong>Нормализация:</strong> ${mapping.normalizeData ? 'Включена' : 'Отключена'}</li>
+                            <li><strong>Логарифмическое преобразование:</strong> ${mapping.logTransform ? 'Включено' : 'Отключено'}</li>
+                            <li><strong>Создание признаков:</strong> ${mapping.createFeatures ? 'Включено' : 'Отключено'}</li>
+                        </ul>
+                    </div>
+                </div>
+                <div class="mt-3">
+                    <button class="btn btn-info btn-sm" onclick="showDataTable()">
+                        <i class="fas fa-table me-2"></i>Показать таблицу данных
+                    </button>
+                    <button class="btn btn-warning btn-sm ms-2" onclick="editMapping()">
+                        <i class="fas fa-edit me-2"></i>Изменить маппинг
+                    </button>
+                    <button class="btn btn-primary btn-sm ms-2" onclick="showSaveProjectModal()">
+                        <i class="fas fa-save me-2"></i>Сохранить проект
+                    </button>
+                    <button class="btn btn-danger btn-sm ms-2" onclick="deleteCurrentProject()">
+                        <i class="fas fa-trash me-2"></i>Удалить проект
+                    </button>
+                    <button class="btn btn-success btn-sm ms-2" onclick="startForecast()">
+                        <i class="fas fa-chart-line me-2"></i>Запустить прогноз
+                    </button>
+                </div>
+                <div id="dataTableContainer" class="mt-3" style="display: none;">
+                    <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
+                        <table class="table table-sm table-striped">
+                            <thead id="dataTableHeader"></thead>
+                            <tbody id="dataTableBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+                <div id="timeSeriesContainer" class="mt-3" style="display: block;">
+                    <div class="card">
+                        <div class="card-header">
+                            <h6><i class="fas fa-chart-line me-2"></i>Временные ряды</h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="row mb-3">
+                                <div class="col-md-12">
+                                    <label class="form-label">Метрики</label>
+                                    <select class="form-select" id="metricsSelect" multiple>
+                                        <option value="">Выберите метрики</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="text-center">
+                                <button class="btn btn-primary" onclick="loadTimeSeriesData()">
+                                    <i class="fas fa-chart-line me-2"></i>Построить график
+                                </button>
+                            </div>
+                            <div class="mt-3">
+                                <div id="timeSeriesChartContainer">
+                                    <canvas id="timeSeriesChart" width="400" height="200"></canvas>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            // Автоматически загружаем график с первой метрикой
+            setTimeout(() => {
+                populateTimeSeriesSelects();
+                loadTimeSeriesData();
+            }, 500);
+        }
+
+        function getTimeSeriesInfo(mapping) {
+            if (!mapping || !mapping.columns) {
+                return '<li>Не настроено</li>';
+            }
+            
+            const info = [];
+            const timeTypes = {
+                'date': 'Дата',
+                'year': 'Год', 
+                'month': 'Месяц',
+                'week': 'Неделя',
+                'quarter': 'Квартал',
+                'halfyear': 'Полугодие'
+            };
+            
+            // Собираем временные ряды
+            const timeSeriesCols = [];
+            mapping.columns.forEach(col => {
+                if (col.time_series && col.time_series !== '') {
+                    const level = col.nesting_level || 0;
+                    timeSeriesCols.push({
+                        name: col.name,
+                        type: col.time_series,
+                        level: level
+                    });
+                }
+            });
+            
+            // Сортируем по возрастанию уровней (0, 1, 2, 3...)
+            timeSeriesCols.sort((a, b) => a.level - b.level);
+            
+            timeSeriesCols.forEach(col => {
+                info.push(`<li><strong>${timeTypes[col.type]}:</strong> ${col.name} (уровень ${col.level})</li>`);
+            });
+            
+            return info.length > 0 ? info.join('') : '<li>Не настроено</li>';
+        }
+
+        function getSlicesInfo(mapping) {
+            if (!mapping || !mapping.columns) {
+                return '<li>Не настроено</li>';
+            }
+            
+            const info = [];
+            const sliceCols = [];
+            
+            // Ищем колонки с ролью dimension и уровнями вложенности, исключая временные ряды
+            mapping.columns.forEach(col => {
+                if (col.role === 'dimension' && col.nesting_level >= 0 && !col.time_series) {
+                    sliceCols.push({
+                        name: col.name,
+                        level: col.nesting_level
+                    });
+                }
+            });
+            
+            // Сортируем по убыванию уровней
+            sliceCols.sort((a, b) => b.level - a.level);
+            
+            sliceCols.forEach(col => {
+                info.push(`<li><strong>Уровень ${col.level}:</strong> ${col.name}</li>`);
+            });
+            
+            return info.length > 0 ? info.join('') : '<li>Не настроено</li>';
+        }
+
+        function showDataTable() {
+            const container = document.getElementById('dataTableContainer');
+            const header = document.getElementById('dataTableHeader');
+            const body = document.getElementById('dataTableBody');
+            
+            if (container.style.display === 'none') {
+                // Показываем таблицу
+                header.innerHTML = '';
+                body.innerHTML = '';
+                
+                // Заголовки
+                processedData.columns.forEach(col => {
+                    const th = document.createElement('th');
+                    th.textContent = col;
+                    header.appendChild(th);
+                });
+                
+                // Данные (первые 50 строк)
+                processedData.sample_data.slice(0, 50).forEach(row => {
+                    const tr = document.createElement('tr');
+                    processedData.columns.forEach(col => {
+                        const td = document.createElement('td');
+                        td.textContent = row[col] || '';
+                        td.style.fontSize = '0.8em';
+                        tr.appendChild(td);
+                    });
+                    body.appendChild(tr);
+                });
+                
+                container.style.display = 'block';
+            } else {
+                // Скрываем таблицу
+                container.style.display = 'none';
+            }
+        }
+
+        function editMapping() {
+            window.location.href = '/forecast/mapping';
+        }
+
+        function showTimeSeriesChart() {
+            const container = document.getElementById('timeSeriesContainer');
+            
+            if (container.style.display === 'none') {
+                // Показываем контейнер и заполняем селекты
+                populateTimeSeriesSelects();
+                container.style.display = 'block';
+            } else {
+                // Скрываем контейнер
+                container.style.display = 'none';
+            }
+        }
+
+        function populateTimeSeriesSelects() {
+            const metricsSelect = document.getElementById('metricsSelect');
+            
+            // Проверяем наличие элементов
+            if (!metricsSelect) {
+                console.error('Элемент селекта метрик не найден');
+                return;
+            }
+            
+            // Очищаем селект
+            metricsSelect.innerHTML = '<option value="">Выберите метрики</option>';
+            
+            if (!processedData) {
+                console.log('processedData не найден, используем dataInfo');
+                // Используем dataInfo если processedData недоступен
+                const dataInfo = JSON.parse(sessionStorage.getItem('dataInfo') || '{}');
+                if (dataInfo.columns) {
+                    populateSelectsFromDataInfo(dataInfo, metricsSelect);
+                }
+                return;
+            }
+            
+            // Получаем настройки маппинга
+            const mappingConfig = JSON.parse(sessionStorage.getItem('dataMapping') || '{}');
+            
+            // Заполняем селекты колонками
+            processedData.columns.forEach((col, index) => {
+                // Метрики - только колонки с ролью "metric"
+                const columnMapping = mappingConfig.columns?.find(c => c.name === col);
+                if (columnMapping && columnMapping.role === 'metric') {
+                    const option2 = document.createElement('option');
+                    option2.value = col;
+                    option2.textContent = col;
+                    metricsSelect.appendChild(option2);
+                } else if (!mappingConfig.columns && processedData.dtypes[col] && 
+                    (processedData.dtypes[col].includes('int') || processedData.dtypes[col].includes('float'))) {
+                    // Fallback: если нет маппинга, используем числовые колонки
+                    const option2 = document.createElement('option');
+                    option2.value = col;
+                    option2.textContent = col;
+                    metricsSelect.appendChild(option2);
+                }
+                
+            });
+            
+            // Автоматически выбираем временную ось из маппинга
+            // (теперь временная ось определяется автоматически в loadTimeSeriesData)
+        }
+
+        function populateSelectsFromDataInfo(dataInfo, metricsSelect) {
+            // Получаем настройки маппинга
+            const mappingConfig = JSON.parse(sessionStorage.getItem('dataMapping') || '{}');
+            
+            // Заполняем селекты колонками из dataInfo
+            dataInfo.columns.forEach((col, index) => {
+                // Метрики - только колонки с ролью "metric"
+                const columnMapping = mappingConfig.columns?.find(c => c.name === col);
+                if (columnMapping && columnMapping.role === 'metric') {
+                    const option2 = document.createElement('option');
+                    option2.value = col;
+                    option2.textContent = col;
+                    metricsSelect.appendChild(option2);
+                } else if (!mappingConfig.columns && dataInfo.dtypes && dataInfo.dtypes[col] && 
+                    (dataInfo.dtypes[col].includes('int') || dataInfo.dtypes[col].includes('float'))) {
+                    // Fallback: если нет маппинга, используем числовые колонки
+                    const option2 = document.createElement('option');
+                    option2.value = col;
+                    option2.textContent = col;
+                    metricsSelect.appendChild(option2);
+                }
+                
+            });
+        }
+
+        function loadTimeSeriesData() {
+            // Проверяем, что сессия инициализирована
+            if (!currentSessionId) {
+                console.error('Сессия не инициализирована');
+                alert('Ошибка: сессия не найдена. Пожалуйста, загрузите данные заново.');
+                return;
+            }
+            
+            const metricsSelect = document.getElementById('metricsSelect');
+            if (!metricsSelect) {
+                console.error('Элемент metricsSelect не найден');
+                alert('Ошибка: элемент выбора метрик не найден');
+                return;
+            }
+            
+            // Если ни одна метрика не выбрана, автоматически выбираем первую
+            if (metricsSelect.selectedOptions.length === 0 && metricsSelect.options.length > 1) {
+                metricsSelect.options[1].selected = true; // Первая опция (индекс 1, так как 0 - это "Выберите метрики")
+            }
+            
+            // Автоматически определяем временную ось из настроек маппинга
+            const mappingConfig = JSON.parse(sessionStorage.getItem('dataMapping') || '{}');
+            let timeColumn = '';
+            
+            if (mappingConfig.columns) {
+                // Находим колонку с наименьшим уровнем вложенности среди временных рядов
+                const timeSeriesCols = mappingConfig.columns
+                    .filter(col => col.time_series && col.time_series !== '')
+                    .sort((a, b) => (a.nesting_level || 0) - (b.nesting_level || 0));
+                
+                if (timeSeriesCols.length > 0) {
+                    timeColumn = timeSeriesCols[0].name;
+                }
+            }
+            
+            console.log('loadTimeSeriesData вызвана:', {
+                timeColumn: timeColumn,
+                metricsSelect: metricsSelect,
+                currentSessionId: currentSessionId
+            });
+            
+            if (!timeColumn) {
+                alert('Не найдена временная ось в настройках маппинга');
+                return;
+            }
+            
+            const selectedMetrics = Array.from(metricsSelect.selectedOptions).map(option => option.value);
+            if (selectedMetrics.length === 0) {
+                alert('Выберите хотя бы одну метрику');
+                return;
+            }
+            
+            // Показываем загрузку
+            const chartContainer = document.getElementById('timeSeriesChartContainer');
+            chartContainer.innerHTML = '<div class="text-center"><div class="spinner-border text-primary" role="status"></div><p class="mt-2">Загрузка данных...</p></div>';
+            
+            // Формируем URL для запроса
+            const params = new URLSearchParams();
+            params.append('time_column', timeColumn);
+            selectedMetrics.forEach(metric => params.append('metrics', metric));
+            
+            // Всегда показываем сводную таблицу
+            params.append('show_pivot', 'true');
+            // Передаем режим сводной таблицы
+            params.append('pivot_mode', pivotState.pivotMode || 'slices');
+            // Передаем параметр разбивки по срезам
+            const splitBySliceSelect = document.getElementById('splitBySlice');
+            if (splitBySliceSelect && splitBySliceSelect.value) {
+                params.append('split_by_slice', splitBySliceSelect.value);
+            }
+            // Передаем настройки маппинга (используем уже объявленную переменную)
+            params.append('mapping_data', JSON.stringify(mappingConfig));
+            
+            console.log('Параметры запроса:', {
+                sessionId: currentSessionId,
+                timeColumn: timeColumn,
+                metrics: selectedMetrics,
+                url: `/api/get_time_series_data/${currentSessionId}?${params}`
+            });
+            
+            // Загружаем данные
+            fetch(`/api/get_time_series_data/${currentSessionId}?${params}`)
+                .then(response => response.json())
+                .then(data => {
+                    console.log('Получены данные временных рядов:', data);
+                    if (data.success) {
+                        if (data.data.pivot_table) {
+                            // Показываем и сводную таблицу, и график
+                            renderPivotTableAndChart(data.data.pivot_table, data.data);
+                        } else {
+                            renderTimeSeriesChart(data.data);
+                        }
+                    } else {
+                        alert('Ошибка: ' + data.message);
+                        chartContainer.innerHTML = '<div class="alert alert-danger">Ошибка загрузки данных</div>';
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Ошибка при загрузке данных');
+                    chartContainer.innerHTML = '<div class="alert alert-danger">Ошибка загрузки данных</div>';
+                });
+        }
+
+        function renderTimeSeriesChart(data) {
+            console.log('renderTimeSeriesChart вызвана с данными:', data);
+            
+            let canvas = document.getElementById('timeSeriesChart');
+            let chartContainer = document.getElementById('timeSeriesChartContainer');
+            
+            if (!canvas) {
+                // Если canvas не найден, создаем его
+                if (!chartContainer) {
+                    console.error('Контейнер timeSeriesChartContainer не найден');
+                    return;
+                }
+                
+                // Создаем canvas элемент
+                canvas = document.createElement('canvas');
+                canvas.id = 'timeSeriesChart';
+                canvas.width = 400;
+                canvas.height = 200;
+                chartContainer.innerHTML = '';
+                chartContainer.appendChild(canvas);
+                console.log('Создан новый canvas элемент timeSeriesChart');
+            }
+            
+            // Уничтожаем предыдущий график, если он существует
+            if (currentChart) {
+                currentChart.destroy();
+                currentChart = null;
+            }
+            
+            console.log('Canvas найден, предыдущий график уничтожен');
+            
+            // Подготавливаем данные для Chart.js
+            const datasets = [];
+            const colors = ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40'];
+            
+            if (data.grouped_series && Object.keys(data.grouped_series).length > 0) {
+                // Группированные данные
+                let colorIndex = 0;
+                for (const [groupName, groupData] of Object.entries(data.grouped_series)) {
+                    for (const [metric, values] of Object.entries(groupData)) {
+                        datasets.push({
+                            label: `${metric} (${groupName})`,
+                            data: values,
+                            borderColor: colors[colorIndex % colors.length],
+                            backgroundColor: colors[colorIndex % colors.length] + '20',
+                            fill: false,
+                            tension: 0.1
+                        });
+                        colorIndex++;
+                    }
+                }
+            } else {
+                // Обычные данные
+                data.time_series.forEach((series, index) => {
+                    datasets.push({
+                        label: series.metric,
+                        data: series.data,
+                        borderColor: colors[index % colors.length],
+                        backgroundColor: colors[index % colors.length] + '20',
+                        fill: false,
+                        tension: 0.1
+                    });
+                });
+            }
+            
+            // Создаем график
+            console.log('Создаем график с данными:', {
+                labels: data.time_labels,
+                datasets: datasets
+            });
+            
+                try {
+                    const ctx = canvas.getContext('2d');
+                    currentChart = new Chart(ctx, {
+                        type: 'line',
+                        data: {
+                            labels: data.time_labels,
+                            datasets: datasets
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            scales: {
+                                y: {
+                                    beginAtZero: true,
+                                    title: {
+                                        display: true,
+                                        text: 'Значение'
+                                    }
+                                },
+                                x: {
+                                    title: {
+                                        display: true,
+                                        text: 'Время'
+                                    }
+                                }
+                            },
+                            plugins: {
+                                legend: {
+                                    display: true,
+                                    position: 'top'
+                                },
+                                title: {
+                                    display: true,
+                                    text: 'Временные ряды'
+                                }
+                            }
+                        }
+                    });
+                    console.log('График создан успешно:', currentChart);
+                } catch (error) {
+                    console.error('Ошибка при создании графика:', error);
+                    // Показываем ошибку в контейнере
+                    const container = document.getElementById('timeSeriesContainer');
+                    if (container) {
+                        container.innerHTML = '<div class="alert alert-danger">Ошибка при создании графика: ' + error.message + '</div>';
+                    }
+                }
+        }
+
+        function renderPivotTable(pivotData) {
+            console.log('renderPivotTable вызвана с данными:', pivotData);
+            
+            const chartContainer = document.getElementById('timeSeriesChartContainer');
+            if (!chartContainer) {
+                console.error('Элемент timeSeriesChartContainer не найден');
+                return;
+            }
+            
+            // Создаем HTML для сводной таблицы
+            let html = '<div class="pivot-table-container">';
+            html += '<h6><i class="fas fa-table me-2"></i>Сводная таблица с учетом вложенности</h6>';
+            
+            if (pivotData.time_series_info && pivotData.time_series_info.length > 0) {
+                html += '<div class="mb-3">';
+                html += '<small class="text-muted">Временные ряды: ';
+                pivotData.time_series_info.forEach((ts, index) => {
+                    html += `${ts.name} (${ts.type}, уровень ${ts.level})`;
+                    if (index < pivotData.time_series_info.length - 1) html += ' → ';
+                });
+                html += '</small></div>';
+            }
+            
+            html += '<div class="table-responsive" style="max-height: 400px; overflow-y: auto;">';
+            html += '<table class="table table-sm table-striped table-bordered">';
+            
+            // Заголовки
+            html += '<thead class="table-dark">';
+            html += '<tr>';
+            pivotData.columns.forEach(col => {
+                html += `<th>${col}</th>`;
+            });
+            html += '</tr>';
+            html += '</thead>';
+            
+            // Данные
+            html += '<tbody>';
+            pivotData.data.forEach(row => {
+                html += '<tr>';
+                pivotData.columns.forEach(col => {
+                    const value = row[col];
+                    html += `<td>${value !== null && value !== undefined ? value : ''}</td>`;
+                });
+                html += '</tr>';
+            });
+            html += '</tbody>';
+            
+            html += '</table>';
+            html += '</div>';
+            html += '</div>';
+            
+            chartContainer.innerHTML = html;
+        }
+
+        function renderPivotTableAndChart(pivotData, chartData, selectedSlice = '') {
+            console.log('renderPivotTableAndChart вызвана с данными:', {pivotData, chartData, selectedSlice});
+            
+            const chartContainer = document.getElementById('timeSeriesChartContainer');
+            if (!chartContainer) {
+                console.error('Элемент timeSeriesChartContainer не найден');
+                return;
+            }
+            console.log('timeSeriesChart найден:', chartContainer);
+            console.log('timeSeriesChart стили:', window.getComputedStyle(chartContainer));
+            
+            // Создаем HTML для сводной таблицы и графика
+            let html = '<div class="pivot-chart-container">';
+            
+            // Сводная таблица
+            html += '<div class="pivot-table-section mb-4">';
+            html += '<div class="d-flex justify-content-between align-items-center mb-3">';
+            html += '<h6 class="mb-0"><i class="fas fa-table me-2"></i>Сводная таблица</h6>';
+            html += '<div class="btn-group" role="group">';
+            html += '<button type="button" class="btn btn-sm btn-primary" id="timeSeriesMode" onclick="switchPivotMode(\'time-series\')">';
+            html += '<i class="fas fa-clock me-1"></i>Временные ряды';
+            html += '</button>';
+            html += '<button type="button" class="btn btn-sm btn-outline-primary" id="slicesMode" onclick="switchPivotMode(\'slices\')">';
+            html += '<i class="fas fa-layer-group me-1"></i>Срезы';
+            html += '</button>';
+            html += '</div>';
+            html += '</div>';
+            
+            // Настройки группировки
+            // Показываем опцию разбивки метрик только в режиме временных рядов
+            if (pivotState.pivotMode === 'time-series') {
+                html += '<div class="row mb-3">';
+                html += '<div class="col-md-6">';
+                html += '<label class="form-label"><i class="fas fa-columns me-1"></i>Разбить метрики по столбцам:</label>';
+                html += '<select class="form-select form-select-sm" id="splitBySlice" onchange="updatePivotTableWithSplit()">';
+                html += '<option value="">Без разбивки</option>';
+                html += '</select>';
+                html += '</div>';
+                html += '</div>';
+            } else {
+            }
+            
+            if (pivotData.time_series_info && pivotData.time_series_info.length > 0) {
+                html += '<div class="mb-3">';
+                html += '<small class="text-muted">Иерархия: ';
+                
+                // Разделяем временные ряды и срезы
+                const timeSeries = pivotData.time_series_info.filter(ts => ts.type !== 'slice');
+                const slices = pivotData.time_series_info.filter(ts => ts.type === 'slice');
+                
+                // Показываем иерархию в зависимости от режима
+                if (pivotState.hierarchyMode === 'time-series-first') {
+                    // Временные ряды → Срезы
+                    if (timeSeries.length > 0) {
+                        html += 'Временные ряды: ';
+                        timeSeries.forEach((ts, index) => {
+                            html += `${ts.name} (${ts.type}, уровень ${ts.level})`;
+                            if (index < timeSeries.length - 1) html += ' → ';
+                        });
+                    }
+                    if (slices.length > 0) {
+                        if (timeSeries.length > 0) html += ' | ';
+                        html += 'Срезы: ';
+                        slices.forEach((slice, index) => {
+                            html += `${slice.name} (уровень ${slice.level})`;
+                            if (index < slices.length - 1) html += ' → ';
+                        });
+                    }
+                } else {
+                    // Срезы → Временные ряды
+                    if (slices.length > 0) {
+                        html += 'Срезы: ';
+                        slices.forEach((slice, index) => {
+                            html += `${slice.name} (уровень ${slice.level})`;
+                            if (index < slices.length - 1) html += ' → ';
+                        });
+                    }
+                    if (timeSeries.length > 0) {
+                        if (slices.length > 0) html += ' | ';
+                        html += 'Временные ряды: ';
+                        timeSeries.forEach((ts, index) => {
+                            html += `${ts.name} (${ts.type}, уровень ${ts.level})`;
+                            if (index < timeSeries.length - 1) html += ' → ';
+                        });
+                    }
+                }
+                
+                html += '</small></div>';
+            }
+            
+            // Определяем режим отображения таблицы
+            const isSplitMode = pivotState.pivotMode === 'time-series' && selectedSlice && pivotData.column_headers;
+            const isTimeSeriesMode = pivotState.pivotMode === 'time-series';
+            
+            // Используем GA стиль для режима временных рядов (с разбивкой или без)
+            if (isTimeSeriesMode) {
+                html += '<div class="pivot-table-ga-container" style="overflow-x: auto; max-width: 100%;">';
+                html += '<table class="pivot-table-ga" id="pivotTable">';
+            } else {
+                html += '<div class="table-responsive" style="max-height: 300px; overflow-y: auto;">';
+                html += '<table class="table table-sm table-striped table-bordered" id="pivotTable">';
+            }
+            
+            // Заголовки с интерактивностью
+            html += '<thead class="table-dark">';
+            
+            // Если есть структура заголовков для разбивки по столбцам
+            if (isSplitMode && pivotData.column_headers) {
+                // Первый ряд - временные колонки + метрики с разбивкой
+                html += '<tr>';
+                
+                // Добавляем временные колонки
+                pivotData.columns.forEach(col => {
+                    const timeSeriesInfo = pivotData.time_series_info.find(ts => ts.name === col && ts.type !== 'slice');
+                    if (timeSeriesInfo) {
+                        const stickyClass = col === pivotData.columns[0] ? 'sticky-time-header' : 'sticky-time-column';
+                        html += `<th class="pivot-header ${stickyClass}" data-column="${col}" data-level="${timeSeriesInfo.level}" rowspan="2">`;
+                        html += `<span class="pivot-toggle" onclick="togglePivotLevel('${col}')">-</span> ${col}</th>`;
+                    }
+                });
+                
+                // Добавляем метрики с разбивкой по срезам
+                pivotData.metrics.forEach(metric => {
+                    const uniqueSlices = pivotData.unique_slices || [];
+                    html += `<th colspan="${uniqueSlices.length}" class="sticky-metric-header">${metric}</th>`;
+                });
+                
+                html += '</tr>';
+                
+                // Второй ряд - значения срезов
+                html += '<tr>';
+                pivotData.metrics.forEach(metric => {
+                    const uniqueSlices = pivotData.unique_slices || [];
+                    uniqueSlices.forEach(slice => {
+                        html += `<th class="scrollable-metric-subheader">${slice}</th>`;
+                    });
+                });
+                html += '</tr>';
+            } else if (isTimeSeriesMode && !isSplitMode) {
+                // Режим временных рядов без разбивки - только временные ряды и метрики
+                html += '<tr>';
+                let timeColumnIndex = 0;
+                let metricColumnIndex = 0;
+                
+                pivotData.columns.forEach((col, index) => {
+                    // Проверяем, является ли колонка временным рядом (не срезом)
+                    const timeSeriesInfo = pivotData.time_series_info.find(ts => ts.name === col && ts.type !== 'slice');
+                    const isTimeSeries = !!timeSeriesInfo;
+                    const isMetric = !isTimeSeries;
+                    
+                    if (isTimeSeries) {
+                        const level = timeSeriesInfo.level;
+                        const stickyClass = timeColumnIndex === 0 ? 'sticky-time-header' : 'sticky-time-column';
+                        html += `<th class="pivot-header ${stickyClass}" data-column="${col}" data-level="${level}">`;
+                        html += `<span class="pivot-toggle" onclick="togglePivotLevel('${col}')">-</span> ${col}</th>`;
+                        timeColumnIndex++;
+                    } else if (isMetric) {
+                        const metricClass = metricColumnIndex === 0 ? 'sticky-metric-header' : 'scrollable-metric-header';
+                        html += `<th class="${metricClass}">${col}</th>`;
+                        metricColumnIndex++;
+                    }
+                });
+                html += '</tr>';
+            } else {
+                // Обычные заголовки без разбивки (режим срезов)
+                html += '<tr>';
+                pivotData.columns.forEach((col, index) => {
+                    const isTimeSeries = pivotData.time_series_info.some(ts => ts.name === col);
+                    if (isTimeSeries) {
+                        html += `<th class="pivot-header" data-column="${col}" data-level="${pivotData.time_series_info.find(ts => ts.name === col).level}">`;
+                        html += `<span class="pivot-toggle" onclick="togglePivotLevel('${col}')">-</span> ${col}</th>`;
+                    } else {
+                        // Фиксированная ширина для колонок метрик
+                        html += `<th style="min-width: 120px; width: 120px;">${col}</th>`;
+                    }
+                });
+                html += '</tr>';
+            }
+            html += '</thead>';
+            
+            // Данные
+            html += '<tbody id="pivotTableBody">';
+            
+            // Определяем правильный источник данных
+            let dataToRender;
+            if (Array.isArray(chartData)) {
+                dataToRender = chartData;
+            } else if (chartData && Array.isArray(chartData.data)) {
+                dataToRender = chartData.data;
+            } else if (pivotData && Array.isArray(pivotData.data)) {
+                dataToRender = pivotData.data;
+            } else {
+                console.error('Не удалось найти данные для отображения:', {chartData, pivotData});
+                dataToRender = [];
+            }
+            
+            
+            console.log('Данные для отображения после фильтрации:', dataToRender);
+            
+            if (isSplitMode && pivotData.column_headers) {
+                // Режим разбивки по столбцам
+                dataToRender.forEach((row, rowIndex) => {
+                    html += `<tr class="pivot-row" data-row="${rowIndex}">`;
+                    
+                    // Добавляем временные колонки
+                    pivotData.columns.forEach(col => {
+                        const timeSeriesInfo = pivotData.time_series_info.find(ts => ts.name === col && ts.type !== 'slice');
+                        if (timeSeriesInfo) {
+                            const value = row[col];
+                            const stickyClass = col === pivotData.columns[0] ? 'sticky-time-column' : 'sticky-time-column';
+                            html += `<td class="pivot-cell ${stickyClass}" data-column="${col}" data-level="${timeSeriesInfo.level}">${value !== null && value !== undefined ? value : ''}</td>`;
+                        }
+                    });
+                    
+                    // Добавляем метрики с разбивкой по срезам
+                    pivotData.metrics.forEach(metric => {
+                        const uniqueSlices = pivotData.unique_slices || [];
+                        uniqueSlices.forEach(slice => {
+                            // Создаем ключ для поиска значения
+                            const timeKey = pivotData.columns.map(col => row[col]).join('_');
+                            const value = pivotData.column_headers[slice] && 
+                                        pivotData.column_headers[slice][metric] && 
+                                        pivotData.column_headers[slice][metric][timeKey] || 0;
+                            html += `<td class="pivot-cell scrollable-metric-cell">${value}</td>`;
+                        });
+                    });
+                    
+                    html += '</tr>';
+                });
+            } else {
+                // Обычный режим
+                dataToRender.forEach((row, rowIndex) => {
+                    html += `<tr class="pivot-row" data-row="${rowIndex}">`;
+                    let columnIndex = 0;
+                    let timeColumnIndex = 0;
+                    let metricColumnIndex = 0;
+                    
+                    pivotData.columns.forEach(col => {
+                        const value = row[col];
+                        
+                        // В режиме временных рядов проверяем, что колонка не является срезом
+                        let isTimeSeries;
+                        if (isTimeSeriesMode) {
+                            const timeSeriesInfo = pivotData.time_series_info.find(ts => ts.name === col && ts.type !== 'slice');
+                            isTimeSeries = !!timeSeriesInfo;
+                        } else {
+                            isTimeSeries = pivotData.time_series_info.some(ts => ts.name === col);
+                        }
+                        
+                        if (isTimeSeries) {
+                            const level = pivotData.time_series_info.find(ts => ts.name === col).level;
+                            const stickyClass = timeColumnIndex === 0 ? 'sticky-time-column' : 'sticky-time-column';
+                            html += `<td class="pivot-cell ${stickyClass}" data-column="${col}" data-level="${level}">${value !== null && value !== undefined ? value : ''}</td>`;
+                            timeColumnIndex++;
+                        } else {
+                            // Столбцы метрик с GA стилем
+                            let metricClass;
+                            if (isTimeSeriesMode) {
+                                // В режиме временных рядов используем GA стиль
+                                metricClass = metricColumnIndex === 0 ? 'sticky-metric-column' : 'scrollable-metric-column';
+                            } else {
+                                // В обычном режиме используем стандартные классы
+                                metricClass = 'metric-column';
+                            }
+                            html += `<td class="${metricClass}">${value !== null && value !== undefined ? value : ''}</td>`;
+                            metricColumnIndex++;
+                        }
+                        columnIndex++;
+                    });
+                    html += '</tr>';
+                });
+            html += '</tbody>';
+            
+            html += '</table>';
+            html += '</div>';
+            html += '</div>';
+            
+            // График
+            html += '<div class="chart-section">';
+            html += '<h6><i class="fas fa-chart-line me-2"></i>График с учетом иерархии</h6>';
+            html += '<div class="chart-container" style="position: relative; height: 300px; width: 100%;">';
+            html += '<canvas id="hierarchicalChart" width="800" height="300"></canvas>';
+            html += '</div>';
+            html += '</div>';
+            
+            html += '</div>';
+            
+            chartContainer.innerHTML = html;
+            
+            // Сохраняем данные для интерактивности
+            pivotState.currentData = { pivotData, chartData };
+            
+            // Сохраняем исходную иерархию для фильтров (только при первом вызове)
+            if (!pivotState.originalHierarchy) {
+                pivotState.originalHierarchy = [...pivotData.time_series_info]; // Создаем копию
+                console.log('Сохранена исходная иерархия:', pivotState.originalHierarchy);
+            }
+            
+            // Инициализируем состояние - все уровни развернуты по умолчанию
+            pivotState.expandedLevels.clear();
+            pivotData.time_series_info.forEach(ts => {
+                pivotState.expandedLevels.add(ts.level);
+            });
+            
+            // Устанавливаем правильные символы во всех заголовках
+            setTimeout(() => {
+                const maxLevel = Math.max(...pivotData.time_series_info.map(ts => ts.level));
+                pivotData.time_series_info.forEach(ts => {
+                    const toggle = document.querySelector(`[data-column="${ts.name}"] .pivot-toggle`);
+                    if (toggle) {
+                        if (ts.level === maxLevel) {
+                            // Последний уровень - не показываем символ
+                            toggle.textContent = '';
+                        } else {
+                            // Не последний уровень - показываем минус
+                            toggle.textContent = '-';
+                        }
+                    }
+                });
+            }, 100);
+            
+            // Заполняем настройки группировки
+            populateGroupingOptions(pivotData);
+            
+            console.log('HTML создан, chartContainer:', chartContainer);
+            console.log('chartContainer стили:', window.getComputedStyle(chartContainer));
+            console.log('chartContainer display:', window.getComputedStyle(chartContainer).display);
+            console.log('chartContainer visibility:', window.getComputedStyle(chartContainer).visibility);
+            console.log('HTML содержимое:', html);
+            
+            // Создаем иерархический график
+            setTimeout(() => {
+                const canvas = document.getElementById('hierarchicalChart');
+                console.log('Canvas найден:', canvas);
+                if (canvas) {
+                    console.log('Canvas размеры:', canvas.width, 'x', canvas.height);
+                    const styles = window.getComputedStyle(canvas);
+                    console.log('Canvas display:', styles.display);
+                    console.log('Canvas visibility:', styles.visibility);
+                    console.log('Canvas opacity:', styles.opacity);
+                    console.log('Canvas width/height:', styles.width, 'x', styles.height);
+                    console.log('Canvas position:', styles.position);
+                    console.log('Canvas z-index:', styles.zIndex);
+                }
+                // Проверяем, нужно ли отображать график разбивки по срезам
+                if (pivotState.pivotMode === 'time-series' && selectedSlice) {
+                    // Режим разбивки по столбцам - создаем график по срезам
+                    console.log('Переключаемся на график разбивки по срезам:', selectedSlice);
+                    updateChartFromPivotState(selectedSlice);
+                } else {
+                    // Обычный иерархический график
+                    console.log('Создаем обычный иерархический график');
+                    renderHierarchicalChart(pivotData, chartData);
+                }
+            }, 100);
+        }
+
+        // Функция для заполнения опций группировки
+        function populateGroupingOptions(pivotData) {
+            const splitBySlice = document.getElementById('splitBySlice');
+            
+            if (!pivotData) return;
+            
+            // Разделяем временные ряды и срезы
+            const timeSeries = pivotData.time_series_info ? pivotData.time_series_info.filter(ts => ts.type !== 'slice') : [];
+            const slices = pivotData.time_series_info ? pivotData.time_series_info.filter(ts => ts.type === 'slice') : [];
+            
+            // Заполняем опции для режима временных рядов (только разбивка)
+            if (pivotState.pivotMode === 'time-series' && splitBySlice) {
+                splitBySlice.innerHTML = '<option value="">Без разбивки</option>';
+                
+                // Используем available_slices если они есть, иначе используем срезы из time_series_info
+                const availableSlices = pivotData.available_slices || slices;
+                
+                availableSlices.forEach(slice => {
+                    const option = document.createElement('option');
+                    option.value = slice.name;
+                    option.textContent = `${slice.name} (уровень ${slice.level})`;
+                    splitBySlice.appendChild(option);
+                });
+                
+                console.log('Заполнены опции разбивки:', availableSlices);
+            }
+            
+            // В режиме срезов группировка удалена
+            console.log('Режим срезов: группировка отключена');
+        }
+
+        // Функция для обновления таблицы с разбивкой по столбцам (режим временных рядов)
+        function updatePivotTableWithSplit() {
+            console.log('updatePivotTableWithSplit вызвана');
+            // Перезагружаем данные с новым параметром разбивки
+            loadTimeSeriesData();
+        }
+
+        // Функция для отображения графика в режиме разбивки по столбцам
+        function renderSplitChart(data, selectedSlice) {
+            console.log('renderSplitChart вызвана:', { data, selectedSlice });
+            
+            const chartContainer = document.getElementById('timeSeriesChartContainer');
+            if (!chartContainer) {
+                console.error('timeSeriesChartContainer не найден');
+                return;
+            }
+            
+            // Получаем временные колонки
+            const timeSeriesCols = pivotState.currentData.pivotData.time_series_info.filter(ts => ts.type !== 'slice');
+            const timeColumn = timeSeriesCols[0]?.name || 'year'; // Используем первую временную колонку
+            
+            console.log('Временные колонки:', timeSeriesCols);
+            
+            // Получаем колонки метрик с разбивкой из pivotState
+            const metricColumns = pivotState.currentData.pivotData.columns.filter(col => 
+                col.includes('_') && !timeSeriesCols.some(ts => ts.name === col)
+            );
+            
+            console.log('Колонки метрик с разбивкой:', metricColumns);
+            
+            if (metricColumns.length === 0) {
+                console.error('Не найдены колонки метрик с разбивкой');
+                return;
+            }
+            
+            // Подготавливаем данные для Chart.js
+            const datasets = [];
+            const colors = ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40'];
+            
+            console.log('Создаем datasets для графиков:', {
+                metricColumnsCount: metricColumns.length,
+                metricColumns: metricColumns,
+                dataRowsCount: data.length
+            });
+            
+            metricColumns.forEach((col, index) => {
+                // Пропускаем пустые колонки
+                if (col.endsWith('_')) {
+                    console.log(`Пропускаем пустую колонку: ${col}`);
+                    return;
+                }
+                
+                // Находим последний _ для правильного разбиения
+                const lastUnderscoreIndex = col.lastIndexOf('_');
+                if (lastUnderscoreIndex === -1) {
+                    console.log(`Не найдено _ в колонке: ${col}`);
+                    return;
+                }
+                
+                const metric = col.substring(0, lastUnderscoreIndex);
+                const sliceValue = col.substring(lastUnderscoreIndex + 1);
+                
+                const values = data.map(row => {
+                    const value = parseFloat(row[col]) || 0;
+                    return value;
+                });
+                
+                console.log(`Создаем dataset для ${col}:`, {
+                    metric: metric,
+                    sliceValue: sliceValue,
+                    valuesCount: values.length,
+                    firstFewValues: values.slice(0, 5)
+                });
+                
+                datasets.push({
+                    label: sliceValue, // Показываем только значение среза
+                    data: values,
+                    borderColor: colors[index % colors.length],
+                    backgroundColor: colors[index % colors.length] + '20',
+                    fill: false,
+                    tension: 0.1
+                });
+            });
+            
+            console.log('Итоговые datasets:', datasets);
+            
+            const labels = data.map(row => {
+                // Создаем метку времени из временных колонок
+                return timeSeriesCols.map(ts => row[ts.name]).join('-');
+            });
+            
+            // Анализируем масштабы данных
+            const allValues = datasets.flatMap(ds => ds.data);
+            const globalMin = Math.min(...allValues);
+            const globalMax = Math.max(...allValues);
+            const globalRange = globalMax - globalMin;
+            
+            console.log('Создаем график с данными:', {
+                labelsCount: labels.length,
+                labels: labels.slice(0, 5), // Первые 5 меток
+                datasetsCount: datasets.length,
+                globalMin: globalMin,
+                globalMax: globalMax,
+                globalRange: globalRange,
+                datasets: datasets.map(ds => ({
+                    label: ds.label,
+                    dataLength: ds.data.length,
+                    firstFewValues: ds.data.slice(0, 5),
+                    minValue: Math.min(...ds.data),
+                    maxValue: Math.max(...ds.data),
+                    range: Math.max(...ds.data) - Math.min(...ds.data),
+                    avgValue: ds.data.reduce((a, b) => a + b, 0) / ds.data.length
+                }))
+            });
+            
+            // Создаем график
+            const ctx = chartContainer.querySelector('canvas');
+            if (ctx) {
+                const chart = Chart.getChart(ctx);
+                if (chart) {
+                    console.log('Уничтожаем существующий график');
+                    chart.destroy();
+                }
+            }
+            
+            // Находим существующий canvas или создаем новый
+            let canvas = chartContainer.querySelector('canvas');
+            if (!canvas) {
+                canvas = document.createElement('canvas');
+                canvas.id = 'splitChart';
+                chartContainer.appendChild(canvas);
+            }
+            
+            console.log('Canvas создан:', canvas);
+            
+            new Chart(canvas, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: datasets
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: `График по ${selectedSlice}`
+                        },
+                        legend: {
+                            display: true,
+                            position: 'top'
+                        }
+                    },
+                    scales: {
+                        x: {
+                            display: true,
+                            title: {
+                                display: true,
+                                text: 'Время'
+                            }
+                        },
+                        y: {
+                            display: true,
+                            title: {
+                                display: true,
+                                text: 'Значение'
+                            },
+                            beginAtZero: true
+                        }
+                    }
+                }
+            });
+            
+            console.log('График разбивки создан успешно');
+        }
+
+        function renderHierarchicalChart(pivotData, chartData) {
+            console.log('renderHierarchicalChart вызвана с данными:', {pivotData, chartData});
+            
+            const canvas = document.getElementById('hierarchicalChart');
+            if (!canvas) {
+                console.error('Элемент hierarchicalChart не найден');
+                return;
+            }
+            
+            // Уничтожаем предыдущий график, если он существует
+            if (currentChart) {
+                currentChart.destroy();
+                currentChart = null;
+            }
+            
+            // Подготавливаем данные для иерархического графика
+            const datasets = [];
+            const colors = ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40'];
+            
+            // Создаем иерархические метки времени
+            const timeLabels = [];
+            const metricData = {};
+            
+            // Инициализируем данные метрик
+            chartData.metrics.forEach(metric => {
+                metricData[metric] = [];
+            });
+            
+            // Обрабатываем данные сводной таблицы
+            pivotData.data.forEach(row => {
+                // Создаем иерархическую метку времени
+                let timeLabel = '';
+                pivotData.time_series_info.forEach((ts, index) => {
+                    if (row[ts.name] !== null && row[ts.name] !== undefined) {
+                        if (timeLabel) timeLabel += '/';
+                        timeLabel += row[ts.name];
+                    }
+                });
+                
+                if (timeLabel && !timeLabels.includes(timeLabel)) {
+                    timeLabels.push(timeLabel);
+                }
+                
+                // Добавляем данные метрик
+                chartData.metrics.forEach(metric => {
+                    if (row[metric] !== null && row[metric] !== undefined) {
+                        metricData[metric].push(parseFloat(row[metric]) || 0);
+                    }
+                });
+            });
+            
+            // Создаем datasets для Chart.js
+            chartData.metrics.forEach((metric, index) => {
+                datasets.push({
+                    label: metric,
+                    data: metricData[metric],
+                    borderColor: colors[index % colors.length],
+                    backgroundColor: colors[index % colors.length] + '20',
+                    fill: false,
+                    tension: 0.1
+                });
+            });
+            
+            // Создаем график
+            try {
+                const ctx = canvas.getContext('2d');
+                console.log('Canvas context:', ctx);
+                console.log('Данные для графика:', {labels: timeLabels, datasets: datasets});
+                currentChart = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: timeLabels,
+                        datasets: datasets
+                    },
+                    options: {
+                        responsive: false,
+                        maintainAspectRatio: false,
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                title: {
+                                    display: true,
+                                    text: 'Значение'
+                                }
+                            },
+                            x: {
+                                title: {
+                                    display: true,
+                                    text: 'Время (иерархия)'
+                                },
+                                ticks: {
+                                    maxRotation: 45,
+                                    minRotation: 45
+                                }
+                            }
+                        },
+                        plugins: {
+                            legend: {
+                                display: true,
+                                position: 'top'
+                            },
+                            title: {
+                                display: true,
+                                text: 'Временные ряды с учетом иерархии'
+                            }
+                        }
+                    }
+                });
+                console.log('Иерархический график создан успешно:', currentChart);
+            } catch (error) {
+                console.error('Ошибка при создании иерархического графика:', error);
+            }
+        }
+        
+        // Функция для заполнения фильтров коллапсирования
+        function populateCollapseFilters() {
+            if (!pivotState.currentData) return;
+            
+            const timeSeriesSelect = document.getElementById('collapseTimeSeries');
+            const slicesSelect = document.getElementById('collapseSlices');
+            
+            console.log('Заполнение фильтров коллапсирования:', { timeSeriesSelect, slicesSelect });
+            
+            if (!timeSeriesSelect || !slicesSelect) return;
+            
+            // Очищаем селекты
+            timeSeriesSelect.innerHTML = '<option value="">Показать все уровни</option>';
+            slicesSelect.innerHTML = '<option value="">Показать все уровни</option>';
+            
+            // Используем исходную иерархию для фильтров, чтобы всегда показывать все доступные уровни
+            const hierarchyToUse = pivotState.originalHierarchy || pivotState.currentData.pivotData.time_series_info;
+            console.log('Используемая иерархия для фильтров:', hierarchyToUse);
+            console.log('Исходная иерархия:', pivotState.originalHierarchy);
+            
+            // Разделяем временные ряды и срезы
+            const timeSeries = hierarchyToUse.filter(ts => ts.type !== 'slice');
+            const slices = hierarchyToUse.filter(ts => ts.type === 'slice');
+            
+            console.log('Временные ряды для фильтра:', timeSeries);
+            console.log('Срезы для фильтра:', slices);
+            
+            // Заполняем фильтр временных рядов
+            timeSeries.forEach(ts => {
+                const option = document.createElement('option');
+                option.value = ts.level;
+                option.textContent = `До ${ts.name} (уровень ${ts.level})`;
+                timeSeriesSelect.appendChild(option);
+            });
+            
+            // Заполняем фильтр срезов
+            slices.forEach(slice => {
+                const option = document.createElement('option');
+                option.value = slice.level;
+                option.textContent = `До ${slice.name} (уровень ${slice.level})`;
+                slicesSelect.appendChild(option);
+            });
+            
+            console.log('Фильтры обновлены. Временные ряды:', timeSeries.length, 'Срезы:', slices.length);
+        }
+        
+        // Функция для сброса фильтров коллапсирования
+        function resetCollapseFilters() {
+            console.log('Сброс фильтров коллапсирования');
+            
+            // Сбрасываем выбранные значения в фильтрах
+            const timeSeriesSelect = document.getElementById('collapseTimeSeries');
+            const slicesSelect = document.getElementById('collapseSlices');
+            
+            if (timeSeriesSelect) timeSeriesSelect.value = '';
+            if (slicesSelect) slicesSelect.value = '';
+            
+            // Получаем исходные данные из sessionStorage
+            const sessionId = sessionStorage.getItem('sessionId');
+            if (!sessionId) return;
+            
+            // Получаем исходный маппинг из sessionStorage
+            const mappingData = sessionStorage.getItem('dataMapping');
+            if (!mappingData) return;
+            
+            const mapping = JSON.parse(mappingData);
+            console.log('Исходный маппинг для сброса:', mapping);
+            
+            // Получаем текущие параметры запроса
+            const timeColumn = document.getElementById('timeColumn')?.value || 'year';
+            const metricsSelect = document.getElementById('metricsSelect');
+            const selectedMetrics = Array.from(metricsSelect.selectedOptions).map(option => option.value);
+            const groupBy = document.getElementById('groupBy')?.value || '';
+            
+            // Отправляем запрос на сервер для получения исходных данных
+            const params = new URLSearchParams({
+                time_column: timeColumn,
+                metrics: selectedMetrics.join(','),
+                group_by: groupBy,
+                show_pivot: 'true',
+                mapping_data: JSON.stringify(mapping)
+            });
+            
+            const url = `/api/get_time_series_data/${sessionId}?${params}`;
+            console.log('URL для сброса:', url);
+            
+            fetch(url)
+                .then(response => response.json())
+                .then(data => {
+                    console.log('Ответ сервера при сбросе:', data);
+                    if (data.success && data.data.pivot_table) {
+                        // Восстанавливаем исходные данные
+                        const { pivotData, chartData } = pivotState.currentData;
+                        const restoredPivotData = {
+                            ...pivotData,
+                            data: data.data.pivot_table.data,
+                            columns: data.data.pivot_table.columns,
+                            time_series_info: data.data.pivot_table.time_series_info
+                        };
+                        
+                        // Обновляем состояние
+                        pivotState.currentData = { pivotData: restoredPivotData, chartData };
+                        pivotState.originalHierarchy = null; // Сбрасываем, чтобы восстановилась
+                        
+                        // Перестраиваем таблицу и график
+                        renderPivotTableAndChart(restoredPivotData, chartData);
+                        
+                        // Принудительно обновляем фильтры
+                        setTimeout(() => {
+                            // Сбрасываем значения фильтров
+                            const timeSeriesSelect = document.getElementById('collapseTimeSeries');
+                            const slicesSelect = document.getElementById('collapseSlices');
+                            
+                            if (timeSeriesSelect) timeSeriesSelect.value = '';
+                            if (slicesSelect) slicesSelect.value = '';
+                            
+                            // Обновляем опции фильтров
+                            populateCollapseFilters();
+                        }, 100);
+                    }
+                })
+                .catch(error => {
+                    console.error('Ошибка при сбросе фильтров:', error);
+                });
+        }
+        
+        // Функция для заполнения фильтров исключения данных
+        function populateExcludeFilters() {
+            if (!pivotState.currentData) return;
+            
+            const { pivotData } = pivotState.currentData;
+            const timeSeriesExcludeSelect = document.getElementById('excludeTimeSeries');
+            const slicesExcludeSelect = document.getElementById('excludeSlices');
+            
+            if (!timeSeriesExcludeSelect || !slicesExcludeSelect) return;
+            
+            // Очищаем селекты
+            timeSeriesExcludeSelect.innerHTML = '<option value="">Не исключать</option>';
+            slicesExcludeSelect.innerHTML = '<option value="">Не исключать</option>';
+            
+            // Разделяем временные ряды и срезы
+            const timeSeries = pivotData.time_series_info.filter(ts => ts.type !== 'slice');
+            const slices = pivotData.time_series_info.filter(ts => ts.type === 'slice');
+            
+            // Заполняем фильтр исключения временных рядов
+            timeSeries.forEach(ts => {
+                const option = document.createElement('option');
+                option.value = ts.name;
+                option.textContent = ts.name;
+                timeSeriesExcludeSelect.appendChild(option);
+            });
+            
+            // Заполняем фильтр исключения срезов
+            slices.forEach(slice => {
+                const option = document.createElement('option');
+                option.value = slice.name;
+                option.textContent = slice.name;
+                slicesExcludeSelect.appendChild(option);
+            });
+        }
+        
+        // Функция для исключения данных временных рядов
+        function excludeTimeSeriesData() {
+            const select = document.getElementById('excludeTimeSeries');
+            const columnName = select.value;
+            
+            if (!pivotState.currentData || !columnName) {
+                // Не исключаем данные
+                rebuildPivotWithFilters();
+                return;
+            }
+            
+            // Исключаем данные по выбранному временному ряду
+            const { pivotData } = pivotState.currentData;
+            const filteredData = pivotData.data.filter(row => !row[columnName]);
+            
+            const newPivotData = {
+                ...pivotData,
+                data: filteredData
+            };
+            
+            pivotState.currentData = { pivotData: newPivotData, chartData: pivotState.currentData.chartData };
+            updatePivotTable();
+            updateChartFromPivotState();
+        }
+        
+        // Функция для исключения данных срезов
+        function excludeSlicesData() {
+            const select = document.getElementById('excludeSlices');
+            const columnName = select.value;
+            
+            if (!pivotState.currentData || !columnName) {
+                // Не исключаем данные
+                rebuildPivotWithFilters();
+                return;
+            }
+            
+            // Исключаем данные по выбранному срезу
+            const { pivotData } = pivotState.currentData;
+            const filteredData = pivotData.data.filter(row => !row[columnName]);
+            
+            const newPivotData = {
+                ...pivotData,
+                data: filteredData
+            };
+            
+            pivotState.currentData = { pivotData: newPivotData, chartData: pivotState.currentData.chartData };
+            updatePivotTable();
+            updateChartFromPivotState();
+        }
+        
+        // Функция для перестройки сводной таблицы с учетом фильтров
+        function rebuildPivotWithFilters() {
+            if (!pivotState.currentData) return;
+            
+            // Здесь можно добавить логику для применения всех активных фильтров
+            const { pivotData } = pivotState.currentData;
+            updatePivotTable();
+            updateChartFromPivotState();
+        }
+        
+        // Функция для коллапсирования временных рядов
+        function collapseTimeSeriesLevel() {
+            const select = document.getElementById('collapseTimeSeries');
+            const level = parseInt(select.value);
+            
+            console.log('Коллапсирование временных рядов до уровня:', level);
+            
+            if (!pivotState.currentData || isNaN(level)) {
+                console.log('Восстанавливаем исходную иерархию');
+                // Показываем все уровни - восстанавливаем исходную иерархию
+                rebuildPivotWithNewHierarchy();
+                return;
+            }
+            
+            // Получаем исходные данные
+            const { pivotData, chartData } = pivotState.currentData;
+            
+            // Разделяем временные ряды и срезы
+            const timeSeries = pivotData.time_series_info.filter(ts => ts.type !== 'slice');
+            const slices = pivotData.time_series_info.filter(ts => ts.type === 'slice');
+            
+            // Находим временной ряд с выбранным уровнем
+            const targetTimeSeries = timeSeries.find(ts => ts.level === level);
+            if (!targetTimeSeries) return;
+            
+            // Создаем новую иерархию: временные ряды до выбранного уровня + срезы как дочерние
+            const newHierarchy = [];
+            
+            // Добавляем временные ряды до выбранного уровня включительно
+            timeSeries.forEach(ts => {
+                if (ts.level <= level) {
+                    newHierarchy.push({
+                        ...ts,
+                        level: newHierarchy.length
+                    });
+                }
+            });
+            
+            // Добавляем срезы как дочерние элементы
+            slices.forEach(slice => {
+                newHierarchy.push({
+                    ...slice,
+                    level: newHierarchy.length
+                });
+            });
+            
+            // Создаем новые данные с обновленной иерархией
+            const newPivotData = {
+                ...pivotData,
+                time_series_info: newHierarchy,
+                columns: newHierarchy.map(item => item.name).concat(chartData.metrics)
+            };
+            
+            // Обновляем состояние
+            pivotState.currentData = { pivotData: newPivotData, chartData };
+            
+            // Сбрасываем развернутые уровни - все развернуты
+            pivotState.expandedLevels.clear();
+            newHierarchy.forEach(item => {
+                pivotState.expandedLevels.add(item.level);
+            });
+            
+            // Перестраиваем таблицу и график с новыми данными
+            rebuildPivotDataWithNewHierarchy(newPivotData, chartData);
+        }
+        
+        // Функция для коллапсирования срезов
+        function collapseSlicesLevel() {
+            const select = document.getElementById('collapseSlices');
+            const level = parseInt(select.value);
+            
+            if (!pivotState.currentData || isNaN(level)) {
+                // Показываем все уровни - восстанавливаем исходную иерархию
+                rebuildPivotWithNewHierarchy();
+                return;
+            }
+            
+            // Получаем исходные данные
+            const { pivotData, chartData } = pivotState.currentData;
+            
+            // Разделяем временные ряды и срезы
+            const timeSeries = pivotData.time_series_info.filter(ts => ts.type !== 'slice');
+            const slices = pivotData.time_series_info.filter(ts => ts.type === 'slice');
+            
+            // Находим срез с выбранным уровнем
+            const targetSlice = slices.find(slice => slice.level === level);
+            if (!targetSlice) return;
+            
+            // Создаем новую иерархию: все временные ряды + срезы до выбранного уровня включительно
+            const newHierarchy = [];
+            
+            // Добавляем все временные ряды
+            timeSeries.forEach(ts => {
+                newHierarchy.push({
+                    ...ts,
+                    level: newHierarchy.length
+                });
+            });
+            
+            // Добавляем срезы до выбранного уровня включительно
+            slices.forEach(slice => {
+                if (slice.level <= level) {
+                    newHierarchy.push({
+                        ...slice,
+                        level: newHierarchy.length
+                    });
+                }
+            });
+            
+            // Создаем новые данные с обновленной иерархией
+            const newPivotData = {
+                ...pivotData,
+                time_series_info: newHierarchy,
+                columns: newHierarchy.map(item => item.name).concat(chartData.metrics)
+            };
+            
+            // Обновляем состояние
+            pivotState.currentData = { pivotData: newPivotData, chartData };
+            
+            // Сбрасываем развернутые уровни - все развернуты
+            pivotState.expandedLevels.clear();
+            newHierarchy.forEach(item => {
+                pivotState.expandedLevels.add(item.level);
+            });
+            
+            // Перестраиваем таблицу и график с новыми данными
+            rebuildPivotDataWithNewHierarchy(newPivotData, chartData);
+        }
+        
+        // Функция для перестройки данных сводной таблицы с новой иерархией
+        function rebuildPivotDataWithNewHierarchy(newPivotData, chartData) {
+            console.log('Перестройка данных с новой иерархией:', newPivotData);
+            
+            // Получаем текущие параметры запроса
+            const timeColumn = document.getElementById('timeColumn')?.value || 'year';
+            const metricsSelect = document.getElementById('metricsSelect');
+            const selectedMetrics = Array.from(metricsSelect.selectedOptions).map(option => option.value);
+            const groupBy = document.getElementById('groupBy')?.value || '';
+            
+            console.log('Параметры запроса:', { timeColumn, selectedMetrics, groupBy });
+            
+            // Создаем новый маппинг с обновленной иерархией
+            const newMapping = {
+                columns: newPivotData.time_series_info.map(item => ({
+                    name: item.name,
+                    role: item.type === 'slice' ? 'dimension' : 'time_series',
+                    time_series: item.type !== 'slice' ? item.type : null,
+                    nesting_level: item.level
+                }))
+            };
+            
+            console.log('Новый маппинг:', newMapping);
+            
+            // Отправляем запрос на сервер для получения новых данных
+            const params = new URLSearchParams({
+                time_column: timeColumn,
+                metrics: selectedMetrics.join(','),
+                group_by: groupBy,
+                show_pivot: 'true',
+                mapping_data: JSON.stringify(newMapping)
+            });
+            
+            const sessionId = sessionStorage.getItem('sessionId');
+            if (!sessionId) return;
+            
+            const url = `/api/get_time_series_data/${sessionId}?${params}`;
+            console.log('URL запроса:', url);
+            
+            fetch(url)
+                .then(response => response.json())
+                .then(data => {
+                    console.log('Ответ сервера:', data);
+                    if (data.success && data.data.pivot_table) {
+                        console.log('Получены новые данные сводной таблицы:', data.data.pivot_table);
+                        // Обновляем данные
+                        const updatedPivotData = {
+                            ...newPivotData,
+                            data: data.data.pivot_table.data,
+                            columns: data.data.pivot_table.columns
+                        };
+                        
+                        console.log('Обновленные данные:', updatedPivotData);
+                        
+                        // Обновляем состояние
+                        pivotState.currentData = { pivotData: updatedPivotData, chartData };
+                        
+                        // Перестраиваем таблицу и график
+                        renderPivotTableAndChart(updatedPivotData, chartData);
+                        
+                        // Обновляем фильтры с новой иерархией
+                        populateCollapseFilters();
+                    } else {
+                        console.error('Ошибка в ответе сервера:', data);
+                        console.error('Детали ошибки:', data.message || 'Неизвестная ошибка');
+                    }
+                })
+                .catch(error => {
+                    console.error('Ошибка при перестройке данных:', error);
+                    // В случае ошибки просто перестраиваем с текущими данными
+                    renderPivotTableAndChart(newPivotData, chartData);
+                });
+        }
+        
+        // Функция для переключения режимов сводной таблицы
+        function switchPivotMode(mode) {
+            if (!pivotState.currentData) return;
+            
+            // Обновляем режим
+            pivotState.pivotMode = mode;
+            
+            // Обновляем активную кнопку
+            const timeSeriesBtn = document.getElementById('timeSeriesMode');
+            const slicesBtn = document.getElementById('slicesMode');
+            
+            if (mode === 'time-series') {
+                timeSeriesBtn.className = 'btn btn-sm btn-primary';
+                slicesBtn.className = 'btn btn-sm btn-outline-primary';
+            } else {
+                timeSeriesBtn.className = 'btn btn-sm btn-outline-primary';
+                slicesBtn.className = 'btn btn-sm btn-primary';
+            }
+            
+            // Перестраиваем таблицу и график
+            updatePivotTable();
+        }
+        
+        // Функция для перестройки сводной таблицы с новой иерархией
+        function rebuildPivotWithNewHierarchy() {
+            if (!pivotState.currentData) return;
+            
+            const { pivotData, chartData } = pivotState.currentData;
+            
+            // Разделяем временные ряды и срезы
+            const timeSeries = pivotData.time_series_info.filter(ts => ts.type !== 'slice');
+            const slices = pivotData.time_series_info.filter(ts => ts.type === 'slice');
+            
+            let newHierarchy = [];
+            
+            if (pivotState.hierarchyMode === 'time-series-first') {
+                // Временные ряды → Срезы
+                newHierarchy = [...timeSeries, ...slices];
+            } else {
+                // Срезы → Временные ряды
+                newHierarchy = [...slices, ...timeSeries];
+            }
+            
+            // Обновляем уровни в новой иерархии
+            newHierarchy.forEach((item, index) => {
+                item.level = index;
+            });
+            
+            // Создаем новые данные с обновленной иерархией
+            const newPivotData = {
+                ...pivotData,
+                time_series_info: newHierarchy,
+                columns: newHierarchy.map(item => item.name).concat(chartData.metrics)
+            };
+            
+            // Обновляем состояние
+            pivotState.currentData = { pivotData: newPivotData, chartData };
+            
+            // Сбрасываем развернутые уровни
+            pivotState.expandedLevels.clear();
+            newHierarchy.forEach(item => {
+                pivotState.expandedLevels.add(item.level);
+            });
+            
+            // Перестраиваем таблицу и график
+            renderPivotTableAndChart(newPivotData, chartData);
+        }
+        
+        // Функция для переключения уровней в сводной таблице
+        function togglePivotLevel(columnName) {
+            if (!pivotState.currentData) return;
+            
+            const { pivotData } = pivotState.currentData;
+            const level = pivotData.time_series_info.find(ts => ts.name === columnName)?.level;
+            
+            if (level === undefined) return;
+            
+            const toggle = document.querySelector(`[data-column="${columnName}"] .pivot-toggle`);
+            const toggleText = toggle.textContent.trim();
+            
+            // Определяем действие по символу на кнопке, а не по состоянию уровня
+            if (toggleText === '-') {
+                // Сворачиваем - скрываем дочерние уровни, а не сам родительский
+                
+                // Находим все дочерние уровни (больше текущего)
+                const childLevels = pivotData.time_series_info
+                    .filter(ts => ts.level > level && pivotState.expandedLevels.has(ts.level))
+                    .map(ts => ts.level);
+                
+                if (childLevels.length > 0) {
+                    // Скрываем самый ближайший дочерний уровень
+                    const nearestChildLevel = Math.min(...childLevels);
+                    pivotState.expandedLevels.delete(nearestChildLevel);
+                    
+                    // Обновляем кнопку родителя на плюс
+                    toggle.textContent = '+';
+                    
+                    // Скрываем колонки с уровнями >= дочернего
+                    hidePivotColumns(nearestChildLevel);
+                    
+                    // Агрегируем данные по скрытому уровню
+                    const aggregatedData = aggregatePivotData(pivotData, nearestChildLevel);
+                    
+                    // Обновляем таблицу с агрегированными данными
+                    // Сохраняем агрегированные данные в состоянии
+                    pivotState.currentData.pivotData.data = aggregatedData;
+                    updatePivotTable();
+                }
+                
+            } else if (toggleText === '+') {
+                // Разворачиваем - показываем колонки и детальные данные
+                // При разворачивании, разворачиваем только следующий скрытый уровень
+                const hiddenLevels = pivotData.time_series_info
+                    .filter(ts => ts.level > level && !pivotState.expandedLevels.has(ts.level))
+                    .map(ts => ts.level);
+                
+                if (hiddenLevels.length > 0) {
+                    // Находим ближайший скрытый уровень
+                    const nearestHiddenLevel = Math.min(...hiddenLevels);
+                    
+                    // Разворачиваем только этот уровень
+                    pivotState.expandedLevels.add(nearestHiddenLevel);
+                    
+                    // Показываем колонки до этого уровня
+                    showPivotColumns(nearestHiddenLevel);
+                    
+                    // Показываем исходные данные
+                    updatePivotTable();
+                }
+            }
+            
+            // Перестраиваем график
+            updateChartFromPivotState();
+        }
+        
+        // Функция для скрытия колонок сводной таблицы
+        function hidePivotColumns(hiddenLevel) {
+            const { pivotData } = pivotState.currentData;
+            const headers = document.querySelectorAll('#pivotTable th');
+            const rows = document.querySelectorAll('#pivotTable tbody tr');
+            
+            headers.forEach((header, index) => {
+                const columnName = header.getAttribute('data-column');
+                if (columnName) {
+                    // Проверяем, является ли это временным рядом
+                    const timeSeriesInfo = pivotData.time_series_info.find(ts => ts.name === columnName);
+                    if (timeSeriesInfo && timeSeriesInfo.level >= hiddenLevel) {
+                        header.style.visibility = 'hidden';
+                        header.style.width = '0px';
+                        header.style.padding = '0px';
+                        // Скрываем соответствующие ячейки в строках
+                        rows.forEach(row => {
+                            const cells = row.querySelectorAll('td');
+                            if (cells[index]) {
+                                cells[index].style.visibility = 'hidden';
+                                cells[index].style.width = '0px';
+                                cells[index].style.padding = '0px';
+                            }
+                        });
+                    }
+                }
+            });
+            
+            // Обновляем плюсы/минусы для верхних уровней
+            updateToggleStates(hiddenLevel);
+        }
+        
+        // Функция для показа колонок сводной таблицы
+        function showPivotColumns(maxLevel) {
+            const { pivotData } = pivotState.currentData;
+            const headers = document.querySelectorAll('#pivotTable th');
+            const rows = document.querySelectorAll('#pivotTable tbody tr');
+            
+            // Создаем маппинг колонок на индексы
+            const columnIndexMap = {};
+            pivotData.columns.forEach((col, index) => {
+                columnIndexMap[col] = index;
+            });
+            
+            headers.forEach((header, index) => {
+                const columnName = header.getAttribute('data-column');
+                if (columnName) {
+                    // Проверяем, является ли это временным рядом
+                    const timeSeriesInfo = pivotData.time_series_info.find(ts => ts.name === columnName);
+                    if (timeSeriesInfo && timeSeriesInfo.level <= maxLevel) {
+                        header.style.visibility = 'visible';
+                        header.style.width = '';
+                        header.style.padding = '';
+                        // Показываем соответствующие ячейки в строках
+                        rows.forEach(row => {
+                            const cells = row.querySelectorAll('td');
+                            if (cells[index]) {
+                                cells[index].style.visibility = 'visible';
+                                cells[index].style.width = '';
+                                cells[index].style.padding = '';
+                            }
+                        });
+                    }
+                } else {
+                    // Это колонка с метрикой - всегда показываем
+                    header.style.visibility = 'visible';
+                    header.style.width = '';
+                    header.style.padding = '';
+                    rows.forEach(row => {
+                        const cells = row.querySelectorAll('td');
+                        if (cells[index]) {
+                            cells[index].style.visibility = 'visible';
+                            cells[index].style.width = '';
+                            cells[index].style.padding = '';
+                        }
+                    });
+                }
+            });
+            
+            // Обновляем плюсы/минусы
+            updateToggleStates(maxLevel + 1);
+        }
+        
+        // Функция для обновления состояний плюсов/минусов
+        function updateToggleStates(currentLevel) {
+            const { pivotData } = pivotState.currentData;
+            
+            // Находим максимальный уровень среди всех временных рядов и срезов
+            const maxLevel = Math.max(...pivotData.time_series_info.map(ts => ts.level));
+            
+            pivotData.time_series_info.forEach(ts => {
+                const toggle = document.querySelector(`[data-column="${ts.name}"] .pivot-toggle`);
+                if (toggle) {
+                    // Определяем максимальный развернутый уровень
+                    const maxExpandedLevel = pivotState.expandedLevels.size > 0 ? 
+                        Math.max(...Array.from(pivotState.expandedLevels)) : -1;
+                    
+                    if (ts.level <= maxExpandedLevel) {
+                        // Видимый уровень - проверяем, есть ли скрытые уровни непосредственно ниже
+                        const hiddenLevels = pivotData.time_series_info
+                            .filter(lowerTs => lowerTs.level > ts.level && !pivotState.expandedLevels.has(lowerTs.level))
+                            .map(lowerTs => lowerTs.level);
+                        
+                        if (hiddenLevels.length > 0) {
+                            // Есть скрытые уровни - показываем плюс только если это непосредственный родитель
+                            const nearestHiddenLevel = Math.min(...hiddenLevels);
+                            if (ts.level === nearestHiddenLevel - 1) {
+                                toggle.textContent = '+';
+                            } else {
+                                toggle.textContent = '-';
+                            }
+                        } else {
+                            // Нет скрытых нижних уровней
+                            if (ts.level === maxLevel) {
+                                // Это последний уровень - не показываем никакого символа
+                                toggle.textContent = '';
+                            } else {
+                                // Не последний уровень - показываем минус
+                                toggle.textContent = '-';
+                            }
+                        }
+                    } else {
+                        // Скрытый уровень - не показываем (он скрыт)
+                        toggle.textContent = '+';
+                    }
+                }
+            });
+        }
+        
+        // Функция для агрегации данных сводной таблицы
+        function aggregatePivotData(pivotData, hiddenLevel) {
+            const timeSeriesCols = pivotData.time_series_info.filter(ts => ts.level < hiddenLevel);
+            const metricCols = pivotData.columns.filter(col => 
+                !pivotData.time_series_info.some(ts => ts.name === col)
+            );
+            
+            // Группируем по видимым временным рядам
+            const groups = {};
+            pivotData.data.forEach(row => {
+                const groupKey = timeSeriesCols.map(ts => row[ts.name]).join('|');
+                if (!groups[groupKey]) {
+                    groups[groupKey] = {
+                        timeData: {},
+                        metrics: {}
+                    };
+                    timeSeriesCols.forEach(ts => {
+                        groups[groupKey].timeData[ts.name] = row[ts.name];
+                    });
+                    metricCols.forEach(metric => {
+                        groups[groupKey].metrics[metric] = 0;
+                    });
+                }
+                
+                // Суммируем метрики
+                metricCols.forEach(metric => {
+                    groups[groupKey].metrics[metric] += parseFloat(row[metric]) || 0;
+                });
+            });
+            
+            // Преобразуем в массив
+            return Object.values(groups).map(group => ({
+                ...group.timeData,
+                ...group.metrics
+            }));
+        }
+        
+        // Функция для обновления таблицы без параметров
+        function updatePivotTable() {
+            if (!pivotState.currentData) return;
+            
+            const { pivotData, chartData} = pivotState.currentData;
+            renderPivotTableAndChart(pivotData, chartData);
+        }
+        
+        // Функция для обновления графика на основе состояния сводной таблицы
+        function updateChartFromPivotState(selectedSlice = '') {
+            if (!pivotState.currentData) return;
+            
+            const { pivotData, chartData } = pivotState.currentData;
+            
+            // Получаем текущие данные из таблицы
+            const tbody = document.getElementById('pivotTableBody');
+            if (!tbody) return;
+            
+            const rows = tbody.querySelectorAll('.pivot-row');
+            const visibleData = [];
+            
+            rows.forEach(row => {
+                const rowData = {};
+                const cells = row.querySelectorAll('td');
+                pivotData.columns.forEach((col, index) => {
+                    if (cells[index] && cells[index].style.visibility !== 'hidden') {
+                        rowData[col] = cells[index].textContent.trim();
+                    }
+                });
+                visibleData.push(rowData);
+            });
+            
+            console.log('Видимые данные для графика:', visibleData);
+            
+            if (visibleData.length === 0) return;
+            
+            // Проверяем, находимся ли мы в режиме разбивки по столбцам
+            // Если selectedSlice не передан как параметр, получаем из DOM
+            if (!selectedSlice) {
+                const splitBySlice = document.getElementById('splitBySlice');
+                selectedSlice = splitBySlice ? splitBySlice.value : '';
+            }
+            
+            console.log('updateChartFromPivotState - проверка режима:', {
+                pivotMode: pivotState.pivotMode,
+                selectedSlice: selectedSlice,
+                visibleDataLength: visibleData.length
+            });
+            
+            if (pivotState.pivotMode === 'time-series' && selectedSlice) {
+                // Режим разбивки по столбцам - создаем график по срезам
+                console.log('Создаем график по срезам:', {
+                    selectedSlice: selectedSlice,
+                    visibleDataLength: visibleData.length,
+                    visibleData: visibleData
+                });
+                renderSplitChart(visibleData, selectedSlice);
+                return;
+            } else {
+                console.log('Не создаем график разбивки, причина:', {
+                    pivotMode: pivotState.pivotMode,
+                    selectedSlice: selectedSlice,
+                    condition1: pivotState.pivotMode === 'time-series',
+                    condition2: !!selectedSlice
+                });
+            }
+            
+            // Получаем только видимые временные ряды (исключаем срезы для построения графика)
+            const visibleTimeSeries = pivotData.time_series_info.filter(ts => 
+                pivotState.expandedLevels.has(ts.level) && ts.type !== 'slice'
+            );
+            
+            // Получаем видимые срезы
+            const visibleSlices = pivotData.time_series_info.filter(ts => 
+                pivotState.expandedLevels.has(ts.level) && ts.type === 'slice'
+            );
+            
+            // В режиме "Срезы → Время" временные ряды могут быть в конце иерархии
+            // Нужно найти их правильные позиции
+            const timeSeriesInHierarchy = pivotData.time_series_info.filter(ts => ts.type !== 'slice');
+            
+            // Создаем метки времени
+            const timeLabels = [];
+            const datasets = [];
+            let maxSliceLevel = 0; // Переменная для отображения в заголовке
+            
+            // В режиме "Время → Срезы" создаем отдельные графики для каждого среза
+            if (pivotState.hierarchyMode === 'time-series-first' && visibleSlices.length > 0) {
+                console.log('Создаем отдельные графики для срезов:', visibleSlices);
+                
+                // Находим самый низкий уровень видимых срезов
+                maxSliceLevel = Math.max(...visibleSlices.map(slice => slice.level));
+                const lowestLevelSlices = visibleSlices.filter(slice => slice.level === maxSliceLevel);
+                
+                console.log('Самый низкий уровень срезов:', maxSliceLevel);
+                console.log('Срезы самого низкого уровня:', lowestLevelSlices);
+                
+                // Группируем данные по срезам самого низкого уровня
+                const sliceGroups = {};
+                
+                visibleData.forEach(row => {
+                    // Создаем ключ среза только из срезов самого низкого уровня
+                    let sliceKey = '';
+                    lowestLevelSlices.forEach(slice => {
+                        if (row[slice.name] !== null && row[slice.name] !== undefined && row[slice.name] !== '') {
+                            if (sliceKey) sliceKey += ' - ';
+                            sliceKey += row[slice.name];
+                        }
+                    });
+                    
+                    if (!sliceKey) sliceKey = 'Общий';
+                    
+                    if (!sliceGroups[sliceKey]) {
+                        sliceGroups[sliceKey] = [];
+                    }
+                    sliceGroups[sliceKey].push(row);
+                });
+                
+                console.log('Группы срезов:', sliceGroups);
+                
+                // Создаем датасеты для каждого среза
+                const colors = ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40', '#FF6384', '#36A2EB'];
+                let colorIndex = 0;
+                
+                Object.keys(sliceGroups).forEach(sliceKey => {
+                    const sliceData = sliceGroups[sliceKey];
+                    
+                    chartData.metrics.forEach(metric => {
+                        const metricData = [];
+                        const sliceTimeLabels = [];
+                        
+                        sliceData.forEach(row => {
+                            // Создаем временную метку из видимых временных рядов
+                            let timeLabel = '';
+                            visibleTimeSeries.forEach(ts => {
+                                if (row[ts.name] !== null && row[ts.name] !== undefined && row[ts.name] !== '') {
+                                    if (timeLabel) timeLabel += '/';
+                                    timeLabel += row[ts.name];
+                                }
+                            });
+                            
+                            if (timeLabel && !sliceTimeLabels.includes(timeLabel)) {
+                                sliceTimeLabels.push(timeLabel);
+                            }
+                            
+                            const value = parseFloat(row[metric]) || 0;
+                            metricData.push(value);
+                        });
+                        
+                        // Добавляем временные метки, если их еще нет
+                        sliceTimeLabels.forEach(label => {
+                            if (!timeLabels.includes(label)) {
+                                timeLabels.push(label);
+                            }
+                        });
+                        
+                        // Создаем датасет для среза и метрики
+                        datasets.push({
+                            label: `${sliceKey} - ${metric}`,
+                            data: metricData,
+                            borderColor: colors[colorIndex % colors.length],
+                            backgroundColor: colors[colorIndex % colors.length] + '20',
+                            borderWidth: 2,
+                            fill: false,
+                            tension: 0.1
+                        });
+                        
+                        colorIndex++;
+                    });
+                });
+                
+            } else {
+                // Обычный режим - группируем данные по метрикам
+                const metricData = {};
+                
+                chartData.metrics.forEach(metric => {
+                    metricData[metric] = [];
+                });
+                
+                visibleData.forEach(row => {
+                    let timeLabel = '';
+                    
+                    // В зависимости от режима, строим временную метку по-разному
+                    if (pivotState.hierarchyMode === 'time-series-first') {
+                        // В режиме "Время → Срезы" используем только видимые временные ряды
+                        visibleTimeSeries.forEach(ts => {
+                            if (row[ts.name] !== null && row[ts.name] !== undefined && row[ts.name] !== '') {
+                                if (timeLabel) timeLabel += '/';
+                                timeLabel += row[ts.name];
+                            }
+                        });
+                    } else {
+                        // В режиме "Срезы → Время" используем все видимые временные ряды
+                        timeSeriesInHierarchy.forEach(ts => {
+                            if (pivotState.expandedLevels.has(ts.level) && row[ts.name] !== null && row[ts.name] !== undefined && row[ts.name] !== '') {
+                                if (timeLabel) timeLabel += '/';
+                                timeLabel += row[ts.name];
+                            }
+                        });
+                    }
+                    
+                    if (timeLabel && !timeLabels.includes(timeLabel)) {
+                        timeLabels.push(timeLabel);
+                    }
+                    
+                    chartData.metrics.forEach(metric => {
+                        if (row[metric] !== null && row[metric] !== undefined && row[metric] !== '') {
+                            metricData[metric].push(parseFloat(row[metric]) || 0);
+                        }
+                    });
+                });
+                
+                // Создаем датасеты для метрик
+                const colors = ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40'];
+                chartData.metrics.forEach((metric, index) => {
+                    datasets.push({
+                        label: metric,
+                        data: metricData[metric],
+                        borderColor: colors[index % colors.length],
+                        backgroundColor: colors[index % colors.length] + '20',
+                        borderWidth: 2,
+                        fill: false,
+                        tension: 0.1
+                    });
+                });
+            }
+            
+            // Обновляем или создаем график
+            if (currentChart) {
+                currentChart.destroy();
+            }
+            
+            const ctx = document.getElementById('hierarchicalChart');
+            if (!ctx) return;
+            
+            currentChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: timeLabels,
+                    datasets: datasets
+                },
+                options: {
+                    responsive: false,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: pivotState.hierarchyMode === 'time-series-first' && visibleSlices.length > 0 
+                                ? `График временных рядов по срезам (уровень ${maxSliceLevel})` 
+                                : 'Иерархический график временных рядов'
+                        },
+                        legend: {
+                            display: true,
+                            position: 'top'
+                        }
+                    },
+                    scales: {
+                        x: {
+                            display: true,
+                            title: {
+                                display: true,
+                                text: 'Временные ряды'
+                            }
+                        },
+                        y: {
+                            display: true,
+                            title: {
+                                display: true,
+                                text: 'Значения'
+                            }
+                        }
+                    }
+                }
+            });
+            
+            console.log('График обновлен с данными:', { timeLabels, datasets });
+        }
+
+        function showSaveProjectModal() {
+            const modal = new bootstrap.Modal(document.getElementById('saveProjectModal'));
+            modal.show();
+        }
+
+        function saveProject() {
+            const projectName = document.getElementById('projectName').value.trim();
+            
+            if (!projectName) {
+                alert('Введите название проекта');
+                return;
+            }
+            
+            if (!currentSessionId) {
+                alert('Нет активной сессии');
+                return;
+            }
+            
+            // Собираем данные для сохранения
+            const saveData = {
+                name: projectName,
+                session_id: currentSessionId,
+                data_mapping: dataMapping,
+                processed_data: processedData
+            };
+            
+            // Показываем загрузку
+            const saveButton = document.querySelector('#saveProjectModal .btn-primary');
+            const originalText = saveButton.innerHTML;
+            saveButton.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Сохранение...';
+            saveButton.disabled = true;
+            
+            // Отправляем запрос
+            fetch('/api/save_project', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(saveData)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert('Проект сохранен успешно!');
+                    bootstrap.Modal.getInstance(document.getElementById('saveProjectModal')).hide();
+                    document.getElementById('projectName').value = '';
+                    
+                    // Сохраняем ID проекта
+                    sessionStorage.setItem('currentProjectId', data.project_id);
+                } else {
+                    alert('Ошибка: ' + data.message);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Ошибка при сохранении проекта');
+            })
+            .finally(() => {
+                saveButton.innerHTML = originalText;
+                saveButton.disabled = false;
+            });
+        }
+
+        function deleteCurrentProject() {
+            const projectId = sessionStorage.getItem('currentProjectId');
+            
+            if (!projectId) {
+                alert('Нет активного проекта для удаления');
+                return;
+            }
+            
+            if (confirm('Вы уверены, что хотите удалить текущий проект? Это действие нельзя отменить.')) {
+                fetch(`/api/delete_project/${projectId}`, {
+                    method: 'DELETE'
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        alert('Проект удален успешно');
+                        // Очищаем sessionStorage и перезагружаем страницу
+                        sessionStorage.clear();
+                        window.location.reload();
+                    } else {
+                        alert('Ошибка: ' + data.message);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Ошибка при удалении проекта');
+                });
+            }
+        }
+
+        function startForecast() {
+            if (!processedData || !dataMapping) {
+                alert('Нет данных для прогнозирования. Сначала настройте маппинг.');
+                return;
+            }
+            
+            // Показываем интерфейс прогнозирования
+            showForecastInterface();
+        }
+
+        function showForecastInterface() {
+            const preview = document.getElementById('dataPreview');
+            const forecastInterface = document.createElement('div');
+            forecastInterface.id = 'forecastInterface';
+            forecastInterface.innerHTML = `
+                <div class="card mt-3">
+                    <div class="card-header">
+                        <h5><i class="fas fa-chart-line me-2"></i>Настройки прогнозирования</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label">Метод прогнозирования</label>
+                                    <select class="form-select" id="forecastMethod">
+                                        <option value="random_forest">Random Forest (рекомендуется)</option>
+                                        <option value="linear">Линейная регрессия</option>
+                                    </select>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">Период прогнозирования (месяцев)</label>
+                                    <input type="number" class="form-control" id="forecastPeriods" value="6" min="1" max="24">
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label">Целевая метрика</label>
+                                    <select class="form-select" id="targetMetric">
+                                        <option value="">Выберите метрику</option>
+                                    </select>
+                                </div>
+                                <div class="mb-3">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="enableCascade" checked>
+                                        <label class="form-check-label" for="enableCascade">
+                                            Включить каскадное прогнозирование
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="text-center">
+                            <button class="btn btn-success btn-lg" onclick="runForecast()">
+                                <i class="fas fa-play me-2"></i>Запустить прогноз
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+            preview.appendChild(forecastInterface);
+            
+            // Заполняем селект целевых метрик
+            populateTargetMetrics();
+        }
+
+        function populateTargetMetrics() {
+            const targetSelect = document.getElementById('targetMetric');
+            if (processedData && processedData.columns) {
+                processedData.columns.forEach(col => {
+                    if (processedData.dtypes[col] && 
+                        (processedData.dtypes[col].includes('int') || processedData.dtypes[col].includes('float'))) {
+                        const option = document.createElement('option');
+                        option.value = col;
+                        option.textContent = col;
+                        targetSelect.appendChild(option);
+                    }
+                });
+            }
+        }
+
+        function runForecast() {
+            const method = document.getElementById('forecastMethod').value;
+            const periods = parseInt(document.getElementById('forecastPeriods').value);
+            const targetMetric = document.getElementById('targetMetric').value;
+            const enableCascade = document.getElementById('enableCascade').checked;
+            
+            if (!targetMetric) {
+                alert('Выберите целевую метрику');
+                return;
+            }
+            
+            // Показываем загрузку
+            const forecastInterface = document.getElementById('forecastInterface');
+            forecastInterface.innerHTML = `
+                <div class="text-center py-5">
+                    <div class="spinner-border text-primary mb-3" role="status">
+                        <span class="visually-hidden">Загрузка...</span>
+                    </div>
+                    <h5>Выполнение прогноза...</h5>
+                    <p class="text-muted">Это может занять несколько минут</p>
+                </div>
+            `;
+            
+            // Получаем данные маппинга из sessionStorage
+            const mappingData = sessionStorage.getItem('dataMapping');
+            
+            // Отправляем запрос на прогнозирование
+            const forecastData = {
+                method: method,
+                periods: periods,
+                target_metric: targetMetric,
+                enable_cascade: enableCascade,
+                session_id: currentSessionId,
+                mapping_data: mappingData
+            };
+            
+            fetch('/forecast_api', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(forecastData)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showForecastResults(data);
+                } else {
+                    alert('Ошибка прогнозирования: ' + data.message);
+                    // Восстанавливаем интерфейс
+                    showForecastInterface();
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Ошибка при выполнении прогноза');
+                // Восстанавливаем интерфейс
+                showForecastInterface();
+            });
+        }
+
+        function showForecastResults(data) {
+            const forecastInterface = document.getElementById('forecastInterface');
+            forecastInterface.innerHTML = `
+                <div class="card">
+                    <div class="card-header">
+                        <h5><i class="fas fa-chart-line me-2"></i>Результаты прогнозирования</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="alert alert-success">
+                            <h6><i class="fas fa-check me-2"></i>Прогноз выполнен успешно!</h6>
+                            <p>Метод: ${data.method}</p>
+                            <p>Период: ${data.periods} месяцев</p>
+                            <p>Целевая метрика: ${data.target_metric}</p>
+                        </div>
+                        <div class="text-center">
+                            <button class="btn btn-primary me-2" onclick="downloadResults('csv')">
+                                <i class="fas fa-download me-2"></i>Скачать CSV
+                            </button>
+                            <button class="btn btn-success me-2" onclick="downloadResults('excel')">
+                                <i class="fas fa-download me-2"></i>Скачать Excel
+                            </button>
+                            <button class="btn btn-info" onclick="downloadResults('report')">
+                                <i class="fas fa-file-pdf me-2"></i>Отчет
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function downloadResults(format) {
+            if (!currentSessionId) {
+                alert('Нет активной сессии');
+                return;
+            }
+            
+            window.open(`/download/${format}/${currentSessionId}`, '_blank');
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,881 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MARFOR - Маркетинговый инструмент прогнозирования</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        .hero-section {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 60px 0;
+        }
+        .module-card {
+            transition: transform 0.3s ease;
+            border: none;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            height: 100%;
+        }
+        .module-card:hover {
+            transform: translateY(-5px);
+        }
+        .module-icon {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+        }
+        .upload-area {
+            border: 2px dashed #667eea;
+            border-radius: 10px;
+            padding: 40px;
+            text-align: center;
+            transition: all 0.3s ease;
+        }
+        .upload-area:hover {
+            border-color: #764ba2;
+            background-color: #f8f9ff;
+        }
+        .config-section {
+            background-color: #f8f9fa;
+            border-radius: 10px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        .results-tabs {
+            margin-top: 20px;
+        }
+        .chart-container {
+            background-color: white;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 10px 0;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            position: relative;
+            height: 400px;
+        }
+        .data-table {
+            background-color: white;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 10px 0;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+        .table-responsive {
+            max-height: 500px;
+            overflow-y: auto;
+        }
+        .metric-card {
+            background-color: #e3f2fd;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 10px 0;
+            text-align: center;
+        }
+        .metric-value {
+            font-size: 1.8em;
+            font-weight: bold;
+            color: #1976d2;
+        }
+        .dependency-matrix {
+            overflow-x: auto;
+        }
+        .loading {
+            text-align: center;
+            padding: 40px;
+        }
+        .spinner-border {
+            width: 3rem;
+            height: 3rem;
+        }
+        .nav-tabs .nav-link.active {
+            background-color: #007bff;
+            color: white;
+            border-color: #007bff;
+        }
+        .nav-tabs .nav-link {
+            color: #007bff;
+        }
+        .nav-tabs .nav-link:hover {
+            border-color: #e9ecef #e9ecef #dee2e6;
+        }
+        .scenario-input {
+            margin-bottom: 15px;
+        }
+        .download-section {
+            background-color: #f8f9fa;
+            border-radius: 10px;
+            padding: 20px;
+            margin: 20px 0;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <!-- Навигация -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container">
+            <a class="navbar-brand" href="#">
+                <i class="fas fa-chart-line me-2"></i>
+                <strong>MARFOR</strong>
+            </a>
+            <span class="navbar-text">Маркетинговый инструмент прогнозирования</span>
+        </div>
+    </nav>
+
+    <!-- Главная секция -->
+    <section class="hero-section">
+        <div class="container text-center">
+            <h1 class="display-4 mb-4">
+                <i class="fas fa-chart-line me-3"></i>
+                MARFOR
+            </h1>
+            <p class="lead mb-4">Универсальный инструмент для прогнозирования и бюджетирования маркетинга</p>
+            <p class="mb-0">Три мощных модуля: трендовый прогноз, анализ зависимостей и моделирование сценариев</p>
+        </div>
+    </section>
+
+    <!-- Основной контент -->
+    <div class="container my-5">
+        <!-- Модули -->
+        <div class="row mb-5">
+            <div class="col-md-4">
+                <div class="card module-card">
+                    <div class="card-body text-center">
+                        <i class="fas fa-chart-line module-icon text-primary"></i>
+                        <h5>1. Трендовый прогноз</h5>
+                        <p class="text-muted">Каскадная адаптивная модель для точного прогнозирования метрик</p>
+                        <button class="btn btn-primary" onclick="showModule('trend')">
+                            <i class="fas fa-play me-2"></i>Запустить
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card module-card">
+                    <div class="card-body text-center">
+                        <i class="fas fa-link module-icon text-success"></i>
+                        <h5>2. Анализ зависимостей</h5>
+                        <p class="text-muted">Оценка влияния одних метрик на другие</p>
+                        <button class="btn btn-success" onclick="showModule('dependencies')">
+                            <i class="fas fa-play me-2"></i>Запустить
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card module-card">
+                    <div class="card-body text-center">
+                        <i class="fas fa-flask module-icon text-warning"></i>
+                        <h5>3. Моделирование</h5>
+                        <p class="text-muted">Эмулятор сценариев при изменении параметров</p>
+                        <button class="btn btn-warning" onclick="showModule('simulation')">
+                            <i class="fas fa-play me-2"></i>Запустить
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Загрузка данных -->
+        <div class="card mb-4" id="uploadSection">
+            <div class="card-header">
+                <h4><i class="fas fa-upload me-2"></i>Загрузка данных</h4>
+            </div>
+            <div class="card-body">
+                <div class="upload-area" id="uploadArea">
+                    <i class="fas fa-cloud-upload-alt fa-3x text-muted mb-3"></i>
+                    <h5>Перетащите файл сюда или нажмите для выбора</h5>
+                    <p class="text-muted">Поддерживаются форматы: CSV, Excel (.xlsx, .xls)</p>
+                    <input type="file" id="fileInput" class="d-none" accept=".csv,.xlsx,.xls">
+                    <button class="btn btn-primary" onclick="document.getElementById('fileInput').click()">
+                        <i class="fas fa-folder-open me-2"></i>Выбрать файл
+                    </button>
+                </div>
+                <div id="uploadStatus" class="mt-3"></div>
+                <div id="dataPreview" class="mt-3"></div>
+            </div>
+        </div>
+
+        <!-- Модуль 1: Трендовый прогноз -->
+        <div class="card mb-4" id="trendModule" style="display: none;">
+            <div class="card-header">
+                <h4><i class="fas fa-chart-line me-2"></i>Модуль 1: Трендовый прогноз</h4>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="config-section">
+                            <h6>Настройки прогноза</h6>
+                            <div class="mb-3">
+                                <label class="form-label">Целевая метрика</label>
+                                <select class="form-select" id="trendTargetMetric">
+                                    <option value="revenue_total">revenue_total</option>
+                                </select>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Количество периодов</label>
+                                <input type="number" class="form-control" id="trendPeriods" value="16" min="1" max="60">
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Модель прогнозирования</label>
+                                <select class="form-select" id="trendModel">
+                                    <option value="hybrid">Гибридная (автовыбор)</option>
+                                    <option value="prophet">Prophet</option>
+                                    <option value="random_forest">Random Forest</option>
+                                    <option value="linear">Линейная регрессия</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="config-section">
+                            <h6>Параметры каскадной модели</h6>
+                            <div class="form-check mb-2">
+                                <input class="form-check-input" type="checkbox" id="enableCascade" checked>
+                                <label class="form-check-label" for="enableCascade">
+                                    Включить каскадную обработку
+                                </label>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Уровень агрегации</label>
+                                <select class="form-select" id="cascadeLevel">
+                                    <option value="region_to">По регионам</option>
+                                    <option value="subdivision">По подразделениям</option>
+                                    <option value="category">По категориям</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="text-center">
+                    <button class="btn btn-primary btn-lg" onclick="runTrendForecast()">
+                        <i class="fas fa-chart-line me-2"></i>Запустить трендовый прогноз
+                    </button>
+                </div>
+                <div id="trendResults" class="mt-4"></div>
+            </div>
+        </div>
+
+        <!-- Модуль 2: Анализ зависимостей -->
+        <div class="card mb-4" id="dependenciesModule" style="display: none;">
+            <div class="card-header">
+                <h4><i class="fas fa-link me-2"></i>Модуль 2: Анализ зависимостей</h4>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="config-section">
+                            <h6>Настройки анализа</h6>
+                            <div class="mb-3">
+                                <label class="form-label">Бюджетное поле</label>
+                                <select class="form-select" id="budgetField">
+                                    <option value="ads_cost">ads_cost</option>
+                                </select>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Целевые метрики</label>
+                                <div id="targetMetricsList"></div>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Метод анализа</label>
+                                <select class="form-select" id="dependencyMethod">
+                                    <option value="correlation">Корреляционный анализ</option>
+                                    <option value="regression">Регрессионный анализ</option>
+                                    <option value="causality">Анализ причинности</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="config-section">
+                            <h6>Фильтры каналов</h6>
+                            <div class="mb-3">
+                                <label class="form-label">Платные каналы</label>
+                                <input type="text" class="form-control" id="paidChannels" placeholder="paid_apps,paid_web">
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Органические каналы</label>
+                                <input type="text" class="form-control" id="organicChannels" placeholder="organic_apps,organic_web">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="text-center">
+                    <button class="btn btn-success btn-lg" onclick="runDependencyAnalysis()">
+                        <i class="fas fa-link me-2"></i>Анализировать зависимости
+                    </button>
+                </div>
+                <div id="dependenciesResults" class="mt-4"></div>
+            </div>
+        </div>
+
+        <!-- Модуль 3: Моделирование -->
+        <div class="card mb-4" id="simulationModule" style="display: none;">
+            <div class="card-header">
+                <h4><i class="fas fa-flask me-2"></i>Модуль 3: Моделирование сценариев</h4>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="config-section">
+                            <h6>Параметры моделирования</h6>
+                            <div class="mb-3">
+                                <label class="form-label">Базовое поле для изменения</label>
+                                <select class="form-select" id="simulationField">
+                                    <option value="ads_cost">ads_cost</option>
+                                </select>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Период моделирования</label>
+                                <input type="number" class="form-control" id="simulationPeriods" value="12" min="1" max="60">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="config-section">
+                            <h6>Сценарии</h6>
+                            <div class="scenario-input">
+                                <label class="form-label">Сценарий 1: Консервативный</label>
+                                <input type="number" class="form-control" id="scenario1" value="10" step="5" placeholder="Изменение в %">
+                            </div>
+                            <div class="scenario-input">
+                                <label class="form-label">Сценарий 2: Оптимистичный</label>
+                                <input type="number" class="form-control" id="scenario2" value="30" step="5" placeholder="Изменение в %">
+                            </div>
+                            <div class="scenario-input">
+                                <label class="form-label">Сценарий 3: Пессимистичный</label>
+                                <input type="number" class="form-control" id="scenario3" value="-20" step="5" placeholder="Изменение в %">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="text-center">
+                    <button class="btn btn-warning btn-lg" onclick="runSimulation()">
+                        <i class="fas fa-flask me-2"></i>Запустить моделирование
+                    </button>
+                </div>
+                <div id="simulationResults" class="mt-4"></div>
+            </div>
+        </div>
+
+        <!-- Результаты -->
+        <div class="results-tabs" id="resultsSection" style="display: none;">
+            <ul class="nav nav-tabs" id="resultsTabs" role="tablist">
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link active" id="charts-tab" data-bs-toggle="tab" data-bs-target="#charts" type="button" role="tab">
+                        <i class="fas fa-chart-bar me-2"></i>Графики
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="tables-tab" data-bs-toggle="tab" data-bs-target="#tables" type="button" role="tab">
+                        <i class="fas fa-table me-2"></i>Таблицы
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="analysis-tab" data-bs-toggle="tab" data-bs-target="#analysis" type="button" role="tab">
+                        <i class="fas fa-analytics me-2"></i>Анализ
+                    </button>
+                </li>
+            </ul>
+            <div class="tab-content" id="resultsTabContent">
+                <div class="tab-pane fade show active" id="charts" role="tabpanel">
+                    <div id="chartsContent"></div>
+                </div>
+                <div class="tab-pane fade" id="tables" role="tabpanel">
+                    <div id="tablesContent"></div>
+                </div>
+                <div class="tab-pane fade" id="analysis" role="tabpanel">
+                    <div id="analysisContent"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Скачивание результатов -->
+        <div class="download-section" id="downloadSection" style="display: none;">
+            <h4><i class="fas fa-download me-2"></i>Скачать результаты</h4>
+            <p>Ваш анализ готов! Вы можете скачать результаты в различных форматах.</p>
+            <div class="row">
+                <div class="col-md-4">
+                    <button class="btn btn-success w-100" onclick="downloadCSV()">
+                        <i class="fas fa-file-csv me-2"></i>Скачать CSV
+                    </button>
+                </div>
+                <div class="col-md-4">
+                    <button class="btn btn-primary w-100" onclick="downloadExcel()">
+                        <i class="fas fa-file-excel me-2"></i>Скачать Excel
+                    </button>
+                </div>
+                <div class="col-md-4">
+                    <button class="btn btn-info w-100" onclick="downloadReport()">
+                        <i class="fas fa-file-pdf me-2"></i>Скачать отчет
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Подвал -->
+    <footer class="bg-dark text-white text-center py-4">
+        <div class="container">
+            <p class="mb-0">&copy; 2024 MARFOR - Маркетинговый инструмент прогнозирования</p>
+        </div>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        let currentSessionId = null;
+        let dataColumns = [];
+        let currentModule = null;
+        let currentResults = {};
+
+        // Обработка загрузки файла
+        document.getElementById('fileInput').addEventListener('change', handleFileUpload);
+        document.getElementById('uploadArea').addEventListener('click', () => document.getElementById('fileInput').click());
+        document.getElementById('uploadArea').addEventListener('dragover', handleDragOver);
+        document.getElementById('uploadArea').addEventListener('drop', handleDrop);
+
+        function handleDragOver(e) {
+            e.preventDefault();
+            e.currentTarget.style.borderColor = '#764ba2';
+        }
+
+        function handleDrop(e) {
+            e.preventDefault();
+            e.currentTarget.style.borderColor = '#667eea';
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                handleFile(files[0]);
+            }
+        }
+
+        function handleFileUpload(e) {
+            const file = e.target.files[0];
+            if (file) {
+                handleFile(file);
+            }
+        }
+
+        function handleFile(file) {
+            const formData = new FormData();
+            formData.append('file', file);
+
+            showLoading('uploadStatus', 'Загрузка файла...');
+
+            fetch('/upload', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    currentSessionId = data.session_id;
+                    dataColumns = data.data_info.columns;
+                    showSuccess('uploadStatus', data.message);
+                    showDataPreview(data.data_info);
+                    populateFieldSelects();
+                } else {
+                    showError('uploadStatus', data.message);
+                }
+            })
+            .catch(error => {
+                showError('uploadStatus', 'Ошибка при загрузке файла: ' + error.message);
+            });
+        }
+
+        function showDataPreview(dataInfo) {
+            const preview = document.getElementById('dataPreview');
+            preview.innerHTML = `
+                <div class="alert alert-info">
+                    <h6><i class="fas fa-info-circle me-2"></i>Информация о данных</h6>
+                    <p><strong>Размер:</strong> ${dataInfo.shape[0]} строк, ${dataInfo.shape[1]} колонок</p>
+                    <p><strong>Колонки:</strong> ${dataInfo.columns.join(', ')}</p>
+                </div>
+            `;
+        }
+
+        function populateFieldSelects() {
+            // Заполняем селекты для всех модулей
+            const selects = [
+                'trendTargetMetric', 'budgetField', 'simulationField'
+            ];
+            
+            selects.forEach(selectId => {
+                const select = document.getElementById(selectId);
+                if (select) {
+                    select.innerHTML = '';
+                    dataColumns.forEach(col => {
+                        const option = new Option(col, col);
+                        select.add(option);
+                    });
+                }
+            });
+
+            // Заполняем список целевых метрик для анализа зависимостей
+            const targetMetricsList = document.getElementById('targetMetricsList');
+            targetMetricsList.innerHTML = '';
+            dataColumns.forEach(col => {
+                if (col.includes('traffic') || col.includes('revenue') || col.includes('transaction')) {
+                    const div = document.createElement('div');
+                    div.className = 'form-check';
+                    div.innerHTML = `
+                        <input class="form-check-input" type="checkbox" value="${col}" id="metric_${col}" checked>
+                        <label class="form-check-label" for="metric_${col}">${col}</label>
+                    `;
+                    targetMetricsList.appendChild(div);
+                }
+            });
+        }
+
+        function showModule(moduleName) {
+            if (!currentSessionId) {
+                alert('Сначала загрузите данные!');
+                return;
+            }
+
+            // Скрываем все модули
+            document.getElementById('trendModule').style.display = 'none';
+            document.getElementById('dependenciesModule').style.display = 'none';
+            document.getElementById('simulationModule').style.display = 'none';
+
+            // Показываем выбранный модуль
+            currentModule = moduleName;
+            document.getElementById(moduleName + 'Module').style.display = 'block';
+        }
+
+        function runTrendForecast() {
+            const config = {
+                target_metric: document.getElementById('trendTargetMetric').value,
+                periods: parseInt(document.getElementById('trendPeriods').value),
+                model: document.getElementById('trendModel').value,
+                enable_cascade: document.getElementById('enableCascade').checked,
+                cascade_level: document.getElementById('cascadeLevel').value
+            };
+
+            showLoading('trendResults', 'Выполнение трендового прогноза...');
+
+            fetch('/trend_forecast', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(config)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    currentResults.trend = data;
+                    showTrendResults(data);
+                    showResultsSection();
+                } else {
+                    showError('trendResults', data.message);
+                }
+            })
+            .catch(error => {
+                showError('trendResults', 'Ошибка при выполнении прогноза: ' + error.message);
+            });
+        }
+
+        function runDependencyAnalysis() {
+            const targetMetrics = Array.from(document.querySelectorAll('#targetMetricsList input:checked')).map(cb => cb.value);
+            const config = {
+                budget_field: document.getElementById('budgetField').value,
+                target_metrics: targetMetrics,
+                method: document.getElementById('dependencyMethod').value,
+                paid_channels: document.getElementById('paidChannels').value.split(',').map(s => s.trim()),
+                organic_channels: document.getElementById('organicChannels').value.split(',').map(s => s.trim())
+            };
+
+            showLoading('dependenciesResults', 'Анализ зависимостей...');
+
+            fetch('/dependency_analysis', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(config)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    currentResults.dependencies = data;
+                    showDependencyResults(data);
+                    showResultsSection();
+                } else {
+                    showError('dependenciesResults', data.message);
+                }
+            })
+            .catch(error => {
+                showError('dependenciesResults', 'Ошибка при анализе зависимостей: ' + error.message);
+            });
+        }
+
+        function runSimulation() {
+            const config = {
+                simulation_field: document.getElementById('simulationField').value,
+                periods: parseInt(document.getElementById('simulationPeriods').value),
+                scenarios: [
+                    { name: 'Консервативный', change: parseInt(document.getElementById('scenario1').value) },
+                    { name: 'Оптимистичный', change: parseInt(document.getElementById('scenario2').value) },
+                    { name: 'Пессимистичный', change: parseInt(document.getElementById('scenario3').value) }
+                ]
+            };
+
+            showLoading('simulationResults', 'Моделирование сценариев...');
+
+            fetch('/simulation', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(config)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    currentResults.simulation = data;
+                    showSimulationResults(data);
+                    showResultsSection();
+                } else {
+                    showError('simulationResults', data.message);
+                }
+            })
+            .catch(error => {
+                showError('simulationResults', 'Ошибка при моделировании: ' + error.message);
+            });
+        }
+
+        function showTrendResults(data) {
+            const container = document.getElementById('trendResults');
+            let html = '<h6><i class="fas fa-chart-line me-2"></i>Результаты трендового прогноза</h6>';
+            
+            if (data.forecast_data) {
+                html += `
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="metric-card">
+                                <div class="metric-value">${data.forecast_data.total_forecast.toLocaleString()}</div>
+                                <div>Общий прогноз</div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="metric-card">
+                                <div class="metric-value">${data.forecast_data.growth_rate.toFixed(1)}%</div>
+                                <div>Темп роста</div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+            
+            container.innerHTML = html;
+        }
+
+        function showDependencyResults(data) {
+            const container = document.getElementById('dependenciesResults');
+            let html = '<h6><i class="fas fa-link me-2"></i>Результаты анализа зависимостей</h6>';
+            
+            if (data.dependencies) {
+                html += '<div class="dependency-matrix">';
+                html += '<table class="table table-striped">';
+                html += '<thead><tr><th>Метрика</th><th>Корреляция с бюджетом</th><th>Сила влияния</th></tr></thead><tbody>';
+                
+                for (const [metric, info] of Object.entries(data.dependencies)) {
+                    const strength = Math.abs(info.correlation) > 0.7 ? 'Сильная' : 
+                                   Math.abs(info.correlation) > 0.3 ? 'Умеренная' : 'Слабая';
+                    html += `<tr>
+                        <td>${metric}</td>
+                        <td>${info.correlation.toFixed(3)}</td>
+                        <td><span class="badge ${Math.abs(info.correlation) > 0.7 ? 'bg-danger' : 
+                                               Math.abs(info.correlation) > 0.3 ? 'bg-warning' : 'bg-secondary'}">${strength}</span></td>
+                    </tr>`;
+                }
+                html += '</tbody></table></div>';
+            }
+            
+            container.innerHTML = html;
+        }
+
+        function showSimulationResults(data) {
+            const container = document.getElementById('simulationResults');
+            let html = '<h6><i class="fas fa-flask me-2"></i>Результаты моделирования</h6>';
+            
+            if (data.scenarios) {
+                html += '<div class="row">';
+                for (const [scenarioName, result] of Object.entries(data.scenarios)) {
+                    html += `
+                        <div class="col-md-4">
+                            <div class="card">
+                                <div class="card-body text-center">
+                                    <h6>${scenarioName}</h6>
+                                    <div class="metric-value">${result.revenue_impact.toFixed(1)}%</div>
+                                    <div>Влияние на выручку</div>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }
+                html += '</div>';
+            }
+            
+            container.innerHTML = html;
+        }
+
+        function showResultsSection() {
+            document.getElementById('resultsSection').style.display = 'block';
+            document.getElementById('downloadSection').style.display = 'block';
+            updateResultsTabs();
+        }
+
+        function updateResultsTabs() {
+            // Обновляем содержимое вкладок на основе текущих результатов
+            updateChartsTab();
+            updateTablesTab();
+            updateAnalysisTab();
+        }
+
+        function updateChartsTab() {
+            const container = document.getElementById('chartsContent');
+            let html = '';
+            
+            if (currentResults.trend && currentResults.trend.chart_data) {
+                html += '<div class="chart-container">';
+                html += '<h6>График трендового прогноза</h6>';
+                html += `<canvas id="trendChart"></canvas>`;
+                html += '</div>';
+            }
+            
+            if (currentResults.dependencies && currentResults.dependencies.chart_data) {
+                html += '<div class="chart-container">';
+                html += '<h6>Матрица зависимостей</h6>';
+                html += `<canvas id="dependencyChart"></canvas>`;
+                html += '</div>';
+            }
+            
+            if (currentResults.simulation && currentResults.simulation.chart_data) {
+                html += '<div class="chart-container">';
+                html += '<h6>Сравнение сценариев</h6>';
+                html += `<canvas id="simulationChart"></canvas>`;
+                html += '</div>';
+            }
+            
+            container.innerHTML = html;
+            
+            // Создаем графики
+            createCharts();
+        }
+
+        function updateTablesTab() {
+            const container = document.getElementById('tablesContent');
+            let html = '';
+            
+            if (currentResults.trend && currentResults.trend.forecast_data) {
+                html += '<div class="data-table">';
+                html += '<h6>Данные трендового прогноза</h6>';
+                html += '<div class="table-responsive">';
+                html += '<table class="table table-striped">';
+                html += '<thead><tr><th>Период</th><th>Прогноз</th><th>Доверительный интервал</th></tr></thead>';
+                html += '<tbody>';
+                
+                currentResults.trend.forecast_data.periods.forEach(period => {
+                    html += `<tr>
+                        <td>${period.date}</td>
+                        <td>${period.forecast.toLocaleString()}</td>
+                        <td>${period.lower_bound.toLocaleString()} - ${period.upper_bound.toLocaleString()}</td>
+                    </tr>`;
+                });
+                
+                html += '</tbody></table></div></div>';
+            }
+            
+            container.innerHTML = html;
+        }
+
+        function updateAnalysisTab() {
+            const container = document.getElementById('analysisContent');
+            let html = '<h6>Сводный анализ</h6>';
+            
+            if (currentResults.trend) {
+                html += '<div class="alert alert-info">';
+                html += '<h6>Трендовый прогноз</h6>';
+                html += `<p>Модель: ${currentResults.trend.model_used}</p>`;
+                html += `<p>Точность: ${currentResults.trend.accuracy.toFixed(3)}</p>`;
+                html += '</div>';
+            }
+            
+            if (currentResults.dependencies) {
+                html += '<div class="alert alert-success">';
+                html += '<h6>Анализ зависимостей</h6>';
+                html += `<p>Найдено зависимостей: ${Object.keys(currentResults.dependencies.dependencies || {}).length}</p>`;
+                html += '</div>';
+            }
+            
+            if (currentResults.simulation) {
+                html += '<div class="alert alert-warning">';
+                html += '<h6>Моделирование</h6>';
+                html += `<p>Проанализировано сценариев: ${Object.keys(currentResults.simulation.scenarios || {}).length}</p>`;
+                html += '</div>';
+            }
+            
+            container.innerHTML = html;
+        }
+
+        function createCharts() {
+            // Создаем графики с помощью Chart.js
+            if (currentResults.trend && currentResults.trend.chart_data) {
+                const ctx = document.getElementById('trendChart');
+                if (ctx) {
+                    new Chart(ctx, {
+                        type: 'line',
+                        data: currentResults.trend.chart_data,
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            scales: {
+                                y: {
+                                    beginAtZero: true
+                                }
+                            }
+                        }
+                    });
+                }
+            }
+        }
+
+        function downloadCSV() {
+            if (currentSessionId) {
+                window.open(`/download/csv/${currentSessionId}`, '_blank');
+            }
+        }
+
+        function downloadExcel() {
+            if (currentSessionId) {
+                window.open(`/download/excel/${currentSessionId}`, '_blank');
+            }
+        }
+
+        function downloadReport() {
+            if (currentSessionId) {
+                window.open(`/download/report/${currentSessionId}`, '_blank');
+            }
+        }
+
+        // Вспомогательные функции
+        function showLoading(elementId, message) {
+            const element = document.getElementById(elementId);
+            element.innerHTML = `<div class="loading"><div class="spinner-border text-primary" role="status"></div><p class="mt-2">${message}</p></div>`;
+        }
+
+        function showSuccess(elementId, message) {
+            const element = document.getElementById(elementId);
+            element.innerHTML = `<div class="alert alert-success"><i class="fas fa-check me-2"></i>${message}</div>`;
+        }
+
+        function showError(elementId, message) {
+            const element = document.getElementById(elementId);
+            element.innerHTML = `<div class="alert alert-danger"><i class="fas fa-exclamation-triangle me-2"></i>${message}</div>`;
+        }
+    </script>
+</body>
+</html>

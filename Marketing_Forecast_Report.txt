@@ -1,0 +1,9 @@
+ОТЧЕТ ПО ПРОГНОЗИРОВАНИЮ МАРКЕТИНГА
+==================================================
+
+КОНФИГУРАЦИЯ:
+Временные поля: ['year', 'month']
+Измерения: ['region_to', 'subdivision', 'category']
+Метрики: ['revenue_total', 'traffic_total', 'transacitons_total', 'ads_cost', 'first_traffic', 'repeat_traffic', 'first_transactions', 'repeat_transactions']
+Каналы: ['paid', 'organic']
+

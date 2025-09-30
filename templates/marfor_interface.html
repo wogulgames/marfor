@@ -1,0 +1,2560 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MARFOR - Маркетинговый инструмент прогнозирования</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        .module-card {
+            transition: transform 0.3s ease;
+            border: none;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            height: 100%;
+        }
+        .module-card:hover {
+            transform: translateY(-5px);
+        }
+        .module-icon {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+        }
+        .upload-area {
+            border: 2px dashed #667eea;
+            border-radius: 10px;
+            padding: 40px;
+            text-align: center;
+            transition: all 0.3s ease;
+        }
+        .upload-area:hover {
+            border-color: #764ba2;
+            background-color: #f8f9ff;
+        }
+        .config-section {
+            background-color: #f8f9fa;
+            border-radius: 10px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        .results-tabs {
+            margin-top: 20px;
+        }
+        .chart-container {
+            background-color: white;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 10px 0;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            position: relative;
+            height: 400px;
+        }
+        
+        .pivot-toggle {
+            cursor: pointer;
+            font-weight: bold;
+            margin-right: 5px;
+            color: #007bff;
+        }
+        
+        .pivot-toggle:hover {
+            color: #0056b3;
+        }
+        
+        .pivot-header {
+            cursor: pointer;
+            user-select: none;
+        }
+        
+        .pivot-row.collapsed {
+            display: none;
+        }
+        
+        .pivot-cell.hidden {
+            display: none;
+        }
+        
+        #pivotTable {
+            table-layout: fixed;
+            width: 100%;
+        }
+        
+        #pivotTable th[style*="visibility: hidden"],
+        #pivotTable td[style*="visibility: hidden"] {
+            border: none !important;
+        }
+        
+        #pivotTable th,
+        #pivotTable td {
+            transition: width 0.2s ease, padding 0.2s ease;
+        }
+        
+        #pivotTable th,
+        #pivotTable td {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .data-table {
+            background-color: white;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 10px 0;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+        .table-responsive {
+            max-height: 500px;
+            overflow-y: auto;
+        }
+        
+        /* Стили для таблицы с разбивкой по столбцам */
+        .pivot-table-split-container {
+            overflow-x: auto;
+            overflow-y: auto;
+            max-height: 300px;
+            border: 1px solid #dee2e6;
+            border-radius: 0.375rem;
+            width: 100%;
+        }
+        
+        .pivot-table-split {
+            min-width: max-content;
+            width: max-content;
+            border-collapse: separate;
+            border-spacing: 0;
+        }
+        
+        /* Столбцы временных рядов */
+        .pivot-table-split .time-column {
+            background-color: #e9ecef !important;
+            color: #212529 !important;
+            border-right: 2px solid #adb5bd;
+            white-space: nowrap;
+            font-weight: 500;
+            min-width: 80px;
+            width: auto;
+        }
+        
+        /* Столбцы метрик с адаптивной шириной */
+        .pivot-table-split .metric-column {
+            min-width: 120px;
+            width: auto;
+            white-space: nowrap;
+            text-align: right;
+            padding: 8px 12px;
+        }
+        
+        /* Заголовки метрик */
+        .pivot-table-split .metric-header {
+            min-width: 120px;
+            width: auto;
+            text-align: center;
+            background-color: #495057 !important;
+            white-space: nowrap;
+        }
+        
+        .pivot-table-split .metric-subheader {
+            min-width: 120px;
+            width: auto;
+            text-align: center;
+            background-color: #6c757d !important;
+            white-space: nowrap;
+        }
+
+        /* Стили для горизонтального скролла в стиле Google Analytics */
+        .pivot-table-ga-container {
+            overflow-x: auto;
+            overflow-y: auto;
+            max-height: 400px;
+            width: 100%;
+            border: 1px solid #dee2e6;
+            border-radius: 0.375rem;
+            position: relative;
+        }
+        
+        /* Стилизация скроллбаров */
+        .pivot-table-ga-container::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        
+        .pivot-table-ga-container::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 4px;
+        }
+        
+        .pivot-table-ga-container::-webkit-scrollbar-thumb {
+            background: #c1c1c1;
+            border-radius: 4px;
+        }
+        
+        .pivot-table-ga-container::-webkit-scrollbar-thumb:hover {
+            background: #a8a8a8;
+        }
+
+        .pivot-table-ga {
+            min-width: max-content;
+            width: max-content;
+            border-collapse: separate;
+            border-spacing: 0;
+        }
+
+        /* Фиксированные колонки времени */
+        .pivot-table-ga .sticky-time-column {
+            position: sticky;
+            left: 0;
+            z-index: 2;
+            background-color: #e9ecef !important;
+            color: #212529 !important;
+            border-right: 2px solid #adb5bd;
+            font-weight: 500;
+            min-width: 80px;
+            width: auto;
+        }
+
+        /* Фиксированные колонки метрик */
+        .pivot-table-ga .sticky-metric-column {
+            position: sticky;
+            left: 80px; /* После первой колонки времени */
+            z-index: 1;
+            background-color: #f8f9fa !important;
+            color: #212529 !important;
+            border-right: 1px solid #dee2e6;
+            min-width: 120px;
+            width: auto;
+            text-align: right;
+            white-space: nowrap;
+        }
+
+        /* Обычные колонки метрик (не фиксированные) */
+        .pivot-table-ga .scrollable-metric-column {
+            min-width: 120px;
+            width: auto;
+            text-align: right;
+            white-space: nowrap;
+            background-color: #ffffff;
+            border-right: 1px solid #dee2e6;
+        }
+
+        /* Заголовки */
+        .pivot-table-ga .sticky-time-header {
+            position: sticky;
+            left: 0;
+            z-index: 3;
+            background-color: #495057 !important;
+            color: white !important;
+            border-right: 2px solid #adb5bd;
+            font-weight: 600;
+            min-width: 80px;
+            width: auto;
+        }
+
+        .pivot-table-ga .sticky-metric-header {
+            position: sticky;
+            left: 80px;
+            z-index: 2;
+            background-color: #6c757d !important;
+            color: white !important;
+            border-right: 1px solid #495057;
+            font-weight: 600;
+            min-width: 120px;
+            width: auto;
+        }
+
+        .pivot-table-ga .scrollable-metric-header {
+            background-color: #6c757d !important;
+            color: white !important;
+            border-right: 1px solid #495057;
+            font-weight: 600;
+            min-width: 120px;
+            width: auto;
+        }
+
+        /* Подзаголовки */
+        .pivot-table-ga .sticky-metric-subheader {
+            position: sticky;
+            left: 80px;
+            z-index: 2;
+            background-color: #6c757d !important;
+            color: white !important;
+            border-right: 1px solid #495057;
+            font-weight: 500;
+            min-width: 120px;
+            width: auto;
+        }
+
+        .pivot-table-ga .scrollable-metric-subheader {
+            background-color: #6c757d !important;
+            color: white !important;
+            border-right: 1px solid #495057;
+            font-weight: 500;
+            min-width: 120px;
+            width: auto;
+        }
+        .metric-card {
+            background-color: #e3f2fd;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 10px 0;
+            text-align: center;
+        }
+        .metric-value {
+            font-size: 1.8em;
+            font-weight: bold;
+            color: #1976d2;
+        }
+        .dependency-matrix {
+            overflow-x: auto;
+        }
+        .loading {
+            text-align: center;
+            padding: 40px;
+        }
+        .spinner-border {
+            width: 3rem;
+            height: 3rem;
+        }
+        .nav-tabs .nav-link.active {
+            background-color: #007bff;
+            color: white;
+            border-color: #007bff;
+        }
+        .nav-tabs .nav-link {
+            color: #007bff;
+        }
+        .nav-tabs .nav-link:hover {
+            border-color: #e9ecef #e9ecef #dee2e6;
+        }
+        .scenario-input {
+            margin-bottom: 15px;
+        }
+        .download-section {
+            background-color: #f8f9fa;
+            border-radius: 10px;
+            padding: 20px;
+            margin: 20px 0;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <!-- Навигация -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container">
+            <a class="navbar-brand" href="#">
+                <i class="fas fa-chart-line me-2"></i>
+                <strong>MARFOR</strong>
+            </a>
+            <span class="navbar-text">Маркетинговый инструмент прогнозирования</span>
+        </div>
+    </nav>
+
+
+    <!-- Основной контент -->
+    <div class="container my-3">
+        <!-- Область для отображения данных проекта -->
+        <div id="dataPreview"></div>
+
+        <!-- Загрузка данных -->
+        <div class="card mb-4" id="uploadSection">
+            <div class="card-header">
+                <h4><i class="fas fa-upload me-2"></i>Загрузка данных</h4>
+            </div>
+            <div class="card-body">
+                <div class="upload-area" id="uploadArea">
+                    <i class="fas fa-cloud-upload-alt fa-3x text-muted mb-3"></i>
+                    <h5>Создать новый проект</h5>
+                    <p class="text-muted">Загрузите файл с данными для создания проекта</p>
+                    <div class="mb-3">
+                        <label for="projectNameInput" class="form-label">Название проекта</label>
+                        <input type="text" class="form-control" id="projectNameInput" placeholder="Введите название проекта" required>
+                    </div>
+                    <input type="file" id="fileInput" class="d-none" accept=".csv,.xlsx,.xls">
+                    <button class="btn btn-primary" onclick="document.getElementById('fileInput').click()">
+                        <i class="fas fa-folder-open me-2"></i>Выбрать файл
+                    </button>
+                </div>
+                <div id="uploadStatus" class="mt-3"></div>
+                <div id="dataPreview" class="mt-3"></div>
+            </div>
+        </div>
+
+        <!-- Модуль 1: Трендовый прогноз -->
+        <div class="card mb-4" id="trendModule" style="display: none;">
+            <div class="card-header">
+                <h4><i class="fas fa-chart-line me-2"></i>Модуль 1: Трендовый прогноз</h4>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="config-section">
+                            <h6>Настройки прогноза</h6>
+                            <div class="mb-3">
+                                <label class="form-label">Целевая метрика</label>
+                                <select class="form-select" id="trendTargetMetric">
+                                    <option value="revenue_total">revenue_total</option>
+                                </select>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Количество периодов</label>
+                                <input type="number" class="form-control" id="trendPeriods" value="16" min="1" max="60">
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Модель прогнозирования</label>
+                                <select class="form-select" id="trendModel">
+                                    <option value="hybrid">Гибридная (автовыбор)</option>
+                                    <option value="prophet">Prophet</option>
+                                    <option value="random_forest">Random Forest</option>
+                                    <option value="linear">Линейная регрессия</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="config-section">
+                            <h6>Параметры каскадной модели</h6>
+                            <div class="form-check mb-2">
+                                <input class="form-check-input" type="checkbox" id="enableCascade" checked>
+                                <label class="form-check-label" for="enableCascade">
+                                    Включить каскадную обработку
+                                </label>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Уровень агрегации</label>
+                                <select class="form-select" id="cascadeLevel">
+                                    <option value="region_to">По регионам</option>
+                                    <option value="subdivision">По подразделениям</option>
+                                    <option value="category">По категориям</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="text-center">
+                    <button class="btn btn-primary btn-lg" onclick="runTrendForecast()">
+                        <i class="fas fa-chart-line me-2"></i>Запустить трендовый прогноз
+                    </button>
+                </div>
+                <div id="trendResults" class="mt-4"></div>
+            </div>
+        </div>
+
+        <!-- Модуль 2: Анализ зависимостей -->
+        <div class="card mb-4" id="dependenciesModule" style="display: none;">
+            <div class="card-header">
+                <h4><i class="fas fa-link me-2"></i>Модуль 2: Анализ зависимостей</h4>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="config-section">
+                            <h6>Настройки анализа</h6>
+                            <div class="mb-3">
+                                <label class="form-label">Бюджетное поле</label>
+                                <select class="form-select" id="budgetField">
+                                    <option value="ads_cost">ads_cost</option>
+                                </select>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Целевые метрики</label>
+                                <div id="targetMetricsList"></div>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Метод анализа</label>
+                                <select class="form-select" id="dependencyMethod">
+                                    <option value="correlation">Корреляционный анализ</option>
+                                    <option value="regression">Регрессионный анализ</option>
+                                    <option value="causality">Анализ причинности</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="config-section">
+                            <h6>Фильтры каналов</h6>
+                            <div class="mb-3">
+                                <label class="form-label">Платные каналы</label>
+                                <input type="text" class="form-control" id="paidChannels" placeholder="paid_apps,paid_web">
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Органические каналы</label>
+                                <input type="text" class="form-control" id="organicChannels" placeholder="organic_apps,organic_web">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="text-center">
+                    <button class="btn btn-success btn-lg" onclick="runDependencyAnalysis()">
+                        <i class="fas fa-link me-2"></i>Анализировать зависимости
+                    </button>
+                </div>
+                <div id="dependenciesResults" class="mt-4"></div>
+            </div>
+        </div>
+
+        <!-- Модуль 3: Моделирование -->
+        <div class="card mb-4" id="simulationModule" style="display: none;">
+            <div class="card-header">
+                <h4><i class="fas fa-flask me-2"></i>Модуль 3: Моделирование сценариев</h4>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="config-section">
+                            <h6>Параметры моделирования</h6>
+                            <div class="mb-3">
+                                <label class="form-label">Базовое поле для изменения</label>
+                                <select class="form-select" id="simulationField">
+                                    <option value="ads_cost">ads_cost</option>
+                                </select>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Период моделирования</label>
+                                <input type="number" class="form-control" id="simulationPeriods" value="12" min="1" max="60">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="config-section">
+                            <h6>Сценарии</h6>
+                            <div class="scenario-input">
+                                <label class="form-label">Сценарий 1: Консервативный</label>
+                                <input type="number" class="form-control" id="scenario1" value="10" step="5" placeholder="Изменение в %">
+                            </div>
+                            <div class="scenario-input">
+                                <label class="form-label">Сценарий 2: Оптимистичный</label>
+                                <input type="number" class="form-control" id="scenario2" value="30" step="5" placeholder="Изменение в %">
+                            </div>
+                            <div class="scenario-input">
+                                <label class="form-label">Сценарий 3: Пессимистичный</label>
+                                <input type="number" class="form-control" id="scenario3" value="-20" step="5" placeholder="Изменение в %">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="text-center">
+                    <button class="btn btn-warning btn-lg" onclick="runSimulation()">
+                        <i class="fas fa-flask me-2"></i>Запустить моделирование
+                    </button>
+                </div>
+                <div id="simulationResults" class="mt-4"></div>
+            </div>
+        </div>
+
+        <!-- Результаты -->
+        <div class="results-tabs" id="resultsSection" style="display: none;">
+            <ul class="nav nav-tabs" id="resultsTabs" role="tablist">
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link active" id="charts-tab" data-bs-toggle="tab" data-bs-target="#charts" type="button" role="tab">
+                        <i class="fas fa-chart-bar me-2"></i>Графики
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="tables-tab" data-bs-toggle="tab" data-bs-target="#tables" type="button" role="tab">
+                        <i class="fas fa-table me-2"></i>Таблицы
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="analysis-tab" data-bs-toggle="tab" data-bs-target="#analysis" type="button" role="tab">
+                        <i class="fas fa-analytics me-2"></i>Анализ
+                    </button>
+                </li>
+            </ul>
+            <div class="tab-content" id="resultsTabContent">
+                <div class="tab-pane fade show active" id="charts" role="tabpanel">
+                    <div id="chartsContent"></div>
+                </div>
+                <div class="tab-pane fade" id="tables" role="tabpanel">
+                    <div id="tablesContent"></div>
+                </div>
+                <div class="tab-pane fade" id="analysis" role="tabpanel">
+                    <div id="analysisContent"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Скачивание результатов -->
+        <div class="download-section" id="downloadSection" style="display: none;">
+            <h4><i class="fas fa-download me-2"></i>Скачать результаты</h4>
+            <p>Ваш анализ готов! Вы можете скачать результаты в различных форматах.</p>
+            <div class="row">
+                <div class="col-md-4">
+                    <button class="btn btn-success w-100" onclick="downloadCSV()">
+                        <i class="fas fa-file-csv me-2"></i>Скачать CSV
+                    </button>
+                </div>
+                <div class="col-md-4">
+                    <button class="btn btn-primary w-100" onclick="downloadExcel()">
+                        <i class="fas fa-file-excel me-2"></i>Скачать Excel
+                    </button>
+                </div>
+                <div class="col-md-4">
+                    <button class="btn btn-info w-100" onclick="downloadReport()">
+                        <i class="fas fa-file-pdf me-2"></i>Скачать отчет
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Подвал -->
+    <footer class="bg-dark text-white text-center py-4">
+        <div class="container">
+            <p class="mb-0">&copy; 2024 MARFOR - Маркетинговый инструмент прогнозирования</p>
+        </div>
+    </footer>
+
+    <!-- Модальное окно сохранения проекта -->
+    <div class="modal fade" id="saveProjectModal" tabindex="-1" aria-labelledby="saveProjectModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="saveProjectModalLabel">
+                        <i class="fas fa-save me-2"></i>Сохранить проект
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="projectName" class="form-label">Название проекта</label>
+                        <input type="text" class="form-control" id="projectName" placeholder="Введите название проекта">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Что будет сохранено:</label>
+                        <ul class="list-unstyled">
+                            <li><i class="fas fa-check text-success me-2"></i>Загруженные данные</li>
+                            <li><i class="fas fa-check text-success me-2"></i>Настройки маппинга</li>
+                            <li><i class="fas fa-check text-success me-2"></i>Обработанные данные</li>
+                            <li><i class="fas fa-check text-success me-2"></i>Временные ряды и срезы</li>
+                        </ul>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+                    <button type="button" class="btn btn-primary" onclick="saveProject()">
+                        <i class="fas fa-save me-2"></i>Сохранить
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="/static/pivot_table_system.js"></script>
+    <script>
+        let currentSessionId = null;
+        let dataColumns = [];
+        let currentModule = null;
+        let currentResults = {};
+        let currentChart = null; // Глобальная переменная для хранения текущего графика
+        
+        // Глобальная переменная для хранения состояния сводной таблицы
+        let pivotState = {
+            expandedLevels: new Set(),
+            currentData: null,
+            pivotMode: 'time-series', // 'time-series' или 'slices'
+            originalHierarchy: null // Сохраняем исходную иерархию для фильтров
+        };
+
+        // Обработка загрузки файла
+        document.addEventListener('DOMContentLoaded', function() {
+            const fileInput = document.getElementById('fileInput');
+            const uploadArea = document.getElementById('uploadArea');
+            
+            if (fileInput) {
+                fileInput.addEventListener('change', handleFileUpload);
+            }
+            
+            if (uploadArea) {
+                uploadArea.addEventListener('click', () => {
+                    document.getElementById('fileInput').click();
+                });
+                uploadArea.addEventListener('dragover', handleDragOver);
+                uploadArea.addEventListener('drop', handleDrop);
+            }
+        });
+
+        function handleDragOver(e) {
+            e.preventDefault();
+            e.currentTarget.style.borderColor = '#764ba2';
+        }
+
+        function handleDrop(e) {
+            e.preventDefault();
+            e.currentTarget.style.borderColor = '#667eea';
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                handleFile(files[0]);
+            }
+        }
+
+        function handleFileUpload(e) {
+            const file = e.target.files[0];
+            if (file) {
+                handleFile(file);
+            }
+        }
+
+        function handleFile(file) {
+            const projectName = document.getElementById('projectNameInput').value.trim();
+            
+            if (!projectName) {
+                showError('uploadStatus', 'Введите название проекта');
+                return;
+            }
+            
+            const formData = new FormData();
+            formData.append('file', file);
+
+            showLoading('uploadStatus', 'Загрузка файла и создание проекта...');
+
+            fetch('/upload', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    currentSessionId = data.session_id;
+                    dataColumns = data.data_info.columns;
+                    
+                    // Сохраняем данные в sessionStorage для маппинга
+                    sessionStorage.setItem('sessionId', currentSessionId);
+                    sessionStorage.setItem('uploadedData', JSON.stringify(data.data_info));
+                    
+                    // Автоматически создаем проект
+                    createProject(projectName, data.data_info);
+                } else {
+                    showError('uploadStatus', data.message);
+                }
+            })
+            .catch(error => {
+                showError('uploadStatus', 'Ошибка при загрузке файла: ' + error.message);
+            });
+        }
+
+        function createProject(projectName, dataInfo) {
+            const saveData = {
+                name: projectName,
+                session_id: currentSessionId,
+                data_mapping: {},
+                processed_data: dataInfo
+            };
+            
+            fetch('/api/save_project', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(saveData)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showSuccess('uploadStatus', `Проект "${projectName}" создан успешно!`);
+                    showDataPreview(dataInfo);
+                    populateFieldSelects();
+                    showMappingButton();
+                    
+                    // Сохраняем ID проекта
+                    sessionStorage.setItem('currentProjectId', data.project_id);
+                } else {
+                    showError('uploadStatus', 'Ошибка при создании проекта: ' + data.message);
+                }
+            })
+            .catch(error => {
+                showError('uploadStatus', 'Ошибка при создании проекта: ' + error.message);
+            });
+        }
+
+        function showDataPreview(dataInfo, projectName = null) {
+            const preview = document.getElementById('dataPreview');
+            const projectTitle = projectName ? `<h4><i class="fas fa-folder me-2"></i>Проект: ${projectName}</h4>` : '';
+            
+            preview.innerHTML = `
+                ${projectTitle}
+                <div class="alert alert-info">
+                    <h6><i class="fas fa-info-circle me-2"></i>Информация о данных</h6>
+                    <p><strong>Размер:</strong> ${dataInfo.shape[0]} строк, ${dataInfo.shape[1]} колонок</p>
+                    <p><strong>Колонки:</strong> ${dataInfo.columns.join(', ')}</p>
+                </div>
+                <div class="mt-3">
+                    <button class="btn btn-primary btn-sm" onclick="showDataTable()">
+                        <i class="fas fa-table me-2"></i>Показать превью данных (первые 50 строк)
+                    </button>
+                </div>
+                <div id="dataTableContainer" class="mt-3" style="display: none;">
+                    <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
+                        <table class="table table-sm table-striped">
+                            <thead id="dataTableHeader"></thead>
+                            <tbody id="dataTableBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+            `;
+        }
+
+        function showMappingButton() {
+            const preview = document.getElementById('dataPreview');
+            const mappingButton = document.createElement('div');
+            mappingButton.className = 'text-center mt-3';
+            mappingButton.innerHTML = `
+                <button class="btn btn-primary btn-lg" onclick="goToMapping()">
+                    <i class="fas fa-cogs me-2"></i>Настроить маппинг данных
+                </button>
+                <p class="text-muted mt-2">Настройте типы данных и обработку пустых значений</p>
+            `;
+            preview.appendChild(mappingButton);
+        }
+
+        function addNewProjectButton() {
+            const preview = document.getElementById('dataPreview');
+            const newProjectButton = document.createElement('div');
+            newProjectButton.className = 'text-center mt-3';
+            newProjectButton.innerHTML = `
+                <button class="btn btn-outline-secondary btn-sm" onclick="createNewProject()">
+                    <i class="fas fa-plus me-2"></i>Создать новый проект
+                </button>
+            `;
+            preview.appendChild(newProjectButton);
+        }
+
+        function createNewProject() {
+            // Очищаем sessionStorage
+            sessionStorage.clear();
+            
+            // Показываем интерфейс создания нового проекта
+            const uploadSection = document.getElementById('uploadSection');
+            if (uploadSection) {
+                uploadSection.style.display = 'block';
+            }
+            
+            // Очищаем предпросмотр
+            const preview = document.getElementById('dataPreview');
+            preview.innerHTML = '';
+            
+            // Очищаем статус загрузки
+            const uploadStatus = document.getElementById('uploadStatus');
+            uploadStatus.innerHTML = '';
+            
+            // Очищаем глобальные переменные
+            currentSessionId = null;
+            dataColumns = [];
+            processedData = null;
+            dataMapping = null;
+        }
+
+        function goToMapping() {
+            window.location.href = '/forecast/mapping';
+        }
+
+        // Глобальная переменная для сохранения выбранного среза
+        let selectedSliceForSplit = '';
+        
+        // Флаг для предотвращения рекурсивных вызовов
+        let isRenderingPivotTable = false;
+        
+        // Глобальная переменная для хранения текущих данных (новая система)
+        let currentPivotData = null;
+
+        // Функция для обновления таблицы с разбивкой по столбцам (новая система)
+        function updatePivotTableWithSplit() {
+            console.log('updatePivotTableWithSplit вызвана');
+            const splitBySliceSelect = document.getElementById('splitBySlice');
+            const selectedSlice = splitBySliceSelect ? splitBySliceSelect.value : '';
+            console.log('Выбранный срез для разбивки:', selectedSlice);
+            
+            // Сохраняем выбранное значение в глобальную переменную
+            selectedSliceForSplit = selectedSlice;
+            
+            // Используем новую систему сводной таблицы
+            if (currentPivotData) {
+                console.log('Обновляем таблицу с новой системой');
+                const mappingData = JSON.parse(sessionStorage.getItem('dataMapping') || '{}');
+                const mode = selectedSlice ? 'split-columns' : 'time-series';
+                renderNewPivotTable(currentPivotData, mappingData, mode, selectedSlice);
+            } else {
+                console.log('Нет данных для отображения');
+            }
+        }
+
+        function populateFieldSelects() {
+            // Заполняем селекты для всех модулей
+            const selects = [
+                'trendTargetMetric', 'budgetField', 'simulationField'
+            ];
+            
+            selects.forEach(selectId => {
+                const select = document.getElementById(selectId);
+                if (select) {
+                    select.innerHTML = '';
+                    dataColumns.forEach(col => {
+                        const option = new Option(col, col);
+                        select.add(option);
+                    });
+                }
+            });
+
+            // Заполняем список целевых метрик для анализа зависимостей
+            const targetMetricsList = document.getElementById('targetMetricsList');
+            targetMetricsList.innerHTML = '';
+            dataColumns.forEach(col => {
+                if (col.includes('traffic') || col.includes('revenue') || col.includes('transaction')) {
+                    const div = document.createElement('div');
+                    div.className = 'form-check';
+                    div.innerHTML = `
+                        <input class="form-check-input" type="checkbox" value="${col}" id="metric_${col}" checked>
+                        <label class="form-check-label" for="metric_${col}">${col}</label>
+                    `;
+                    targetMetricsList.appendChild(div);
+                }
+            });
+        }
+
+        function showModule(moduleName) {
+            if (!currentSessionId) {
+                alert('Сначала загрузите данные!');
+                return;
+            }
+
+            // Скрываем все модули
+            document.getElementById('trendModule').style.display = 'none';
+            document.getElementById('dependenciesModule').style.display = 'none';
+            document.getElementById('simulationModule').style.display = 'none';
+
+            // Показываем выбранный модуль
+            currentModule = moduleName;
+            document.getElementById(moduleName + 'Module').style.display = 'block';
+        }
+
+        function runTrendForecast() {
+            const config = {
+                target_metric: document.getElementById('trendTargetMetric').value,
+                periods: parseInt(document.getElementById('trendPeriods').value),
+                model: document.getElementById('trendModel').value,
+                enable_cascade: document.getElementById('enableCascade').checked,
+                cascade_level: document.getElementById('cascadeLevel').value
+            };
+
+            showLoading('trendResults', 'Выполнение трендового прогноза...');
+
+            fetch('/trend_forecast', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(config)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    currentResults.trend = data;
+                    showTrendResults(data);
+                    showResultsSection();
+                } else {
+                    showError('trendResults', data.message);
+                }
+            })
+            .catch(error => {
+                showError('trendResults', 'Ошибка при выполнении прогноза: ' + error.message);
+            });
+        }
+
+        function runDependencyAnalysis() {
+            const targetMetrics = Array.from(document.querySelectorAll('#targetMetricsList input:checked')).map(cb => cb.value);
+            const config = {
+                budget_field: document.getElementById('budgetField').value,
+                target_metrics: targetMetrics,
+                method: document.getElementById('dependencyMethod').value,
+                paid_channels: document.getElementById('paidChannels').value.split(',').map(s => s.trim()),
+                organic_channels: document.getElementById('organicChannels').value.split(',').map(s => s.trim())
+            };
+
+            showLoading('dependenciesResults', 'Анализ зависимостей...');
+
+            fetch('/dependency_analysis', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(config)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    currentResults.dependencies = data;
+                    showDependencyResults(data);
+                    showResultsSection();
+                } else {
+                    showError('dependenciesResults', data.message);
+                }
+            })
+            .catch(error => {
+                showError('dependenciesResults', 'Ошибка при анализе зависимостей: ' + error.message);
+            });
+        }
+
+        function runSimulation() {
+            const config = {
+                simulation_field: document.getElementById('simulationField').value,
+                periods: parseInt(document.getElementById('simulationPeriods').value),
+                scenarios: [
+                    { name: 'Консервативный', change: parseInt(document.getElementById('scenario1').value) },
+                    { name: 'Оптимистичный', change: parseInt(document.getElementById('scenario2').value) },
+                    { name: 'Пессимистичный', change: parseInt(document.getElementById('scenario3').value) }
+                ]
+            };
+
+            showLoading('simulationResults', 'Моделирование сценариев...');
+
+            fetch('/simulation', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(config)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    currentResults.simulation = data;
+                    showSimulationResults(data);
+                    showResultsSection();
+                } else {
+                    showError('simulationResults', data.message);
+                }
+            })
+            .catch(error => {
+                showError('simulationResults', 'Ошибка при моделировании: ' + error.message);
+            });
+        }
+
+        function showTrendResults(data) {
+            const container = document.getElementById('trendResults');
+            let html = '<h6><i class="fas fa-chart-line me-2"></i>Результаты трендового прогноза</h6>';
+            
+            if (data.forecast_data) {
+                html += `
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="metric-card">
+                                <div class="metric-value">${data.forecast_data.total_forecast.toLocaleString()}</div>
+                                <div>Общий прогноз</div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="metric-card">
+                                <div class="metric-value">${data.forecast_data.growth_rate.toFixed(1)}%</div>
+                                <div>Темп роста</div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+            
+            container.innerHTML = html;
+        }
+
+        function showDependencyResults(data) {
+            const container = document.getElementById('dependenciesResults');
+            let html = '<h6><i class="fas fa-link me-2"></i>Результаты анализа зависимостей</h6>';
+            
+            if (data.dependencies) {
+                html += '<div class="dependency-matrix">';
+                html += '<table class="table table-striped">';
+                html += '<thead><tr><th>Метрика</th><th>Корреляция с бюджетом</th><th>Сила влияния</th></tr></thead><tbody>';
+                
+                for (const [metric, info] of Object.entries(data.dependencies)) {
+                    const strength = Math.abs(info.correlation) > 0.7 ? 'Сильная' : 
+                                   Math.abs(info.correlation) > 0.3 ? 'Умеренная' : 'Слабая';
+                    html += `<tr>
+                        <td>${metric}</td>
+                        <td>${info.correlation.toFixed(3)}</td>
+                        <td><span class="badge ${Math.abs(info.correlation) > 0.7 ? 'bg-danger' : 
+                                               Math.abs(info.correlation) > 0.3 ? 'bg-warning' : 'bg-secondary'}">${strength}</span></td>
+                    </tr>`;
+                }
+                html += '</tbody></table></div>';
+            }
+            
+            container.innerHTML = html;
+        }
+
+        function showSimulationResults(data) {
+            const container = document.getElementById('simulationResults');
+            let html = '<h6><i class="fas fa-flask me-2"></i>Результаты моделирования</h6>';
+            
+            if (data.scenarios) {
+                html += '<div class="row">';
+                for (const [scenarioName, result] of Object.entries(data.scenarios)) {
+                    html += `
+                        <div class="col-md-4">
+                            <div class="card">
+                                <div class="card-body text-center">
+                                    <h6>${scenarioName}</h6>
+                                    <div class="metric-value">${result.revenue_impact.toFixed(1)}%</div>
+                                    <div>Влияние на выручку</div>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }
+                html += '</div>';
+            }
+            
+            container.innerHTML = html;
+        }
+
+        function showResultsSection() {
+            document.getElementById('resultsSection').style.display = 'block';
+            document.getElementById('downloadSection').style.display = 'block';
+            updateResultsTabs();
+        }
+
+        function updateResultsTabs() {
+            // Обновляем содержимое вкладок на основе текущих результатов
+            updateChartsTab();
+            updateTablesTab();
+            updateAnalysisTab();
+        }
+
+        function updateChartsTab() {
+            const container = document.getElementById('chartsContent');
+            let html = '';
+            
+            if (currentResults.trend && currentResults.trend.chart_data) {
+                html += '<div class="chart-container">';
+                html += '<h6>График трендового прогноза</h6>';
+                html += `<canvas id="trendChart"></canvas>`;
+                html += '</div>';
+            }
+            
+            if (currentResults.dependencies && currentResults.dependencies.chart_data) {
+                html += '<div class="chart-container">';
+                html += '<h6>Матрица зависимостей</h6>';
+                html += `<canvas id="dependencyChart"></canvas>`;
+                html += '</div>';
+            }
+            
+            if (currentResults.simulation && currentResults.simulation.chart_data) {
+                html += '<div class="chart-container">';
+                html += '<h6>Сравнение сценариев</h6>';
+                html += `<canvas id="simulationChart"></canvas>`;
+                html += '</div>';
+            }
+            
+            container.innerHTML = html;
+            
+            // Создаем графики
+            createCharts();
+        }
+
+        function updateTablesTab() {
+            const container = document.getElementById('tablesContent');
+            let html = '';
+            
+            if (currentResults.trend && currentResults.trend.forecast_data) {
+                html += '<div class="data-table">';
+                html += '<h6>Данные трендового прогноза</h6>';
+                html += '<div class="table-responsive">';
+                html += '<table class="table table-striped">';
+                html += '<thead><tr><th>Период</th><th>Прогноз</th><th>Доверительный интервал</th></tr></thead>';
+                html += '<tbody>';
+                
+                currentResults.trend.forecast_data.periods.forEach(period => {
+                    html += `<tr>
+                        <td>${period.date}</td>
+                        <td>${period.forecast.toLocaleString()}</td>
+                        <td>${period.lower_bound.toLocaleString()} - ${period.upper_bound.toLocaleString()}</td>
+                    </tr>`;
+                });
+                
+                html += '</tbody></table></div></div>';
+            }
+            
+            container.innerHTML = html;
+        }
+
+        function updateAnalysisTab() {
+            const container = document.getElementById('analysisContent');
+            let html = '<h6>Сводный анализ</h6>';
+            
+            if (currentResults.trend) {
+                html += '<div class="alert alert-info">';
+                html += '<h6>Трендовый прогноз</h6>';
+                html += `<p>Модель: ${currentResults.trend.model_used}</p>`;
+                html += `<p>Точность: ${currentResults.trend.accuracy.toFixed(3)}</p>`;
+                html += '</div>';
+            }
+            
+            if (currentResults.dependencies) {
+                html += '<div class="alert alert-success">';
+                html += '<h6>Анализ зависимостей</h6>';
+                html += `<p>Найдено зависимостей: ${Object.keys(currentResults.dependencies.dependencies || {}).length}</p>`;
+                html += '</div>';
+            }
+            
+            if (currentResults.simulation) {
+                html += '<div class="alert alert-warning">';
+                html += '<h6>Моделирование</h6>';
+                html += `<p>Проанализировано сценариев: ${Object.keys(currentResults.simulation.scenarios || {}).length}</p>`;
+                html += '</div>';
+            }
+            
+            container.innerHTML = html;
+        }
+
+        function createCharts() {
+            // Создаем графики с помощью Chart.js
+            if (currentResults.trend && currentResults.trend.chart_data) {
+                const ctx = document.getElementById('trendChart');
+                if (ctx) {
+                    new Chart(ctx, {
+                        type: 'line',
+                        data: currentResults.trend.chart_data,
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            scales: {
+                                y: {
+                                    beginAtZero: true
+                                }
+                            }
+                        }
+                    });
+                }
+            }
+        }
+
+        function downloadCSV() {
+            if (currentSessionId) {
+                window.open(`/download/csv/${currentSessionId}`, '_blank');
+            }
+        }
+
+        function downloadExcel() {
+            if (currentSessionId) {
+                window.open(`/download/excel/${currentSessionId}`, '_blank');
+            }
+        }
+
+        function downloadReport() {
+            if (currentSessionId) {
+                window.open(`/download/report/${currentSessionId}`, '_blank');
+            }
+        }
+
+        // Вспомогательные функции
+        function showLoading(elementId, message) {
+            const element = document.getElementById(elementId);
+            element.innerHTML = `<div class="loading"><div class="spinner-border text-primary" role="status"></div><p class="mt-2">${message}</p></div>`;
+        }
+
+        function showSuccess(elementId, message) {
+            const element = document.getElementById(elementId);
+            element.innerHTML = `<div class="alert alert-success"><i class="fas fa-check me-2"></i>${message}</div>`;
+        }
+
+        function showError(elementId, message) {
+            const element = document.getElementById(elementId);
+            element.innerHTML = `<div class="alert alert-danger"><i class="fas fa-exclamation-triangle me-2"></i>${message}</div>`;
+        }
+
+        // Глобальные переменные для обработанных данных
+        let processedData = null;
+        let dataMapping = null;
+
+        // Проверяем наличие загруженного проекта при загрузке страницы
+        window.addEventListener('DOMContentLoaded', function() {
+            console.log('DOMContentLoaded вызван');
+            // Проверяем параметр проекта в URL
+            const urlParams = new URLSearchParams(window.location.search);
+            const projectId = urlParams.get('project');
+            console.log('projectId из URL:', projectId);
+            
+            if (projectId) {
+                console.log('Вызываем loadProjectFromUrl с projectId:', projectId);
+                // Загружаем проект по ID из URL
+                loadProjectFromUrl(projectId);
+            } else {
+                // Проверяем sessionStorage
+                const savedProcessedData = sessionStorage.getItem('processedData');
+                const savedDataMapping = sessionStorage.getItem('dataMapping');
+                const savedDataInfo = sessionStorage.getItem('dataInfo') || sessionStorage.getItem('uploadedData');
+                const savedSessionId = sessionStorage.getItem('sessionId');
+                
+                if (savedDataInfo && savedSessionId) {
+                    // Загружен существующий проект
+                    currentSessionId = savedSessionId;
+                    const dataInfo = JSON.parse(savedDataInfo);
+                    dataColumns = dataInfo.columns;
+                    
+                    // Скрываем интерфейс создания нового проекта
+                    const uploadSection = document.getElementById('uploadSection');
+                    if (uploadSection) {
+                        uploadSection.style.display = 'none';
+                    }
+                    
+                    // Показываем информацию о загруженном проекте
+                    showDataPreview(dataInfo);
+                    populateFieldSelects();
+                    
+                    // Добавляем кнопку для создания нового проекта
+                    addNewProjectButton();
+                    
+                    if (savedProcessedData && savedDataMapping) {
+                        // Есть обработанные данные
+                        processedData = JSON.parse(savedProcessedData);
+                        dataMapping = JSON.parse(savedDataMapping);
+                        
+                        // Проверяем, есть ли настройки маппинга
+                        if (dataMapping && Object.keys(dataMapping).length > 0) {
+                            showProcessedDataPreview(processedData, dataMapping);
+                        } else {
+                            // Нет настроек маппинга, показываем кнопку для настройки
+                            showMappingButton();
+                        }
+                    } else {
+                        // Показываем кнопку для перехода к маппингу
+                        showMappingButton();
+                    }
+                }
+            }
+        });
+
+        function loadProjectFromUrl(projectId) {
+            console.log('loadProjectFromUrl вызвана с projectId:', projectId);
+            // Загружаем данные проекта через API
+            fetch(`/api/load_project/${projectId}`)
+                .then(response => response.json())
+                .then(data => {
+                    console.log('Ответ от сервера:', data);
+                    if (data.success) {
+                        console.log('Проект успешно загружен:', data.project);
+                        const project = data.project;
+                        
+                        // Сохраняем данные в sessionStorage (без full_data для экономии места)
+                        sessionStorage.setItem('sessionId', project.session_id);
+                        
+                        // Создаем dataInfo без full_data для localStorage
+                        const dataInfoForStorage = { ...project.data_info };
+                        delete dataInfoForStorage.full_data; // Удаляем полные данные
+                        
+                        // Безопасное сохранение в sessionStorage с обработкой ошибок
+                        try {
+                            sessionStorage.setItem('dataInfo', JSON.stringify(dataInfoForStorage));
+                            sessionStorage.setItem('uploadedData', JSON.stringify(dataInfoForStorage));
+                            sessionStorage.setItem('dataMapping', JSON.stringify(project.data_mapping));
+                            sessionStorage.setItem('processedData', JSON.stringify(project.processed_data));
+                            sessionStorage.setItem('currentProjectId', project.id);
+                        } catch (error) {
+                            console.warn('Ошибка сохранения в sessionStorage:', error);
+                            // Очищаем старые данные и пробуем снова
+                            sessionStorage.clear();
+                            sessionStorage.setItem('sessionId', project.session_id);
+                            sessionStorage.setItem('dataInfo', JSON.stringify(dataInfoForStorage));
+                            sessionStorage.setItem('dataMapping', JSON.stringify(project.data_mapping));
+                            sessionStorage.setItem('currentProjectId', project.id);
+                        }
+                        
+                        // Устанавливаем глобальные переменные
+                        dataInfo = project.data_info;
+                        currentSessionId = project.session_id;
+                        processedData = project.processed_data;
+                        dataMapping = project.data_mapping;
+                        dataColumns = project.data_info.columns;
+                        
+                        // Скрываем интерфейс создания нового проекта
+                        const uploadSection = document.getElementById('uploadSection');
+                        if (uploadSection) {
+                            uploadSection.style.display = 'none';
+                        }
+                        
+                        // Показываем информацию о загруженном проекте
+                        showDataPreview(dataInfo, project.name);
+                        populateFieldSelects();
+                        populateTimeSeriesSelects();
+                        
+                        // Добавляем кнопку для создания нового проекта
+                        addNewProjectButton();
+                        
+                        // Проверяем, есть ли настройки маппинга
+                        if (dataMapping && Object.keys(dataMapping).length > 0) {
+                            showProcessedDataPreview(processedData, dataMapping);
+                        } else {
+                            // Нет настроек маппинга, сразу переходим к маппингу
+                            window.location.href = '/forecast/mapping';
+                        }
+                    } else {
+                        alert('Ошибка загрузки проекта: ' + data.message);
+                        // Возвращаемся на главную страницу
+                        window.location.href = '/';
+                    }
+                })
+                .catch(error => {
+                    console.error('Ошибка при загрузке проекта:', error);
+                    alert('Ошибка при загрузке проекта: ' + error.message);
+                    // Возвращаемся на главную страницу
+                    window.location.href = '/';
+                });
+        }
+
+        function showProcessedDataPreview(processedData, mapping) {
+            const preview = document.getElementById('dataPreview');
+            preview.innerHTML = `
+                <div class="alert alert-success">
+                    <h6><i class="fas fa-check-circle me-2"></i>Данные обработаны и готовы к прогнозированию</h6>
+                    <p><strong>Размер:</strong> ${processedData.shape[0]} строк, ${processedData.shape[1]} колонок</p>
+                    <p><strong>Колонки:</strong> ${processedData.columns.join(', ')}</p>
+                </div>
+                <div class="row mt-3">
+                    <div class="col-md-6">
+                        <h6><i class="fas fa-clock me-2"></i>Временные ряды</h6>
+                        <ul class="list-unstyled">
+                            ${getTimeSeriesInfo(mapping)}
+                        </ul>
+                    </div>
+                    <div class="col-md-6">
+                        <h6><i class="fas fa-layer-group me-2"></i>Срезы</h6>
+                        <ul class="list-unstyled">
+                            ${getSlicesInfo(mapping)}
+                        </ul>
+                    </div>
+                </div>
+                <div class="row mt-3">
+                    <div class="col-md-12">
+                        <h6><i class="fas fa-cogs me-2"></i>Правила обработки данных</h6>
+                        <ul class="list-unstyled">
+                            <li><strong>Обработка пропусков:</strong> ${mapping.missingValues || 'Не указано'}</li>
+                            <li><strong>Обнаружение выбросов:</strong> ${mapping.detectOutliers ? 'Включено' : 'Отключено'}</li>
+                            <li><strong>Нормализация:</strong> ${mapping.normalizeData ? 'Включена' : 'Отключена'}</li>
+                            <li><strong>Логарифмическое преобразование:</strong> ${mapping.logTransform ? 'Включено' : 'Отключено'}</li>
+                            <li><strong>Создание признаков:</strong> ${mapping.createFeatures ? 'Включено' : 'Отключено'}</li>
+                        </ul>
+                    </div>
+                </div>
+                <div class="mt-3">
+                    <button class="btn btn-info btn-sm" onclick="showDataTable()">
+                        <i class="fas fa-table me-2"></i>Показать таблицу данных
+                    </button>
+                    <button class="btn btn-warning btn-sm ms-2" onclick="editMapping()">
+                        <i class="fas fa-edit me-2"></i>Изменить маппинг
+                    </button>
+                    <button class="btn btn-primary btn-sm ms-2" onclick="showSaveProjectModal()">
+                        <i class="fas fa-save me-2"></i>Сохранить проект
+                    </button>
+                    <button class="btn btn-danger btn-sm ms-2" onclick="deleteCurrentProject()">
+                        <i class="fas fa-trash me-2"></i>Удалить проект
+                    </button>
+                    <button class="btn btn-success btn-sm ms-2" onclick="startForecast()">
+                        <i class="fas fa-chart-line me-2"></i>Запустить прогноз
+                    </button>
+                </div>
+                <div id="dataTableContainer" class="mt-3" style="display: none;">
+                    <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
+                        <table class="table table-sm table-striped">
+                            <thead id="dataTableHeader"></thead>
+                            <tbody id="dataTableBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+                <div id="timeSeriesContainer" class="mt-3" style="display: block;">
+                    <div class="card">
+                        <div class="card-header">
+                            <h6><i class="fas fa-chart-line me-2"></i>Временные ряды</h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="row mb-3">
+                                <div class="col-md-12">
+                                    <label class="form-label">Метрики</label>
+                                    <select class="form-select" id="metricsSelect" multiple>
+                                        <option value="">Выберите метрики</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="text-center">
+                                <button class="btn btn-primary" onclick="loadTimeSeriesData()">
+                                    <i class="fas fa-chart-line me-2"></i>Построить график
+                                </button>
+                            </div>
+                            <div class="mt-3">
+                                <div id="timeSeriesChartContainer">
+                                    <canvas id="timeSeriesChart" width="400" height="200"></canvas>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            // Автоматически загружаем график с первой метрикой
+            setTimeout(() => {
+                populateTimeSeriesSelects();
+                loadTimeSeriesData();
+            }, 500);
+        }
+
+        function getTimeSeriesInfo(mapping) {
+            if (!mapping || !mapping.columns) {
+                return '<li>Не настроено</li>';
+            }
+            
+            const info = [];
+            const timeTypes = {
+                'date': 'Дата',
+                'year': 'Год', 
+                'month': 'Месяц',
+                'week': 'Неделя',
+                'quarter': 'Квартал',
+                'halfyear': 'Полугодие'
+            };
+            
+            // Собираем временные ряды
+            const timeSeriesCols = [];
+            mapping.columns.forEach(col => {
+                if (col.time_series && col.time_series !== '') {
+                    const level = col.nesting_level || 0;
+                    timeSeriesCols.push({
+                        name: col.name,
+                        type: col.time_series,
+                        level: level
+                    });
+                }
+            });
+            
+            // Сортируем по возрастанию уровней (0, 1, 2, 3...)
+            timeSeriesCols.sort((a, b) => a.level - b.level);
+            
+            timeSeriesCols.forEach(col => {
+                info.push(`<li><strong>${timeTypes[col.type]}:</strong> ${col.name} (уровень ${col.level})</li>`);
+            });
+            
+            return info.length > 0 ? info.join('') : '<li>Не настроено</li>';
+        }
+
+        function getSlicesInfo(mapping) {
+            if (!mapping || !mapping.columns) {
+                return '<li>Не настроено</li>';
+            }
+            
+            const info = [];
+            const sliceCols = [];
+            
+            // Ищем колонки с ролью dimension и уровнями вложенности, исключая временные ряды
+            mapping.columns.forEach(col => {
+                if (col.role === 'dimension' && col.nesting_level >= 0 && !col.time_series) {
+                    sliceCols.push({
+                        name: col.name,
+                        level: col.nesting_level
+                    });
+                }
+            });
+            
+            // Сортируем по убыванию уровней
+            sliceCols.sort((a, b) => b.level - a.level);
+            
+            sliceCols.forEach(col => {
+                info.push(`<li><strong>Уровень ${col.level}:</strong> ${col.name}</li>`);
+            });
+            
+            return info.length > 0 ? info.join('') : '<li>Не настроено</li>';
+        }
+
+        function showDataTable() {
+            const container = document.getElementById('dataTableContainer');
+            const header = document.getElementById('dataTableHeader');
+            const body = document.getElementById('dataTableBody');
+            
+            if (container.style.display === 'none') {
+                // Показываем таблицу
+                header.innerHTML = '';
+                body.innerHTML = '';
+                
+                // Заголовки
+                processedData.columns.forEach(col => {
+                    const th = document.createElement('th');
+                    th.textContent = col;
+                    header.appendChild(th);
+                });
+                
+                // Данные (первые 50 строк)
+                processedData.sample_data.slice(0, 50).forEach(row => {
+                    const tr = document.createElement('tr');
+                    processedData.columns.forEach(col => {
+                        const td = document.createElement('td');
+                        td.textContent = row[col] || '';
+                        td.style.fontSize = '0.8em';
+                        tr.appendChild(td);
+                    });
+                    body.appendChild(tr);
+                });
+                
+                container.style.display = 'block';
+            } else {
+                // Скрываем таблицу
+                container.style.display = 'none';
+            }
+        }
+
+        function editMapping() {
+            window.location.href = '/forecast/mapping';
+        }
+
+        function showTimeSeriesChart() {
+            const container = document.getElementById('timeSeriesContainer');
+            
+            if (container.style.display === 'none') {
+                // Показываем контейнер и заполняем селекты
+                populateTimeSeriesSelects();
+                container.style.display = 'block';
+            } else {
+                // Скрываем контейнер
+                container.style.display = 'none';
+            }
+        }
+
+        function populateTimeSeriesSelects() {
+            const metricsSelect = document.getElementById('metricsSelect');
+            
+            // Проверяем наличие элементов
+            if (!metricsSelect) {
+                console.error('Элемент селекта метрик не найден');
+                return;
+            }
+            
+            // Очищаем селект
+            metricsSelect.innerHTML = '<option value="">Выберите метрики</option>';
+            
+            if (!processedData) {
+                console.log('processedData не найден, используем dataInfo');
+                // Используем dataInfo если processedData недоступен
+                const dataInfo = JSON.parse(sessionStorage.getItem('dataInfo') || '{}');
+                if (dataInfo.columns) {
+                    populateSelectsFromDataInfo(dataInfo, metricsSelect);
+                }
+                return;
+            }
+            
+            // Получаем настройки маппинга
+            const mappingConfig = JSON.parse(sessionStorage.getItem('dataMapping') || '{}');
+            
+            // Заполняем селекты колонками
+            processedData.columns.forEach((col, index) => {
+                // Метрики - только колонки с ролью "metric"
+                const columnMapping = mappingConfig.columns?.find(c => c.name === col);
+                if (columnMapping && columnMapping.role === 'metric') {
+                    const option2 = document.createElement('option');
+                    option2.value = col;
+                    option2.textContent = col;
+                    metricsSelect.appendChild(option2);
+                } else if (!mappingConfig.columns && processedData.dtypes[col] && 
+                    (processedData.dtypes[col].includes('int') || processedData.dtypes[col].includes('float'))) {
+                    // Fallback: если нет маппинга, используем числовые колонки
+                    const option2 = document.createElement('option');
+                    option2.value = col;
+                    option2.textContent = col;
+                    metricsSelect.appendChild(option2);
+                }
+                
+            });
+            
+            // Заполняем селект разбивки по срезам
+            const splitBySliceSelect = document.getElementById('splitBySlice');
+            if (splitBySliceSelect) {
+                // Очищаем предыдущие опции
+                splitBySliceSelect.innerHTML = '<option value="">Без разбивки</option>';
+                
+                // Добавляем срезы из маппинга
+                if (mappingConfig && mappingConfig.columns) {
+                    mappingConfig.columns.forEach(col => {
+                        if (col.role === 'slice') {
+                            const option = document.createElement('option');
+                            option.value = col.name;
+                            option.textContent = col.name;
+                            splitBySliceSelect.appendChild(option);
+                        }
+                    });
+                }
+                
+                // Восстанавливаем ранее выбранное значение
+                if (selectedSliceForSplit) {
+                    splitBySliceSelect.value = selectedSliceForSplit;
+                }
+            }
+            
+            // Автоматически выбираем временную ось из маппинга
+            // (теперь временная ось определяется автоматически в loadTimeSeriesData)
+        }
+
+        function populateSelectsFromDataInfo(dataInfo, metricsSelect) {
+            // Получаем настройки маппинга
+            const mappingConfig = JSON.parse(sessionStorage.getItem('dataMapping') || '{}');
+            
+            // Заполняем селекты колонками из dataInfo
+            dataInfo.columns.forEach((col, index) => {
+                // Метрики - только колонки с ролью "metric"
+                const columnMapping = mappingConfig.columns?.find(c => c.name === col);
+                if (columnMapping && columnMapping.role === 'metric') {
+                    const option2 = document.createElement('option');
+                    option2.value = col;
+                    option2.textContent = col;
+                    metricsSelect.appendChild(option2);
+                } else if (!mappingConfig.columns && dataInfo.dtypes && dataInfo.dtypes[col] && 
+                    (dataInfo.dtypes[col].includes('int') || dataInfo.dtypes[col].includes('float'))) {
+                    // Fallback: если нет маппинга, используем числовые колонки
+                    const option2 = document.createElement('option');
+                    option2.value = col;
+                    option2.textContent = col;
+                    metricsSelect.appendChild(option2);
+                }
+                
+            });
+        }
+
+        function loadTimeSeriesData() {
+            // Проверяем, что сессия инициализирована
+            if (!currentSessionId) {
+                console.error('Сессия не инициализирована');
+                alert('Ошибка: сессия не найдена. Пожалуйста, загрузите данные заново.');
+                return;
+            }
+            
+            const metricsSelect = document.getElementById('metricsSelect');
+            if (!metricsSelect) {
+                console.error('Элемент metricsSelect не найден');
+                alert('Ошибка: элемент выбора метрик не найден');
+                return;
+            }
+            
+            // Если ни одна метрика не выбрана, автоматически выбираем первую
+            if (metricsSelect.selectedOptions.length === 0 && metricsSelect.options.length > 1) {
+                metricsSelect.options[1].selected = true; // Первая опция (индекс 1, так как 0 - это "Выберите метрики")
+            }
+            
+            // Автоматически определяем временную ось из настроек маппинга
+            const mappingConfig = JSON.parse(sessionStorage.getItem('dataMapping') || '{}');
+            let timeColumn = '';
+            
+            if (mappingConfig.columns) {
+                // Находим колонку с наименьшим уровнем вложенности среди временных рядов
+                const timeSeriesCols = mappingConfig.columns
+                    .filter(col => col.time_series && col.time_series !== '')
+                    .sort((a, b) => (a.nesting_level || 0) - (b.nesting_level || 0));
+                
+                if (timeSeriesCols.length > 0) {
+                    timeColumn = timeSeriesCols[0].name;
+                }
+            }
+            
+            console.log('loadTimeSeriesData вызвана:', {
+                timeColumn: timeColumn,
+                metricsSelect: metricsSelect,
+                currentSessionId: currentSessionId
+            });
+            
+            if (!timeColumn) {
+                alert('Не найдена временная ось в настройках маппинга');
+                return;
+            }
+            
+            const selectedMetrics = Array.from(metricsSelect.selectedOptions).map(option => option.value);
+            if (selectedMetrics.length === 0) {
+                alert('Выберите хотя бы одну метрику');
+                return;
+            }
+            
+            // Показываем загрузку
+            const chartContainer = document.getElementById('timeSeriesChartContainer');
+            chartContainer.innerHTML = '<div class="text-center"><div class="spinner-border text-primary" role="status"></div><p class="mt-2">Загрузка данных...</p></div>';
+            
+            // Формируем URL для запроса
+            const params = new URLSearchParams();
+            params.append('time_column', timeColumn);
+            selectedMetrics.forEach(metric => params.append('metrics', metric));
+            
+            // Всегда показываем сводную таблицу
+            params.append('show_pivot', 'true');
+            // Передаем режим сводной таблицы
+            params.append('pivot_mode', pivotState.pivotMode || 'slices');
+            // Передаем параметр разбивки по срезам (приоритет у глобальной переменной)
+            const splitBySliceSelect = document.getElementById('splitBySlice');
+            const sliceValue = selectedSliceForSplit || (splitBySliceSelect ? splitBySliceSelect.value : '');
+            if (sliceValue) {
+                params.append('split_by_slice', sliceValue);
+                console.log('Добавлен параметр split_by_slice:', sliceValue);
+            } else {
+                console.log('split_by_slice пустое значение');
+            }
+            
+            // Передаем данные маппинга
+            const mappingData = JSON.parse(sessionStorage.getItem('dataMapping') || '{}');
+            if (mappingData && mappingData.columns && mappingData.columns.length > 0) {
+                params.append('mapping_data', JSON.stringify(mappingData));
+                console.log('Передаем данные маппинга в запросе:', mappingData.columns.length, 'колонок');
+            } else {
+                console.warn('Данные маппинга не найдены в sessionStorage');
+            }
+            
+            // Передаем настройки маппинга (используем уже объявленную переменную)
+            // params.append('mapping_data', JSON.stringify(mappingConfig)); // Удалено - дублирование
+            
+            console.log('Параметры запроса:', {
+                sessionId: currentSessionId,
+                timeColumn: timeColumn,
+                metrics: selectedMetrics,
+                url: `/api/get_time_series_data/${currentSessionId}?${params}`
+            });
+            
+            // Загружаем данные
+            fetch(`/api/get_time_series_data/${currentSessionId}?${params}`)
+                .then(response => response.json())
+                .then(data => {
+                    console.log('Получены данные временных рядов:', data);
+                    console.log('Структура данных:', {
+                        success: data.success,
+                        hasData: !!data.data,
+                        dataKeys: data.data ? Object.keys(data.data) : [],
+                        hasPivotTable: !!(data.data && data.data.pivot_table)
+                    });
+                    
+                    if (data.success) {
+                        if (data.data.pivot_table) {
+                            console.log('Обрабатываем сводную таблицу:', data.data.pivot_table);
+                            console.log('Структура pivot_table от сервера:', {
+                                columns: data.data.pivot_table.columns,
+                                dataLength: data.data.pivot_table.data ? data.data.pivot_table.data.length : 0,
+                                firstRow: data.data.pivot_table.data ? data.data.pivot_table.data[0] : null,
+                                hasColumnHeaders: !!data.data.pivot_table.column_headers,
+                                splitBySlice: data.data.pivot_table.split_by_slice,
+                                uniqueSlices: data.data.pivot_table.unique_slices,
+                                metrics: data.data.pivot_table.metrics,
+                                time_series_info: data.data.pivot_table.time_series_info,
+                                available_slices: data.data.pivot_table.available_slices
+                            });
+                            
+                            // Сохраняем данные для новой системы
+                            currentPivotData = data.data.pivot_table.data;
+                            console.log('Сохранили данные для новой системы:', currentPivotData.length, 'строк');
+                            console.log('Первая строка сохраненных данных:', currentPivotData[0]);
+                            
+                            // Показываем и сводную таблицу, и график
+                            const splitBySliceSelect = document.getElementById('splitBySlice');
+                            const selectedSlice = selectedSliceForSplit || (splitBySliceSelect ? splitBySliceSelect.value : '');
+                            console.log('Вызываем renderPivotTableAndChart с selectedSlice:', selectedSlice);
+                            renderPivotTableAndChart(data.data.pivot_table, data.data, selectedSlice);
+                        } else {
+                            console.log('Нет сводной таблицы в ответе сервера');
+                            console.log('Данные от сервера:', data.data);
+                            
+                            // Попробуем создать сводную таблицу из обычных данных
+                            if (data.data && data.data.data) {
+                                console.log('Создаем сводную таблицу из обычных данных');
+                                console.log('Первые 3 строки данных:', data.data.data.slice(0, 3));
+                                console.log('Структура данных:', Object.keys(data.data.data[0] || {}));
+                                
+                                // Получаем выбранную метрику из дропбокса
+                                const metricsSelect = document.getElementById('metricsSelect');
+                                const selectedMetric = metricsSelect && metricsSelect.value ? metricsSelect.value : 'revenue_first_transactions';
+                                console.log('Выбранная метрика для сводной таблицы:', selectedMetric);
+                                
+                                // Проверяем, есть ли выбранная метрика в данных
+                                const hasSelectedMetric = data.data.data.some(row => row[selectedMetric] !== undefined);
+                                console.log('Есть ли выбранная метрика в данных:', hasSelectedMetric);
+                                
+                                if (!hasSelectedMetric) {
+                                    console.log('Выбранная метрика не найдена, используем первую доступную');
+                                    const availableMetrics = Object.keys(data.data.data[0] || {}).filter(key => 
+                                        key !== 'year' && key !== 'month' && key !== 'quarter'
+                                    );
+                                    const fallbackMetric = availableMetrics[0] || 'revenue_first_transactions';
+                                    console.log('Используем метрику:', fallbackMetric);
+                                }
+                                
+                                const pivotData = {
+                                    data: data.data.data,
+                                    columns: Object.keys(data.data.data[0] || {}),
+                                    metrics: [selectedMetric] // используем выбранную метрику
+                                };
+                                
+                                currentPivotData = pivotData.data;
+                                console.log('Создали сводную таблицу из данных:', currentPivotData.length, 'строк');
+                                
+                                // Показываем сводную таблицу
+                                const splitBySliceSelect = document.getElementById('splitBySlice');
+                                const selectedSlice = selectedSliceForSplit || (splitBySliceSelect ? splitBySliceSelect.value : '');
+                                renderPivotTableAndChart(pivotData, data.data, selectedSlice);
+                            } else {
+                                console.log('Нет данных для отображения');
+                                renderTimeSeriesChart(data.data);
+                            }
+                        }
+                    } else {
+                        console.error('Ошибка от сервера:', data.message);
+                        alert('Ошибка: ' + data.message);
+                        chartContainer.innerHTML = '<div class="alert alert-danger">Ошибка загрузки данных</div>';
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Ошибка при загрузке данных');
+                    chartContainer.innerHTML = '<div class="alert alert-danger">Ошибка загрузки данных</div>';
+                });
+        }
+
+        function renderTimeSeriesChart(data) {
+            console.log('renderTimeSeriesChart вызвана с данными:', data);
+            
+            let canvas = document.getElementById('timeSeriesChart');
+            let chartContainer = document.getElementById('timeSeriesChartContainer');
+            
+            if (!canvas) {
+                // Если canvas не найден, создаем его
+                if (!chartContainer) {
+                    console.error('Контейнер timeSeriesChartContainer не найден');
+                return;
+                }
+                
+                // Создаем canvas элемент
+                canvas = document.createElement('canvas');
+                canvas.id = 'timeSeriesChart';
+                canvas.width = 400;
+                canvas.height = 200;
+                chartContainer.innerHTML = '';
+                chartContainer.appendChild(canvas);
+                console.log('Создан новый canvas элемент timeSeriesChart');
+            }
+            
+            // Уничтожаем предыдущий график, если он существует
+            if (currentChart) {
+                currentChart.destroy();
+                currentChart = null;
+            }
+            
+            console.log('Canvas найден, предыдущий график уничтожен');
+            
+            // Подготавливаем данные для Chart.js
+            const datasets = [];
+            const colors = ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40'];
+            
+            if (data.grouped_series && Object.keys(data.grouped_series).length > 0) {
+                // Группированные данные
+                let colorIndex = 0;
+                for (const [groupName, groupData] of Object.entries(data.grouped_series)) {
+                    for (const [metric, values] of Object.entries(groupData)) {
+                        datasets.push({
+                            label: `${metric} (${groupName})`,
+                            data: values,
+                            borderColor: colors[colorIndex % colors.length],
+                            backgroundColor: colors[colorIndex % colors.length] + '20',
+                            fill: false,
+                            tension: 0.1
+                        });
+                        colorIndex++;
+                    }
+                }
+            } else {
+                // Обычные данные
+                data.time_series.forEach((series, index) => {
+                    datasets.push({
+                        label: series.metric,
+                        data: series.data,
+                        borderColor: colors[index % colors.length],
+                        backgroundColor: colors[index % colors.length] + '20',
+                        fill: false,
+                        tension: 0.1
+                    });
+                });
+            }
+            
+            // Создаем график
+            console.log('Создаем график с данными:', {
+                labels: data.time_labels,
+                datasets: datasets
+            });
+            
+                try {
+                    const ctx = canvas.getContext('2d');
+                    currentChart = new Chart(ctx, {
+                        type: 'line',
+                        data: {
+                            labels: data.time_labels,
+                            datasets: datasets
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            scales: {
+                                y: {
+                                    beginAtZero: true,
+                                    title: {
+                                        display: true,
+                                        text: 'Значение'
+                                    }
+                                },
+                                x: {
+                                    title: {
+                                        display: true,
+                                        text: 'Время'
+                                    }
+                                }
+                            },
+                            plugins: {
+                                legend: {
+                                    display: true,
+                                    position: 'top'
+                                },
+                                title: {
+                                    display: true,
+                                    text: 'Временные ряды'
+                                }
+                            }
+                        }
+                    });
+                    console.log('График создан успешно:', currentChart);
+                } catch (error) {
+                    console.error('Ошибка при создании графика:', error);
+                    // Показываем ошибку в контейнере
+                    const container = document.getElementById('timeSeriesContainer');
+                    if (container) {
+                        container.innerHTML = '<div class="alert alert-danger">Ошибка при создании графика: ' + error.message + '</div>';
+                    }
+                }
+        }
+
+        function renderPivotTable(pivotData) {
+            console.log('renderPivotTable вызвана с данными:', pivotData);
+            
+            const chartContainer = document.getElementById('timeSeriesChartContainer');
+            if (!chartContainer) {
+                console.error('Элемент timeSeriesChartContainer не найден');
+                return;
+            }
+            
+            // Создаем HTML для сводной таблицы
+            let html = '<div class="pivot-table-container">';
+            html += '<h6><i class="fas fa-table me-2"></i>Сводная таблица с учетом вложенности</h6>';
+            
+            if (pivotData.time_series_info && pivotData.time_series_info.length > 0) {
+                html += '<div class="mb-3">';
+                html += '<small class="text-muted">Временные ряды: ';
+                pivotData.time_series_info.forEach((ts, index) => {
+                    html += `${ts.name} (${ts.type}, уровень ${ts.level})`;
+                    if (index < pivotData.time_series_info.length - 1) html += ' → ';
+                });
+                html += '</small></div>';
+            }
+            
+            html += '<div class="table-responsive" style="max-height: 400px; overflow-y: auto;">';
+            html += '<table class="table table-sm table-striped table-bordered">';
+            
+            // Заголовки
+            html += '<thead class="table-dark">';
+            html += '<tr>';
+            pivotData.columns.forEach(col => {
+                html += `<th>${col}</th>`;
+            });
+            html += '</tr>';
+            html += '</thead>';
+            
+            // Данные
+            html += '<tbody>';
+            pivotData.data.forEach(row => {
+                html += '<tr>';
+                pivotData.columns.forEach(col => {
+                    const value = row[col];
+                    html += `<td>${value !== null && value !== undefined ? value : ''}</td>`;
+                });
+                html += '</tr>';
+            });
+            html += '</tbody>';
+            
+            html += '</table>';
+            html += '</div>';
+            html += '</div>';
+            
+            chartContainer.innerHTML = html;
+        }
+
+        // Функция для отображения простой таблицы обработанных данных
+        function showProcessedDataTable(data, mappingColumns) {
+            console.log('Отображаем простую таблицу обработанных данных');
+            console.log('Данные:', data.length, 'строк');
+            console.log('Колонки маппинга:', mappingColumns.length);
+            
+            const container = document.getElementById('timeSeriesChartContainer');
+            if (!container) {
+                console.error('Контейнер timeSeriesChartContainer не найден');
+                return;
+            }
+            
+            if (!data || data.length === 0) {
+                container.innerHTML = '<div class="alert alert-warning">Нет данных для отображения</div>';
+                return;
+            }
+            
+            // Создаем заголовки таблицы
+            const timeColumns = mappingColumns.filter(col => col.role === 'time' || col.time_series);
+            const metricColumns = mappingColumns.filter(col => col.role === 'metric');
+            const sliceColumns = mappingColumns.filter(col => col.role === 'slice');
+            
+            console.log('Временные колонки:', timeColumns.map(col => col.name));
+            console.log('Метрики:', metricColumns.map(col => col.name));
+            console.log('Срезы:', sliceColumns.map(col => col.name));
+            
+            let html = '<div class="table-responsive">';
+            html += '<h5>Обработанные данные после маппинга</h5>';
+            html += '<p class="text-muted">Показываем первые 100 строк из ' + data.length + ' строк</p>';
+            html += '<table class="table table-sm table-striped table-bordered">';
+            
+            // Заголовки
+            html += '<thead class="table-dark"><tr>';
+            mappingColumns.forEach(col => {
+                const badgeClass = col.role === 'time' ? 'bg-primary' : 
+                                  col.role === 'metric' ? 'bg-success' : 
+                                  col.role === 'slice' ? 'bg-warning' : 'bg-secondary';
+                html += `<th><span class="badge ${badgeClass}">${col.role}</span> ${col.name}</th>`;
+            });
+            html += '</tr></thead>';
+            
+            // Данные (показываем первые 100 строк)
+            html += '<tbody>';
+            const rowsToShow = Math.min(100, data.length);
+            for (let i = 0; i < rowsToShow; i++) {
+                const row = data[i];
+                html += '<tr>';
+                mappingColumns.forEach(col => {
+                    const value = row[col.name];
+                    let displayValue = '';
+                    
+                    if (value === null || value === undefined) {
+                        displayValue = '<span class="text-muted">-</span>';
+                    } else if (col.role === 'metric' && typeof value === 'number') {
+                        // Форматируем числа
+                        displayValue = value.toLocaleString('ru-RU');
+                        if (value === 0) {
+                            displayValue = `<span class="text-muted">${displayValue}</span>`;
+                        }
+                    } else {
+                        displayValue = String(value);
+                    }
+                    
+                    html += `<td>${displayValue}</td>`;
+                });
+                html += '</tr>';
+            }
+            html += '</tbody>';
+            
+            html += '</table>';
+            
+            // Статистика
+            html += '<div class="mt-3">';
+            html += '<h6>Статистика данных:</h6>';
+            html += '<ul>';
+            html += `<li>Всего строк: ${data.length.toLocaleString('ru-RU')}</li>`;
+            html += `<li>Временных колонок: ${timeColumns.length}</li>`;
+            html += `<li>Метрик: ${metricColumns.length}</li>`;
+            html += `<li>Срезов: ${sliceColumns.length}</li>`;
+            
+            // Проверяем наличие ненулевых значений в метриках
+            if (metricColumns.length > 0) {
+                const firstRow = data[0];
+                const nonZeroMetrics = metricColumns.filter(col => {
+                    const value = parseFloat(firstRow[col.name]);
+                    return !isNaN(value) && value !== 0;
+                });
+                html += `<li>Метрик с ненулевыми значениями: ${nonZeroMetrics.length} из ${metricColumns.length}</li>`;
+                
+                if (nonZeroMetrics.length === 0) {
+                    html += '<li class="text-danger"><strong>ВНИМАНИЕ: Все метрики содержат нулевые значения!</strong></li>';
+                }
+            }
+            
+            html += '</ul>';
+            html += '</div>';
+            
+            html += '</div>';
+            
+            container.innerHTML = html;
+            console.log('Таблица обработанных данных отображена');
+        }
+
+        function renderPivotTableAndChart(pivotData, chartData, selectedSlice = '') {
+            console.log('renderPivotTableAndChart вызвана с данными (новая система):', {pivotData, chartData, selectedSlice});
+            
+            // Проверяем, что новая система загружена
+            if (typeof renderNewPivotTable === 'undefined') {
+                console.error('Функция renderNewPivotTable не определена! Проверьте загрузку static/pivot_table_system.js');
+                const container = document.getElementById('timeSeriesChartContainer');
+                if (container) {
+                    container.innerHTML = '<div class="alert alert-danger">Ошибка: новая система сводной таблицы не загружена</div>';
+                }
+                return;
+            }
+            
+                            // Проверяем, что данные маппинга загружены
+                            const mappingData = JSON.parse(sessionStorage.getItem('dataMapping') || '{}');
+                            console.log('Проверяем загруженные данные маппинга:', mappingData);
+                            
+                            if (!mappingData || !mappingData.columns || mappingData.columns.length === 0) {
+                                console.error('Данные маппинга не загружены! Сначала загрузите данные.');
+                                const container = document.getElementById('timeSeriesChartContainer');
+                                if (container) {
+                                    container.innerHTML = '<div class="alert alert-warning">Данные маппинга не загружены. Сначала загрузите данные для анализа.</div>';
+                                }
+                                return;
+                            }
+                            
+                            // Используем данные от сервера (уже преобразованные после маппинга)
+                            console.log('Используем данные от сервера после маппинга');
+                            console.log('Количество колонок в маппинге:', mappingData.columns.length);
+                            console.log('Колонки маппинга:', mappingData.columns.map(col => `${col.name} (${col.role})`));
+                            
+                            // Получаем выбранную метрику
+                            const metricsSelect = document.getElementById('metricsSelect');
+                            const selectedMetric = metricsSelect && metricsSelect.value ? metricsSelect.value : 'revenue_first_transactions';
+                            console.log('Выбранная метрика:', selectedMetric);
+                            
+                            // Определяем режим отображения
+                            const mode = selectedSlice ? 'split-columns' : 'time-series';
+                            console.log('Режим сводной таблицы:', mode);
+                            
+                            // Проверяем все возможные источники данных
+                            console.log('=== ДИАГНОСТИКА ИСТОЧНИКОВ ДАННЫХ ===');
+                            
+                            // 1. Проверяем currentPivotData
+                            console.log('1. currentPivotData:', currentPivotData ? currentPivotData.length + ' строк' : 'не определен');
+                            if (currentPivotData && currentPivotData.length > 0) {
+                                console.log('   Первая строка currentPivotData:', currentPivotData[0]);
+                            }
+                            
+                            // 2. Проверяем chartData
+                            console.log('2. chartData:', chartData ? 'определен' : 'не определен');
+                            if (chartData) {
+                                console.log('   chartData.data:', chartData.data ? chartData.data.length + ' строк' : 'не определен');
+                                console.log('   chartData.pivot_table:', chartData.pivot_table ? 'определен' : 'не определен');
+                                if (chartData.data && chartData.data.length > 0) {
+                                    console.log('   Первая строка chartData.data:', chartData.data[0]);
+                                }
+                                if (chartData.pivot_table && chartData.pivot_table.data) {
+                                    console.log('   chartData.pivot_table.data:', chartData.pivot_table.data.length + ' строк');
+                                    console.log('   Первая строка pivot_table.data:', chartData.pivot_table.data[0]);
+                                }
+                            }
+                            
+                            // 3. Проверяем данные маппинга
+                            console.log('3. Данные маппинга:');
+                            if (mappingData.data && mappingData.data.length > 0) {
+                                console.log('   mappingData.data:', mappingData.data.length + ' строк');
+                                console.log('   Первая строка mappingData.data:', mappingData.data[0]);
+                            } else {
+                                console.log('   mappingData.data: не определен');
+                            }
+                            
+                            // Выбираем лучший источник данных
+                            let dataToUse;
+                            let dataSource = '';
+                            
+                            if (mappingData.data && mappingData.data.length > 0) {
+                                dataToUse = mappingData.data;
+                                dataSource = 'mappingData.data';
+                                console.log('Используем данные из mappingData.data');
+                            } else if (chartData.data && chartData.data.length > 0) {
+                                dataToUse = chartData.data;
+                                dataSource = 'chartData.data';
+                                console.log('Используем данные из chartData.data');
+                            } else if (currentPivotData && currentPivotData.length > 0) {
+                                dataToUse = currentPivotData;
+                                dataSource = 'currentPivotData';
+                                console.log('Используем данные из currentPivotData');
+                            } else {
+                                console.error('Нет данных для отображения');
+                                const container = document.getElementById('timeSeriesChartContainer');
+                                if (container) {
+                                    container.innerHTML = '<div class="alert alert-warning">Нет данных для отображения сводной таблицы.</div>';
+                                }
+                                return;
+                            }
+                            
+                            console.log('Выбранный источник данных:', dataSource, 'с', dataToUse.length, 'строками');
+                            console.log('Первые 3 строки выбранных данных:', dataToUse.slice(0, 3));
+                            console.log('Структура выбранных данных:', Object.keys(dataToUse[0] || {}));
+                            
+                            // Проверяем, есть ли реальные значения в выбранных данных
+                            const firstRow = dataToUse[0];
+                            const hasNonZeroValues = Object.keys(firstRow).some(key => {
+                                if (key !== 'year' && key !== 'month' && key !== 'quarter' && key !== 'Halfyear') {
+                                    const value = parseFloat(firstRow[key]);
+                                    return !isNaN(value) && value !== 0;
+                                }
+                                return false;
+                            });
+                            console.log('Есть ли ненулевые значения в выбранных данных:', hasNonZeroValues);
+                            
+                            if (!hasNonZeroValues) {
+                                console.warn('ВНИМАНИЕ: Все значения метрик равны нулю в выбранных данных!');
+                                console.log('Детальный анализ первой строки:');
+                                Object.keys(firstRow).forEach(key => {
+                                    const value = firstRow[key];
+                                    console.log(`  ${key}: ${value} (тип: ${typeof value})`);
+                                });
+                            }
+                            
+                            // Создаем маппинг для новой системы сводной таблицы
+                            const mappingForPivot = {
+                                columns: mappingData.columns,
+                                selectedMetric: selectedMetric
+                            };
+                            
+                            console.log('Маппинг для сводной таблицы:', mappingForPivot);
+                            
+                            // Показываем простую таблицу обработанных данных
+                            showProcessedDataTable(dataToUse, mappingData.columns);
+                            return;
+            
+            // Fallback на старую систему, если нет данных
+            console.log('Fallback на старую систему - нет данных для новой системы');
+            const container = document.getElementById('timeSeriesChartContainer');
+            if (container) {
+                container.innerHTML = '<div class="text-center"><div class="spinner-border text-primary" role="status"></div><p class="mt-2">Загрузка данных...</p></div>';
+            }
+        }
+
+        function renderTimeSeriesChart(data) {
+            console.log('renderTimeSeriesChart вызвана (упрощенная версия)');
+            const container = document.getElementById('timeSeriesChartContainer');
+            if (container) {
+                container.innerHTML = '<div class="text-center"><p>График временных рядов (функция упрощена)</p></div>';
+            }
+        }
+
+
+        function editMapping() {
+            window.location.href = '/forecast/mapping';
+        }
+
+        function showDataTable() {
+            console.log('showDataTable вызвана (упрощенная версия)');
+            // Упрощенная версия - просто логируем
+        }
+
+        function loadTimeSeriesData() {
+            // Проверяем, что сессия инициализирована
+            if (!currentSessionId) {
+                console.error('Сессия не инициализирована');
+                alert('Ошибка: сессия не найдена. Пожалуйста, загрузите данные заново.');
+                return;
+            }
+            
+            console.log('loadTimeSeriesData вызвана для сессии:', currentSessionId);
+            
+            // Определяем временную колонку из маппинга
+            let timeColumn = '';
+            const mappingConfig = JSON.parse(sessionStorage.getItem('dataMapping') || '{}');
+            if (mappingConfig && mappingConfig.columns) {
+                // Находим колонку с наименьшим уровнем вложенности среди временных рядов
+                const timeSeriesCols = mappingConfig.columns
+                    .filter(col => col.time_series && col.time_series !== '')
+                    .sort((a, b) => (a.nesting_level || 0) - (b.nesting_level || 0));
+                
+                if (timeSeriesCols.length > 0) {
+                    timeColumn = timeSeriesCols[0].name;
+                }
+            }
+            
+            console.log('loadTimeSeriesData вызвана:', {
+                currentSessionId,
+                timeColumn,
+                selectedSliceForSplit
+            });
+            
+            // Формируем параметры запроса
+            const params = new URLSearchParams();
+            if (timeColumn) {
+            params.append('time_column', timeColumn);
+            }
+            
+            // Добавляем метрики из выбранных в дропбоксе
+            const metricsSelect = document.getElementById('metricsSelect');
+            if (metricsSelect && metricsSelect.selectedOptions.length > 0) {
+                const selectedMetrics = Array.from(metricsSelect.selectedOptions).map(option => option.value);
+                selectedMetrics.forEach(metric => {
+                    params.append('metrics', metric);
+                });
+                console.log('Добавляем выбранные метрики:', selectedMetrics);
+                    } else {
+                // Fallback: если ничего не выбрано, используем первую метрику из маппинга
+                if (mappingConfig && mappingConfig.columns) {
+                    const metrics = mappingConfig.columns
+                        .filter(col => col.role === 'metric')
+                        .map(col => col.name);
+                    
+                    if (metrics.length > 0) {
+                        params.append('metrics', metrics[0]);
+                        console.log('Добавляем первую метрику из маппинга:', metrics[0]);
+                    }
+                }
+            }
+            
+            // Добавляем параметр разбивки по срезам, если выбран
+            if (selectedSliceForSplit) {
+                params.append('split_by_slice', selectedSliceForSplit);
+                console.log('Добавляем параметр split_by_slice:', selectedSliceForSplit);
+            }
+            
+            // Добавляем параметры для показа сводной таблицы
+            params.append('show_pivot', 'true');
+            params.append('pivot_mode', 'time-series');
+            
+            // Передаем данные маппинга
+            const mappingData = JSON.parse(sessionStorage.getItem('dataMapping') || '{}');
+            if (mappingData && mappingData.columns && mappingData.columns.length > 0) {
+                params.append('mapping_data', JSON.stringify(mappingData));
+                console.log('Передаем данные маппинга в запросе:', mappingData.columns.length, 'колонок');
+            } else {
+                console.warn('Данные маппинга не найдены в sessionStorage');
+            }
+            
+            console.log('Параметры запроса:', params.toString());
+            
+            // Загружаем данные
+            const chartContainer = document.getElementById('timeSeriesChartContainer');
+            if (chartContainer) {
+                chartContainer.innerHTML = '<div class="text-center"><div class="spinner-border text-primary" role="status"></div><p class="mt-2">Загрузка данных...</p></div>';
+            }
+            
+            fetch(`/api/get_time_series_data/${currentSessionId}?${params}`)
+                .then(response => response.json())
+                .then(data => {
+                    console.log('Получены данные временных рядов:', data);
+                    if (data.success) {
+                        if (data.data.pivot_table) {
+                            console.log('Обрабатываем сводную таблицу:', data.data.pivot_table);
+                            console.log('Структура pivot_table:', {
+                            columns: data.data.pivot_table.columns,
+                                hasColumnHeaders: !!data.data.pivot_table.column_headers,
+                                splitBySlice: data.data.pivot_table.split_by_slice,
+                                uniqueSlices: data.data.pivot_table.unique_slices,
+                                metrics: data.data.pivot_table.metrics
+                            });
+                            
+                            // Сохраняем данные для новой системы
+                            currentPivotData = data.data.pivot_table.data;
+                            console.log('Сохранили данные для новой системы:', currentPivotData.length, 'строк');
+                            
+                            // Показываем и сводную таблицу, и график
+                            const splitBySliceSelect = document.getElementById('splitBySlice');
+                            const selectedSlice = selectedSliceForSplit || (splitBySliceSelect ? splitBySliceSelect.value : '');
+                            console.log('Вызываем renderPivotTableAndChart с selectedSlice:', selectedSlice);
+                            renderPivotTableAndChart(data.data.pivot_table, data.data, selectedSlice);
+                        } else {
+                            console.log('Нет сводной таблицы, показываем только график');
+                            renderTimeSeriesChart(data.data);
+                        }
+                    } else {
+                        console.error('Ошибка загрузки данных:', data);
+                        if (chartContainer) {
+                            const errorMessage = data.message || data.error || 'Неизвестная ошибка';
+                            chartContainer.innerHTML = `<div class="alert alert-danger">Ошибка загрузки данных: ${errorMessage}</div>`;
+                        }
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Ошибка при загрузке данных');
+                    if (chartContainer) {
+                        chartContainer.innerHTML = '<div class="alert alert-danger">Ошибка загрузки данных</div>';
+                    }
+                });
+        }
+
+        // Функция для заполнения опций группировки
+        function populateGroupingOptions(pivotData) {
+            console.log('populateGroupingOptions вызвана (упрощенная версия)');
+            // Упрощенная версия - просто логируем
+        }
+
+        // Функция для обновления таблицы без параметров
+        function updatePivotTable() {
+            console.log('updatePivotTable вызвана (упрощенная версия)');
+            // Упрощенная версия - просто логируем
+        }
+        
+        // Функция для переключения режимов сводной таблицы
+        function switchPivotMode(mode) {
+            console.log('switchPivotMode вызвана (упрощенная версия)');
+            // Упрощенная версия - просто логируем
+        }
+
+        // Функция для показа колонок сводной таблицы
+        function showPivotColumns(maxLevel) {
+            console.log('showPivotColumns вызвана (упрощенная версия)');
+            // Упрощенная версия - просто логируем
+        }
+        
+        // Функция для скрытия колонок сводной таблицы
+        function hidePivotColumns(hiddenLevel) {
+            console.log('hidePivotColumns вызвана (упрощенная версия)');
+            // Упрощенная версия - просто логируем
+        }
+        
+        // Функция для обновления состояний плюсов/минусов
+        function updateToggleStates(currentLevel) {
+            console.log('updateToggleStates вызвана (упрощенная версия)');
+            // Упрощенная версия - просто логируем
+        }
+        
+        // Функция для обновления графика на основе состояния сводной таблицы
+        function updateChartFromPivotState(selectedSlice = '') {
+            console.log('updateChartFromPivotState вызвана (упрощенная версия)');
+            // Упрощенная версия - просто логируем
+        }
+
+        // Функция для агрегации данных сводной таблицы
+        function aggregatePivotData(pivotData, hiddenLevel) {
+            console.log('aggregatePivotData вызвана (упрощенная версия)');
+            return [];
+        }
+
+        function showForecastResults(data) {
+            const forecastInterface = document.getElementById('forecastInterface');
+            forecastInterface.innerHTML = `
+                <div class="card">
+                    <div class="card-header">
+                        <h5><i class="fas fa-chart-line me-2"></i>Результаты прогнозирования</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="alert alert-success">
+                            <h6><i class="fas fa-check me-2"></i>Прогноз выполнен успешно!</h6>
+                            <p>Метод: ${data.method}</p>
+                            <p>Период: ${data.periods} месяцев</p>
+                            <p>Целевая метрика: ${data.target_metric}</p>
+                        </div>
+                        <div class="text-center">
+                            <button class="btn btn-primary me-2" onclick="downloadResults('csv')">
+                                <i class="fas fa-download me-2"></i>Скачать CSV
+                            </button>
+                            <button class="btn btn-success me-2" onclick="downloadResults('excel')">
+                                <i class="fas fa-download me-2"></i>Скачать Excel
+                            </button>
+                            <button class="btn btn-info" onclick="downloadResults('report')">
+                                <i class="fas fa-file-pdf me-2"></i>Отчет
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function downloadResults(format) {
+            if (!currentSessionId) {
+                alert('Нет активной сессии');
+                return;
+            }
+            
+            window.open(`/download/${format}/${currentSessionId}`, '_blank');
+        }
+    </script>
+</body>
+</html>

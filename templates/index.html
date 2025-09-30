@@ -1,0 +1,767 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MARFOR - Маркетинговый инструмент прогнозирования</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        .hero-section {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 80px 0;
+        }
+        .feature-card {
+            transition: transform 0.3s ease;
+            border: none;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        .feature-card:hover {
+            transform: translateY(-5px);
+        }
+        .step-card {
+            border-left: 4px solid #667eea;
+        }
+        .upload-area {
+            border: 2px dashed #667eea;
+            border-radius: 10px;
+            padding: 40px;
+            text-align: center;
+            transition: all 0.3s ease;
+        }
+        .upload-area:hover {
+            border-color: #764ba2;
+            background-color: #f8f9ff;
+        }
+        .config-section {
+            background-color: #f8f9fa;
+            border-radius: 10px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        .channel-config {
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 10px 0;
+            background-color: white;
+        }
+        .metric-item {
+            background-color: #e3f2fd;
+            border-radius: 5px;
+            padding: 8px 12px;
+            margin: 5px;
+            display: inline-block;
+        }
+        .loading {
+            display: none;
+        }
+        .results-section {
+            background-color: #f8f9fa;
+            border-radius: 10px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        .chart-container {
+            background-color: white;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 10px 0;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+    </style>
+</head>
+<body>
+    <!-- Навигация -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container">
+            <a class="navbar-brand" href="#">
+                <i class="fas fa-chart-line me-2"></i>
+                <strong>MARFOR</strong>
+            </a>
+            <span class="navbar-text">Маркетинговый инструмент прогнозирования</span>
+        </div>
+    </nav>
+
+    <!-- Главная секция -->
+    <section class="hero-section">
+        <div class="container text-center">
+            <h1 class="display-4 mb-4">
+                <i class="fas fa-chart-line me-3"></i>
+                MARFOR
+            </h1>
+            <p class="lead mb-4">Универсальный инструмент для прогнозирования и бюджетирования маркетинга</p>
+            <p class="mb-0">Загрузите данные, настройте параметры и получите точный прогноз с моделированием сценариев</p>
+        </div>
+    </section>
+
+    <!-- Основной контент -->
+    <div class="container my-5">
+        <!-- Шаги работы -->
+        <div class="row mb-5">
+            <div class="col-md-3">
+                <div class="card step-card h-100">
+                    <div class="card-body text-center">
+                        <i class="fas fa-upload fa-3x text-primary mb-3"></i>
+                        <h5>1. Загрузка данных</h5>
+                        <p class="text-muted">Загрузите CSV или Excel файл с маркетинговыми данными</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card step-card h-100">
+                    <div class="card-body text-center">
+                        <i class="fas fa-cogs fa-3x text-primary mb-3"></i>
+                        <h5>2. Настройка</h5>
+                        <p class="text-muted">Определите каналы, метрики и зависимости</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card step-card h-100">
+                    <div class="card-body text-center">
+                        <i class="fas fa-brain fa-3x text-primary mb-3"></i>
+                        <h5>3. Анализ</h5>
+                        <p class="text-muted">Построение моделей и анализ зависимостей</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card step-card h-100">
+                    <div class="card-body text-center">
+                        <i class="fas fa-chart-bar fa-3x text-primary mb-3"></i>
+                        <h5>4. Прогноз</h5>
+                        <p class="text-muted">Получение прогноза и моделирование сценариев</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Шаг 1: Загрузка данных -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h4><i class="fas fa-upload me-2"></i>Шаг 1: Загрузка данных</h4>
+            </div>
+            <div class="card-body">
+                <div class="upload-area" id="uploadArea">
+                    <i class="fas fa-cloud-upload-alt fa-3x text-muted mb-3"></i>
+                    <h5>Перетащите файл сюда или нажмите для выбора</h5>
+                    <p class="text-muted">Поддерживаются форматы: CSV, Excel (.xlsx, .xls)</p>
+                    <input type="file" id="fileInput" class="d-none" accept=".csv,.xlsx,.xls">
+                    <button class="btn btn-primary" onclick="document.getElementById('fileInput').click()">
+                        <i class="fas fa-folder-open me-2"></i>Выбрать файл
+                    </button>
+                </div>
+                <div id="uploadStatus" class="mt-3"></div>
+                <div id="dataPreview" class="mt-3"></div>
+            </div>
+        </div>
+
+        <!-- Шаг 2: Настройка конфигурации -->
+        <div class="card mb-4" id="configSection" style="display: none;">
+            <div class="card-header">
+                <h4><i class="fas fa-cogs me-2"></i>Шаг 2: Настройка конфигурации</h4>
+            </div>
+            <div class="card-body">
+                <!-- Временные поля -->
+                <div class="config-section">
+                    <h5><i class="fas fa-clock me-2"></i>Временные поля</h5>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <label class="form-label">Поле для года</label>
+                            <select class="form-select" id="yearField">
+                                <option value="year">year</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Поле для месяца</label>
+                            <select class="form-select" id="monthField">
+                                <option value="month">month</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Измерения -->
+                <div class="config-section">
+                    <h5><i class="fas fa-layer-group me-2"></i>Измерения (Dimensions)</h5>
+                    <div id="dimensionsList"></div>
+                    <button class="btn btn-outline-primary btn-sm" onclick="addDimension()">
+                        <i class="fas fa-plus me-1"></i>Добавить измерение
+                    </button>
+                </div>
+
+                <!-- Метрики -->
+                <div class="config-section">
+                    <h5><i class="fas fa-chart-line me-2"></i>Метрики</h5>
+                    <div id="metricsList"></div>
+                    <button class="btn btn-outline-primary btn-sm" onclick="addMetric()">
+                        <i class="fas fa-plus me-1"></i>Добавить метрику
+                    </button>
+                </div>
+
+                <!-- Каналы -->
+                <div class="config-section">
+                    <h5><i class="fas fa-broadcast-tower me-2"></i>Каналы</h5>
+                    <div id="channelsList"></div>
+                    <button class="btn btn-outline-primary btn-sm" onclick="addChannel()">
+                        <i class="fas fa-plus me-1"></i>Добавить канал
+                    </button>
+                </div>
+
+                <!-- Зависимости -->
+                <div class="config-section">
+                    <h5><i class="fas fa-link me-2"></i>Зависимости между каналами</h5>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="enableDependencies" checked>
+                        <label class="form-check-label" for="enableDependencies">
+                            Включить анализ зависимостей между платными и органическими каналами
+                        </label>
+                    </div>
+                    <div class="mt-2">
+                        <label class="form-label">Коэффициент кросс-канального влияния</label>
+                        <input type="range" class="form-range" id="crossChannelInfluence" min="0" max="1" step="0.1" value="0.1">
+                        <small class="text-muted">Текущее значение: <span id="influenceValue">0.1</span></small>
+                    </div>
+                </div>
+
+                <div class="text-center mt-4">
+                    <button class="btn btn-success btn-lg" onclick="applyConfiguration()">
+                        <i class="fas fa-check me-2"></i>Применить конфигурацию
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Шаг 3: Анализ и построение моделей -->
+        <div class="card mb-4" id="analysisSection" style="display: none;">
+            <div class="card-header">
+                <h4><i class="fas fa-brain me-2"></i>Шаг 3: Анализ и построение моделей</h4>
+            </div>
+            <div class="card-body">
+                <div id="dependenciesAnalysis"></div>
+                <div class="text-center">
+                    <button class="btn btn-primary btn-lg" onclick="buildModels()">
+                        <i class="fas fa-cogs me-2"></i>Построить модели
+                    </button>
+                </div>
+                <div id="modelsStatus" class="mt-3"></div>
+            </div>
+        </div>
+
+        <!-- Шаг 4: Прогноз и моделирование -->
+        <div class="card mb-4" id="forecastSection" style="display: none;">
+            <div class="card-header">
+                <h4><i class="fas fa-chart-bar me-2"></i>Шаг 4: Прогноз и моделирование</h4>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <label class="form-label">Количество периодов для прогноза</label>
+                        <input type="number" class="form-control" id="forecastPeriods" value="16" min="1" max="60">
+                    </div>
+                    <div class="col-md-6 d-flex align-items-end">
+                        <button class="btn btn-primary" onclick="createForecast()">
+                            <i class="fas fa-chart-line me-2"></i>Создать прогноз
+                        </button>
+                    </div>
+                </div>
+                
+                <div id="forecastResults" class="mt-4"></div>
+                
+                <!-- Моделирование сценариев -->
+                <div class="mt-4" id="simulationSection" style="display: none;">
+                    <h5><i class="fas fa-flask me-2"></i>Моделирование сценариев бюджета</h5>
+                    <div class="row">
+                        <div class="col-md-4">
+                            <div class="card">
+                                <div class="card-body">
+                                    <h6>Сценарий 1</h6>
+                                    <label class="form-label">Изменение бюджета (%)</label>
+                                    <input type="number" class="form-control" id="scenario1" value="20" step="5">
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="card">
+                                <div class="card-body">
+                                    <h6>Сценарий 2</h6>
+                                    <label class="form-label">Изменение бюджета (%)</label>
+                                    <input type="number" class="form-control" id="scenario2" value="-10" step="5">
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="card">
+                                <div class="card-body">
+                                    <h6>Сценарий 3</h6>
+                                    <label class="form-label">Изменение бюджета (%)</label>
+                                    <input type="number" class="form-control" id="scenario3" value="50" step="5">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="text-center mt-3">
+                        <button class="btn btn-warning" onclick="runSimulation()">
+                            <i class="fas fa-play me-2"></i>Запустить моделирование
+                        </button>
+                    </div>
+                    <div id="simulationResults" class="mt-4"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Результаты -->
+        <div class="results-section" id="resultsSection" style="display: none;">
+            <h4><i class="fas fa-download me-2"></i>Скачать результаты</h4>
+            <p>Ваш прогноз готов! Вы можете скачать результаты в формате CSV.</p>
+            <button class="btn btn-success" onclick="downloadResults()">
+                <i class="fas fa-download me-2"></i>Скачать CSV
+            </button>
+        </div>
+    </div>
+
+    <!-- Подвал -->
+    <footer class="bg-dark text-white text-center py-4">
+        <div class="container">
+            <p class="mb-0">&copy; 2024 MARFOR - Маркетинговый инструмент прогнозирования</p>
+        </div>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        let currentSessionId = null;
+        let dataColumns = [];
+
+        // Обработка загрузки файла
+        document.getElementById('fileInput').addEventListener('change', handleFileUpload);
+        document.getElementById('uploadArea').addEventListener('click', () => document.getElementById('fileInput').click());
+        document.getElementById('uploadArea').addEventListener('dragover', handleDragOver);
+        document.getElementById('uploadArea').addEventListener('drop', handleDrop);
+
+        // Обработка изменения коэффициента влияния
+        document.getElementById('crossChannelInfluence').addEventListener('input', function() {
+            document.getElementById('influenceValue').textContent = this.value;
+        });
+
+        function handleDragOver(e) {
+            e.preventDefault();
+            e.currentTarget.style.borderColor = '#764ba2';
+        }
+
+        function handleDrop(e) {
+            e.preventDefault();
+            e.currentTarget.style.borderColor = '#667eea';
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                handleFile(files[0]);
+            }
+        }
+
+        function handleFileUpload(e) {
+            const file = e.target.files[0];
+            if (file) {
+                handleFile(file);
+            }
+        }
+
+        function handleFile(file) {
+            const formData = new FormData();
+            formData.append('file', file);
+
+            showLoading('uploadStatus', 'Загрузка файла...');
+
+            fetch('/upload', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    currentSessionId = data.session_id;
+                    dataColumns = data.data_info.columns;
+                    showSuccess('uploadStatus', data.message);
+                    showDataPreview(data.data_info);
+                    showConfigSection();
+                } else {
+                    showError('uploadStatus', data.message);
+                }
+            })
+            .catch(error => {
+                showError('uploadStatus', 'Ошибка при загрузке файла: ' + error.message);
+            });
+        }
+
+        function showDataPreview(dataInfo) {
+            const preview = document.getElementById('dataPreview');
+            preview.innerHTML = `
+                <div class="alert alert-info">
+                    <h6><i class="fas fa-info-circle me-2"></i>Информация о данных</h6>
+                    <p><strong>Размер:</strong> ${dataInfo.shape[0]} строк, ${dataInfo.shape[1]} колонок</p>
+                    <p><strong>Колонки:</strong> ${dataInfo.columns.join(', ')}</p>
+                </div>
+            `;
+        }
+
+        function showConfigSection() {
+            document.getElementById('configSection').style.display = 'block';
+            populateFieldSelects();
+            initializeDefaultConfig();
+        }
+
+        function populateFieldSelects() {
+            const yearSelect = document.getElementById('yearField');
+            const monthSelect = document.getElementById('monthField');
+            
+            yearSelect.innerHTML = '';
+            monthSelect.innerHTML = '';
+            
+            dataColumns.forEach(col => {
+                const option1 = new Option(col, col);
+                const option2 = new Option(col, col);
+                yearSelect.add(option1);
+                monthSelect.add(option2);
+            });
+        }
+
+        function initializeDefaultConfig() {
+            // Добавляем измерения по умолчанию
+            addDimension('region', 'region_to');
+            addDimension('subdivision', 'subdivision');
+            addDimension('category', 'category');
+            
+            // Добавляем метрики по умолчанию
+            addMetric('revenue', 'revenue_total');
+            addMetric('traffic', 'traffic_total');
+            addMetric('transactions', 'transacitons_total');
+            addMetric('ads_cost', 'ads_cost');
+            addMetric('first_traffic', 'first_traffic');
+            addMetric('repeat_traffic', 'repeat_traffic');
+            
+            // Добавляем каналы по умолчанию
+            addChannel('paid_apps', true, 'subdivision', ['paid_apps'], 'ads_cost');
+            addChannel('paid_web', true, 'subdivision', ['paid_web'], 'ads_cost');
+            addChannel('organic_apps', false, 'subdivision', ['organic_apps'], null);
+            addChannel('organic_web', false, 'subdivision', ['organic_web'], null);
+        }
+
+        function addDimension(name = '', field = '') {
+            const container = document.getElementById('dimensionsList');
+            const div = document.createElement('div');
+            div.className = 'row mb-2';
+            div.innerHTML = `
+                <div class="col-md-5">
+                    <input type="text" class="form-control" placeholder="Название измерения" value="${name}">
+                </div>
+                <div class="col-md-5">
+                    <select class="form-select">
+                        ${dataColumns.map(col => `<option value="${col}" ${col === field ? 'selected' : ''}>${col}</option>`).join('')}
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <button class="btn btn-outline-danger btn-sm" onclick="this.parentElement.parentElement.remove()">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
+            `;
+            container.appendChild(div);
+        }
+
+        function addMetric(name = '', field = '') {
+            const container = document.getElementById('metricsList');
+            const div = document.createElement('div');
+            div.className = 'metric-item';
+            div.innerHTML = `
+                <span>${name} (${field})</span>
+                <button class="btn btn-outline-danger btn-sm ms-2" onclick="this.parentElement.remove()">
+                    <i class="fas fa-times"></i>
+                </button>
+            `;
+            container.appendChild(div);
+        }
+
+        function addChannel(name = '', isPaid = false, filterField = '', filterValues = [], budgetField = '') {
+            const container = document.getElementById('channelsList');
+            const div = document.createElement('div');
+            div.className = 'channel-config';
+            div.innerHTML = `
+                <div class="row">
+                    <div class="col-md-3">
+                        <input type="text" class="form-control" placeholder="Название канала" value="${name}">
+                    </div>
+                    <div class="col-md-2">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" ${isPaid ? 'checked' : ''}>
+                            <label class="form-check-label">Платный</label>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <select class="form-select filter-field">
+                            ${dataColumns.map(col => `<option value="${col}" ${col === filterField ? 'selected' : ''}>${col}</option>`).join('')}
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <input type="text" class="form-control" placeholder="Значения (через запятую)" value="${filterValues.join(', ')}">
+                    </div>
+                    <div class="col-md-1">
+                        <button class="btn btn-outline-danger btn-sm" onclick="this.parentElement.parentElement.parentElement.remove()">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="row mt-2">
+                    <div class="col-md-6">
+                        <label class="form-label">Поле бюджета (только для платных каналов)</label>
+                        <select class="form-select budget-field">
+                            <option value="">Не выбрано</option>
+                            ${dataColumns.map(col => `<option value="${col}" ${col === budgetField ? 'selected' : ''}>${col}</option>`).join('')}
+                        </select>
+                    </div>
+                </div>
+            `;
+            container.appendChild(div);
+        }
+
+        function applyConfiguration() {
+            const config = {
+                time_fields: {
+                    year: document.getElementById('yearField').value,
+                    month: document.getElementById('monthField').value
+                },
+                dimensions: {},
+                metrics: {},
+                channels: {},
+                dependencies: {
+                    enabled: document.getElementById('enableDependencies').checked,
+                    cross_channel_influence: parseFloat(document.getElementById('crossChannelInfluence').value)
+                }
+            };
+
+            // Собираем измерения
+            document.querySelectorAll('#dimensionsList .row').forEach(row => {
+                const name = row.querySelector('input').value;
+                const field = row.querySelector('select').value;
+                if (name && field) {
+                    config.dimensions[name] = field;
+                }
+            });
+
+            // Собираем метрики
+            document.querySelectorAll('#metricsList .metric-item').forEach(item => {
+                const text = item.textContent.trim();
+                const match = text.match(/^(.+?)\s*\((.+?)\)/);
+                if (match) {
+                    config.metrics[match[1]] = match[2];
+                }
+            });
+
+            // Собираем каналы
+            document.querySelectorAll('#channelsList .channel-config').forEach(channel => {
+                const name = channel.querySelector('input').value;
+                const isPaid = channel.querySelector('.form-check-input').checked;
+                const filterField = channel.querySelector('.filter-field').value;
+                const filterValues = channel.querySelector('input[placeholder*="запятую"]').value.split(',').map(v => v.trim());
+                const budgetField = channel.querySelector('.budget-field').value;
+
+                if (name && filterField && filterValues.length > 0) {
+                    config.channels[name] = {
+                        is_paid: isPaid,
+                        filter_field: filterField,
+                        filter_values: filterValues,
+                        budget_field: budgetField || null
+                    };
+                }
+            });
+
+            showLoading('configSection', 'Применение конфигурации...');
+
+            fetch('/configure', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(config)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showSuccess('configSection', data.message);
+                    showDependenciesAnalysis(data.dependencies);
+                    showAnalysisSection();
+                } else {
+                    showError('configSection', data.message);
+                }
+            })
+            .catch(error => {
+                showError('configSection', 'Ошибка при применении конфигурации: ' + error.message);
+            });
+        }
+
+        function showDependenciesAnalysis(dependencies) {
+            const container = document.getElementById('dependenciesAnalysis');
+            if (Object.keys(dependencies).length > 0) {
+                let html = '<h6><i class="fas fa-link me-2"></i>Анализ зависимостей</h6>';
+                for (const [channel, deps] of Object.entries(dependencies)) {
+                    html += `<div class="alert alert-info"><strong>${channel}:</strong>`;
+                    for (const [metric, info] of Object.entries(deps)) {
+                        html += `<br>${metric}: корреляция = ${info.budget_correlation.toFixed(3)}`;
+                    }
+                    html += '</div>';
+                }
+                container.innerHTML = html;
+            } else {
+                container.innerHTML = '<div class="alert alert-warning">Зависимости не обнаружены</div>';
+            }
+        }
+
+        function showAnalysisSection() {
+            document.getElementById('analysisSection').style.display = 'block';
+        }
+
+        function buildModels() {
+            showLoading('modelsStatus', 'Построение моделей...');
+
+            fetch('/build_models', {
+                method: 'POST'
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showSuccess('modelsStatus', data.message);
+                    showForecastSection();
+                } else {
+                    showError('modelsStatus', data.message);
+                }
+            })
+            .catch(error => {
+                showError('modelsStatus', 'Ошибка при построении моделей: ' + error.message);
+            });
+        }
+
+        function showForecastSection() {
+            document.getElementById('forecastSection').style.display = 'block';
+        }
+
+        function createForecast() {
+            const periods = document.getElementById('forecastPeriods').value;
+            
+            showLoading('forecastResults', 'Создание прогноза...');
+
+            fetch('/forecast', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ periods: parseInt(periods) })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showForecastResults(data);
+                    showSimulationSection();
+                } else {
+                    showError('forecastResults', data.message);
+                }
+            })
+            .catch(error => {
+                showError('forecastResults', 'Ошибка при создании прогноза: ' + error.message);
+            });
+        }
+
+        function showForecastResults(data) {
+            const container = document.getElementById('forecastResults');
+            let html = '<h6><i class="fas fa-chart-line me-2"></i>Результаты прогноза</h6>';
+            
+            if (data.visualization) {
+                html += `<div class="chart-container">
+                    <img src="data:image/png;base64,${data.visualization}" class="img-fluid" alt="График прогноза">
+                </div>`;
+            }
+            
+            container.innerHTML = html;
+        }
+
+        function showSimulationSection() {
+            document.getElementById('simulationSection').style.display = 'block';
+        }
+
+        function runSimulation() {
+            const scenarios = [
+                { name: 'Увеличение бюджета', budget_change: parseInt(document.getElementById('scenario1').value) },
+                { name: 'Уменьшение бюджета', budget_change: parseInt(document.getElementById('scenario2').value) },
+                { name: 'Значительное увеличение', budget_change: parseInt(document.getElementById('scenario3').value) }
+            ];
+
+            showLoading('simulationResults', 'Выполнение моделирования...');
+
+            fetch('/simulate', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ scenarios })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showSimulationResults(data.simulation_results);
+                    showResultsSection();
+                } else {
+                    showError('simulationResults', data.message);
+                }
+            })
+            .catch(error => {
+                showError('simulationResults', 'Ошибка при моделировании: ' + error.message);
+            });
+        }
+
+        function showSimulationResults(results) {
+            const container = document.getElementById('simulationResults');
+            let html = '<h6><i class="fas fa-flask me-2"></i>Результаты моделирования</h6>';
+            
+            for (const [scenarioName, result] of Object.entries(results)) {
+                const scenario = result.scenario;
+                const impact = result.impact_analysis;
+                html += `
+                    <div class="card mb-3">
+                        <div class="card-body">
+                            <h6>${scenario.name}</h6>
+                            <p><strong>Изменение бюджета:</strong> ${scenario.budget_change}%</p>
+                            <p><strong>Влияние на выручку:</strong> ${impact.revenue_impact ? impact.revenue_impact.toFixed(1) : 0}%</p>
+                        </div>
+                    </div>
+                `;
+            }
+            
+            container.innerHTML = html;
+        }
+
+        function showResultsSection() {
+            document.getElementById('resultsSection').style.display = 'block';
+        }
+
+        function downloadResults() {
+            if (currentSessionId) {
+                window.open(`/download/${currentSessionId}`, '_blank');
+            }
+        }
+
+        // Вспомогательные функции
+        function showLoading(elementId, message) {
+            const element = document.getElementById(elementId);
+            element.innerHTML = `<div class="alert alert-info"><i class="fas fa-spinner fa-spin me-2"></i>${message}</div>`;
+        }
+
+        function showSuccess(elementId, message) {
+            const element = document.getElementById(elementId);
+            element.innerHTML = `<div class="alert alert-success"><i class="fas fa-check me-2"></i>${message}</div>`;
+        }
+
+        function showError(elementId, message) {
+            const element = document.getElementById(elementId);
+            element.innerHTML = `<div class="alert alert-danger"><i class="fas fa-exclamation-triangle me-2"></i>${message}</div>`;
+        }
+    </script>
+</body>
+</html>
