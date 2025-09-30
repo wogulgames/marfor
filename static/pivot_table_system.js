@@ -263,6 +263,21 @@ class PivotRenderer {
             });
             
             html += '</tr>';
+        } else if (config.mode === 'time-series') {
+            // Режим временных рядов
+            html += '<tr>';
+            
+            // Заголовки для временных полей (строки)
+            config.rows.forEach(rowField => {
+                html += `<th class="pivot-header">${rowField.label}</th>`;
+            });
+            
+            // Заголовки для метрик (значения)
+            config.values.forEach(valueField => {
+                html += `<th class="pivot-header">${valueField.label}</th>`;
+            });
+            
+            html += '</tr>';
         } else {
             // Обычный режим
             html += '<tr>';
@@ -315,6 +330,48 @@ class PivotRenderer {
                 
                 html += '</tr>';
             });
+        } else if (config.mode === 'time-series') {
+            // Режим временных рядов
+            const rowKeys = pivotData.getRowKeys();
+            
+            rowKeys.forEach(rowKey => {
+                html += '<tr>';
+                
+                // Значения временных полей (строки)
+                const rowFields = pivotData.getRowFields(rowKey);
+                config.rows.forEach(rowField => {
+                    html += `<td class="pivot-cell">${rowFields[rowField.name] || ''}</td>`;
+                });
+                
+                // Значения метрик - агрегируем по всем строкам в группе
+                config.values.forEach(valueField => {
+                    const rowGroup = pivotData.rowGroups.get(rowKey);
+                    let aggregatedValue = 0;
+                    
+                    // Суммируем все значения метрики в группе строк
+                    if (rowGroup && rowGroup.rows) {
+                        console.log(`Агрегация для ${rowKey}, метрика ${valueField.name}:`, {
+                            rowCount: rowGroup.rows.length,
+                            rows: rowGroup.rows.slice(0, 3) // Показываем первые 3 строки
+                        });
+                        
+                        rowGroup.rows.forEach((row, index) => {
+                            const value = parseFloat(row[valueField.name]) || 0;
+                            aggregatedValue += value;
+                            
+                            if (index < 3) { // Логируем первые 3 значения
+                                console.log(`  Строка ${index}: ${row[valueField.name]} -> ${value}`);
+                            }
+                        });
+                        
+                        console.log(`Итого для ${rowKey}: ${aggregatedValue}`);
+                    }
+                    
+                    html += `<td class="pivot-cell" style="text-align: right;">${this.formatValue(aggregatedValue)}</td>`;
+                });
+                
+                html += '</tr>';
+            });
         } else {
             // Обычный режим
             const rowKeys = pivotData.getRowKeys();
@@ -337,13 +394,20 @@ class PivotRenderer {
                     });
                 });
                 
-                // Значения метрик
+                // Значения метрик - агрегируем по всем строкам в группе
                 config.values.forEach(valueField => {
-                    // Здесь нужно определить, как агрегировать значения
-                    // Пока используем первое значение из строки
-                    const rowData = pivotData.rowGroups.get(rowKey).rows[0];
-                    const value = rowData[valueField.name] || 0;
-                    html += `<td class="pivot-cell" style="text-align: right;">${this.formatValue(value)}</td>`;
+                    const rowGroup = pivotData.rowGroups.get(rowKey);
+                    let aggregatedValue = 0;
+                    
+                    // Суммируем все значения метрики в группе строк
+                    if (rowGroup && rowGroup.rows) {
+                        rowGroup.rows.forEach(row => {
+                            const value = parseFloat(row[valueField.name]) || 0;
+                            aggregatedValue += value;
+                        });
+                    }
+                    
+                    html += `<td class="pivot-cell" style="text-align: right;">${this.formatValue(aggregatedValue)}</td>`;
                 });
                 
                 html += '</tr>';
