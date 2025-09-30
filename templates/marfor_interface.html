@@ -2275,6 +2275,37 @@
             }
         }
         
+        // Функция диагностики состояния фильтров
+        function diagnoseFilters() {
+            console.log('=== ДИАГНОСТИКА ФИЛЬТРОВ ===');
+            console.log('1. rawPivotData:', !!window.rawPivotData, window.rawPivotData?.length);
+            console.log('2. currentPivotConfig:', !!window.currentPivotConfig);
+            console.log('3. currentPivotRenderer:', !!window.currentPivotRenderer);
+            console.log('4. currentFilters:', window.currentFilters?.length);
+            console.log('5. currentFilters детали:', window.currentFilters);
+            
+            if (window.currentFilters) {
+                window.currentFilters.forEach((filter, i) => {
+                    console.log(`Фильтр ${i}:`, {
+                        name: filter.fieldName,
+                        type: filter.fieldType,
+                        isActive: filter.isActive,
+                        values: filter.values,
+                        minValue: filter.minValue,
+                        maxValue: filter.maxValue
+                    });
+                });
+            }
+            
+            console.log('6. PivotData класс доступен:', typeof PivotData !== 'undefined');
+            console.log('7. PivotFilter класс доступен:', typeof PivotFilter !== 'undefined');
+            
+            // Проверяем, есть ли данные в rawPivotData
+            if (window.rawPivotData && window.rawPivotData.length > 0) {
+                console.log('8. Пример данных из rawPivotData:', window.rawPivotData[0]);
+            }
+        }
+        
         // Простая функция для создания фильтров временных рядов
         function createTimeSeriesFilters() {
             console.log('=== СОЗДАЕМ ФИЛЬТРЫ ВРЕМЕННЫХ РЯДОВ ===');
