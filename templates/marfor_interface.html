@@ -2215,8 +2215,17 @@
             if (window.rawPivotData && window.currentPivotConfig && window.currentPivotRenderer) {
                 console.log('Обновляем сводную таблицу с учетом фильтров');
                 
-                // Переобрабатываем исходные данные с учетом фильтров
-                const newPivotData = new PivotData(window.rawPivotData);
+                // Применяем фильтры к исходным данным
+                let filteredData = window.rawPivotData;
+                if (window.currentFilters && window.currentFilters.length > 0) {
+                    filteredData = window.rawPivotData.filter(row => {
+                        return window.currentFilters.every(filter => filter.matches(row));
+                    });
+                    console.log(`Фильтрация данных: ${window.rawPivotData.length} -> ${filteredData.length} строк`);
+                }
+                
+                // Переобрабатываем отфильтрованные данные
+                const newPivotData = new PivotData(filteredData);
                 newPivotData.process(window.currentPivotConfig, window.currentPivotRenderer);
                 
                 // Перерендериваем таблицу
@@ -2546,6 +2555,8 @@
                             window.rawPivotData = data.data.pivot_table.raw_data || data.data.pivot_table.data;
                             console.log('Сохранили данные для новой системы:', currentPivotData.length, 'строк');
                             console.log('Сохранили исходные данные для фильтров:', window.rawPivotData.length, 'строк');
+                            console.log('Проверяем наличие raw_data в ответе:', !!data.data.pivot_table.raw_data);
+                            console.log('Структура pivot_table:', Object.keys(data.data.pivot_table));
                             console.log('Первая строка сохраненных данных:', currentPivotData[0]);
                             
                             // Показываем и сводную таблицу, и график

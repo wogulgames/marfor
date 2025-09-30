@@ -130,9 +130,8 @@ class PivotData {
         this.rowGroups.clear();
         this.columnGroups.clear();
         
-        // Применяем фильтры к данным
-        const filteredData = this.applyFilters(this.rawData, config.filters);
-        console.log(`Данные отфильтрованы: ${this.rawData.length} -> ${filteredData.length} строк`);
+        // Данные уже отфильтрованы на уровне клиента, используем их как есть
+        console.log(`Обрабатываем данные: ${this.rawData.length} строк`);
         
         // Получаем видимые временные поля для группировки строк
         const visibleRowFields = renderer ? renderer.getVisibleTimeFields(config) : config.rows;
@@ -140,7 +139,7 @@ class PivotData {
         console.log('Группировка строк по полям:', visibleRowFields.map(f => f.name));
         
         // Группировка по строкам (только по видимым временным полям)
-        filteredData.forEach(row => {
+        this.rawData.forEach(row => {
             const rowKey = this.createRowKey(row, visibleRowFields);
             if (!this.rowGroups.has(rowKey)) {
                 this.rowGroups.set(rowKey, {
@@ -153,7 +152,7 @@ class PivotData {
         });
         
         // Группировка по столбцам
-        filteredData.forEach(row => {
+        this.rawData.forEach(row => {
             const colKey = this.createColumnKey(row, config.columns);
             if (!this.columnGroups.has(colKey)) {
                 this.columnGroups.set(colKey, {
