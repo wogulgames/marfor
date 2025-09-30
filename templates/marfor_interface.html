@@ -2325,9 +2325,15 @@
         
         // Автоматическое создание фильтров на основе данных
         function createAutoFilters() {
-            console.log('=== АВТОМАТИЧЕСКОЕ СОЗДАНИЕ ФИЛЬТРОВ ===');
+            console.log('🚀 === ФУНКЦИЯ createAutoFilters() ВЫЗВАНА ===');
             console.log('rawPivotData:', !!window.rawPivotData, window.rawPivotData?.length);
             console.log('PivotFilter доступен:', typeof PivotFilter !== 'undefined');
+            
+            // Проверяем доступность классов
+            if (typeof PivotFilter === 'undefined') {
+                console.error('❌ PivotFilter не определен! Проверьте загрузку static/pivot_table_system.js');
+                return;
+            }
             
             const filtersContainer = document.getElementById('filtersContainer');
             if (!filtersContainer) {
@@ -2958,17 +2964,32 @@
                                 console.log('mappingData детали:', mappingData);
                                 
                                 // Проверяем наличие данных перед созданием фильтров
+                                console.log('=== ПРОВЕРЯЕМ ДАННЫЕ ДЛЯ ФИЛЬТРОВ ===');
+                                console.log('window.rawPivotData:', !!window.rawPivotData, window.rawPivotData?.length);
+                                console.log('mappingData:', !!mappingData, mappingData?.columns?.length);
+                                console.log('window.currentPivotData:', !!window.currentPivotData, window.currentPivotData?.length);
+                                
                                 if (window.rawPivotData && mappingData) {
-                                    console.log('Данные есть, создаем фильтры...');
-                                    createAutoFilters();
+                                    console.log('✅ Данные есть, создаем фильтры...');
+                                    try {
+                                        createAutoFilters();
+                                        console.log('✅ createAutoFilters() вызвана успешно');
+                                    } catch (error) {
+                                        console.error('❌ Ошибка в createAutoFilters():', error);
+                                    }
                                 } else {
-                                    console.log('Нет данных для создания фильтров, пытаемся использовать currentPivotData...');
+                                    console.log('⚠️ Нет данных для создания фильтров, пытаемся использовать currentPivotData...');
                                     if (window.currentPivotData) {
                                         window.rawPivotData = window.currentPivotData;
-                                        console.log('Скопировали currentPivotData в rawPivotData');
-                                        createAutoFilters();
+                                        console.log('✅ Скопировали currentPivotData в rawPivotData');
+                                        try {
+                                            createAutoFilters();
+                                            console.log('✅ createAutoFilters() вызвана успешно (fallback)');
+                                        } catch (error) {
+                                            console.error('❌ Ошибка в createAutoFilters() (fallback):', error);
+                                        }
                                     } else {
-                                        console.log('Нет данных вообще для создания фильтров');
+                                        console.log('❌ Нет данных вообще для создания фильтров');
                                     }
                                 }
                         } else {
