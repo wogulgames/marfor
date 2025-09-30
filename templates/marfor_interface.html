@@ -2304,6 +2304,24 @@
             if (window.rawPivotData && window.rawPivotData.length > 0) {
                 console.log('8. Пример данных из rawPivotData:', window.rawPivotData[0]);
             }
+            
+            // Дополнительная диагностика
+            console.log('9. currentPivotData:', !!window.currentPivotData, window.currentPivotData?.length);
+            console.log('10. sessionStorage dataMapping:', !!sessionStorage.getItem('dataMapping'));
+            console.log('11. currentSessionId:', window.currentSessionId);
+        }
+        
+        // Функция для принудительной установки rawPivotData из currentPivotData
+        function forceSetRawData() {
+            console.log('=== ПРИНУДИТЕЛЬНАЯ УСТАНОВКА rawPivotData ===');
+            if (window.currentPivotData) {
+                window.rawPivotData = window.currentPivotData;
+                console.log('Установили rawPivotData из currentPivotData:', window.rawPivotData.length, 'строк');
+                return true;
+            } else {
+                console.log('Нет currentPivotData для копирования');
+                return false;
+            }
         }
         
         // Простая функция для создания фильтров временных рядов
