@@ -672,6 +672,7 @@ def get_time_series_data(session_id):
                 'pivot_table': {
                     'columns': [time_column] + metric_columns,
                     'data': df_sorted[[time_column] + metric_columns].to_dict('records'),
+                    'raw_data': df_sorted[[time_column] + metric_columns].to_dict('records'),  # Добавляем исходные данные для фильтров
                     'time_series_info': [{'name': time_column, 'type': 'time', 'level': 0}],
                     'available_slices': []
                 }
@@ -840,6 +841,7 @@ def get_time_series_data(session_id):
                             result_data['pivot_table'] = {
                                 'columns': available_columns,
                                 'data': df_sorted[available_columns].to_dict('records'),
+                                'raw_data': df_sorted[available_columns].to_dict('records'),  # Добавляем исходные данные для фильтров
                                 'time_series_info': time_cols + [split_col],
                                 'column_headers': column_headers,
                                 'split_by_slice': split_by_slice,
@@ -882,6 +884,7 @@ def get_time_series_data(session_id):
                             result_data['pivot_table'] = {
                                 'columns': available_columns,
                                 'data': df_sorted[available_columns].to_dict('records'),
+                                'raw_data': df_sorted[available_columns].to_dict('records'),  # Добавляем исходные данные для фильтров
                                 'time_series_info': all_cols,
                                 'available_slices': slice_cols
                             }
@@ -916,6 +919,7 @@ def get_time_series_data(session_id):
                         result_data['pivot_table'] = {
                             'columns': available_columns,
                             'data': df_sorted[available_columns].to_dict('records'),
+                            'raw_data': df_sorted[available_columns].to_dict('records'),  # Добавляем исходные данные для фильтров
                             'time_series_info': all_cols,
                             'available_slices': slice_cols
                         }
