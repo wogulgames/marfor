@@ -3094,6 +3094,10 @@
                             // Используем новую систему сводных таблиц
                             if (typeof renderNewPivotTable === 'function') {
                                 const mode = selectedSlice ? 'split-columns' : 'time-series';
+                                console.log('🎯 === НАЧИНАЕМ ПРИМЕНЕНИЕ ФИЛЬТРОВ ===');
+                                console.log('renderNewPivotTable доступна:', typeof renderNewPivotTable);
+                                console.log('mode:', mode);
+                                console.log('selectedSlice:', selectedSlice);
                                 
                                 // Сначала создаем фильтры если их нет
                                 if (!window.currentFilters || window.currentFilters.length === 0) {
