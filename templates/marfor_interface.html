@@ -1952,7 +1952,10 @@
 
         // Функции для работы с фильтрами
         function populateFilters(rawData, mappingData) {
-            console.log('populateFilters вызвана с данными:', { rawData, mappingData });
+            console.log('=== populateFilters ВЫЗВАНА ===');
+            console.log('rawData:', rawData?.length, 'строк');
+            console.log('mappingData:', mappingData?.columns?.length, 'колонок');
+            console.log('Полные данные:', { rawData, mappingData });
             
             // Проверяем, что класс PivotFilter доступен
             if (typeof PivotFilter === 'undefined') {
@@ -2251,6 +2254,114 @@
             } else {
                 console.log('Нет исходных данных для тестирования');
             }
+        }
+        
+        // Простая функция для создания фильтров временных рядов
+        function createTimeSeriesFilters() {
+            console.log('=== СОЗДАЕМ ФИЛЬТРЫ ВРЕМЕННЫХ РЯДОВ ===');
+            
+            const filtersContainer = document.getElementById('filtersContainer');
+            if (!filtersContainer) {
+                console.error('Контейнер filtersContainer не найден!');
+                return;
+            }
+            
+            // Очищаем контейнер
+            filtersContainer.innerHTML = '';
+            
+            // Создаем простые фильтры для временных рядов
+            const timeFilters = [
+                { name: 'year', label: 'Год', type: 'number', min: 2020, max: 2024 },
+                { name: 'month', label: 'Месяц', type: 'number', min: 1, max: 12 },
+                { name: 'Quarter', label: 'Квартал', type: 'text', values: ['Q1', 'Q2', 'Q3', 'Q4'] },
+                { name: 'Halfyear', label: 'Полугодие', type: 'text', values: ['H1', 'H2'] }
+            ];
+            
+            timeFilters.forEach(filter => {
+                const filterHTML = createSimpleFilterHTML(filter);
+                filtersContainer.appendChild(filterHTML);
+                console.log('Создан фильтр:', filter.name);
+            });
+            
+            console.log('Фильтры временных рядов созданы!');
+        }
+        
+        function createSimpleFilterHTML(filter) {
+            const div = document.createElement('div');
+            div.className = 'filter-card';
+            div.id = `filter-${filter.name}`;
+            
+            let bodyHTML = '';
+            if (filter.type === 'text') {
+                bodyHTML = createSimpleTextFilterHTML(filter);
+            } else if (filter.type === 'number') {
+                bodyHTML = createSimpleNumberFilterHTML(filter);
+            }
+            
+            div.innerHTML = `
+                <div class="filter-header filter-toggle" onclick="toggleFilter('${filter.name}')">
+                    <i class="fas fa-chevron-down me-2"></i>${filter.label}
+                    <span class="badge bg-secondary ms-2" id="filter-count-${filter.name}">${filter.type === 'text' ? filter.values.length : filter.max - filter.min + 1}</span>
+                </div>
+                <div class="filter-body" id="filter-body-${filter.name}" style="display: none;">
+                    ${bodyHTML}
+                </div>
+            `;
+            
+            return div;
+        }
+        
+        function createSimpleTextFilterHTML(filter) {
+            const checkboxes = filter.values.map(value => `
+                <div class="filter-checkbox-item">
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" value="${value}" 
+                               id="filter-${filter.name}-${value}" 
+                               onchange="updateTextFilter('${filter.name}')">
+                        <label class="form-check-label" for="filter-${filter.name}-${value}">
+                            ${value}
+                        </label>
+                    </div>
+                </div>
+            `).join('');
+            
+            return `
+                <div class="filter-checkbox-list">
+                    ${checkboxes}
+                </div>
+                <div class="mt-2">
+                    <button class="btn btn-sm btn-outline-primary me-2" onclick="selectAllFilterValues('${filter.name}')">
+                        Выбрать все
+                    </button>
+                    <button class="btn btn-sm btn-outline-secondary" onclick="clearFilterValues('${filter.name}')">
+                        Очистить
+                    </button>
+                </div>
+            `;
+        }
+        
+        function createSimpleNumberFilterHTML(filter) {
+            return `
+                <div class="filter-slider-container">
+                    <div class="filter-slider-label">От: <span id="filter-${filter.name}-min-label">${filter.min}</span></div>
+                    <input type="range" class="form-range" 
+                           id="filter-${filter.name}-min" 
+                           min="${filter.min}" max="${filter.max}" 
+                           value="${filter.min}"
+                           oninput="updateNumberFilter('${filter.name}')">
+                    
+                    <div class="filter-slider-label">До: <span id="filter-${filter.name}-max-label">${filter.max}</span></div>
+                    <input type="range" class="form-range" 
+                           id="filter-${filter.name}-max" 
+                           min="${filter.min}" max="${filter.max}" 
+                           value="${filter.max}"
+                           oninput="updateNumberFilter('${filter.name}')">
+                    
+                    <div class="filter-slider-value" id="filter-${filter.name}-range">
+                        ${filter.min} - ${filter.max}
+                    </div>
+                </div>
+            `;
         }
 
         function populateSelectsFromDataInfo(dataInfo, metricsSelect) {
@@ -2585,6 +2696,10 @@
                                 renderNewPivotTable(currentPivotData, mappingData, mode, selectedSlice);
                                 
                                 // Заполняем фильтры после успешного рендеринга
+                                console.log('Вызываем populateFilters с данными:', {
+                                    rawPivotData: window.rawPivotData?.length,
+                                    mappingData: mappingData?.columns?.length
+                                });
                                 populateFilters(window.rawPivotData, mappingData);
                         } else {
                                 console.error('Функция renderNewPivotTable не найдена');
