@@ -63,7 +63,7 @@ class PivotFilter {
         
         if (this.fieldType === 'text') {
             return this.values.includes(value);
-        } else if (this.fieldType === 'number') {
+        } else if (this.fieldType === 'number' || this.fieldType === 'numeric') {
             const result = value >= this.minValue && value <= this.maxValue;
             console.log(`🔍 Фильтр ${this.fieldName}: value=${value}, minValue=${this.minValue}, maxValue=${this.maxValue}, result=${result}`);
             return result;
