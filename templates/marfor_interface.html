@@ -2212,11 +2212,11 @@
         
         function updatePivotTableWithFilters() {
             // Проверяем, что у нас есть данные и конфигурация
-            if (window.currentPivotData && window.currentPivotConfig && window.currentPivotRenderer) {
+            if (window.rawPivotData && window.currentPivotConfig && window.currentPivotRenderer) {
                 console.log('Обновляем сводную таблицу с учетом фильтров');
                 
-                // Переобрабатываем данные с учетом фильтров
-                const newPivotData = new PivotData(window.currentPivotData.rawData);
+                // Переобрабатываем исходные данные с учетом фильтров
+                const newPivotData = new PivotData(window.rawPivotData);
                 newPivotData.process(window.currentPivotConfig, window.currentPivotRenderer);
                 
                 // Перерендериваем таблицу
@@ -2232,13 +2232,15 @@
             console.log('Тестируем фильтры...');
             console.log('PivotFilter доступен:', typeof PivotFilter !== 'undefined');
             console.log('filtersContainer найден:', !!document.getElementById('filtersContainer'));
+            console.log('rawPivotData доступен:', !!window.rawPivotData);
+            console.log('currentPivotData доступен:', !!window.currentPivotData);
             
-            if (window.currentPivotData && window.currentPivotConfig) {
-                console.log('Есть данные для тестирования:', window.currentPivotData.length, 'строк');
+            if (window.rawPivotData) {
+                console.log('Есть исходные данные для тестирования:', window.rawPivotData.length, 'строк');
                 const mappingData = JSON.parse(sessionStorage.getItem('dataMapping') || '{}');
-                populateFilters(window.currentPivotData, mappingData);
+                populateFilters(window.rawPivotData, mappingData);
             } else {
-                console.log('Нет данных для тестирования');
+                console.log('Нет исходных данных для тестирования');
             }
         }
 
@@ -2540,7 +2542,10 @@
                             
                             // Сохраняем данные для новой системы
                             currentPivotData = data.data.pivot_table.data;
+                            // Сохраняем исходные данные для фильтров
+                            window.rawPivotData = data.data.pivot_table.raw_data || data.data.pivot_table.data;
                             console.log('Сохранили данные для новой системы:', currentPivotData.length, 'строк');
+                            console.log('Сохранили исходные данные для фильтров:', window.rawPivotData.length, 'строк');
                             console.log('Первая строка сохраненных данных:', currentPivotData[0]);
                             
                             // Показываем и сводную таблицу, и график
@@ -2569,7 +2574,7 @@
                                 renderNewPivotTable(currentPivotData, mappingData, mode, selectedSlice);
                                 
                                 // Заполняем фильтры после успешного рендеринга
-                                populateFilters(currentPivotData, mappingData);
+                                populateFilters(window.rawPivotData, mappingData);
                         } else {
                                 console.error('Функция renderNewPivotTable не найдена');
                             }
