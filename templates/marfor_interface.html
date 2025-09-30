@@ -924,6 +924,7 @@
             expandedLevels: new Set(),
             currentData: null,
             pivotMode: 'time-series', // 'time-series' или 'slices'
+            currentPivotMode: 'time-series' // Текущий режим представления
             originalHierarchy: null // Сохраняем исходную иерархию для фильтров
         };
 
@@ -1132,30 +1133,42 @@
         function updatePivotTableWithSplit() {
             console.log('updatePivotTableWithSplit вызвана');
             
-            // Получаем выбранный срез из нового дропбокса
-            let selectedSlice = '';
-            const radioButtons = document.querySelectorAll('input[name="sliceSelection"]');
+            // Получаем выбранное поле для разбивки в зависимости от режима
+            let splitValue = '';
+            const radioButtons = document.querySelectorAll('input[name="splitFieldSelection"]');
             radioButtons.forEach(radio => {
                 if (radio.checked) {
-                    selectedSlice = radio.value;
+                    splitValue = radio.value;
                 }
             });
             
-            console.log('Выбранный срез для разбивки:', selectedSlice);
+            console.log('Выбранное поле для разбивки:', splitValue);
             
             // Сохраняем выбранное значение в глобальную переменную
-            selectedSliceForSplit = selectedSlice;
+            if (pivotState.currentPivotMode === 'time-series') {
+                window.selectedSlice = splitValue;
+            } else {
+                window.selectedTimeSeries = splitValue;
+            }
             
             // Используем новую систему сводной таблицы
             if (currentPivotData) {
                 console.log('Обновляем таблицу с новой системой');
                 const mappingData = JSON.parse(sessionStorage.getItem('dataMapping') || '{}');
-                // Добавляем выбранные метрики в данные маппинга
-                if (window.selectedMetrics) {
-                    mappingData.selectedMetrics = window.selectedMetrics;
+                // Добавляем выбранные поля в данные маппинга в зависимости от режима
+                if (pivotState.currentPivotMode === 'time-series') {
+                    if (window.selectedMetrics) {
+                        mappingData.selectedMetrics = window.selectedMetrics;
+                    }
+                } else {
+                    if (window.selectedSlices) {
+                        mappingData.selectedSlices = window.selectedSlices;
+                    }
                 }
-                const mode = selectedSlice ? 'split-columns' : 'time-series';
-                renderNewPivotTable(currentPivotData, mappingData, mode, selectedSlice);
+                
+                const mode = splitValue ? 'split-columns' : 
+                    (pivotState.currentPivotMode === 'time-series' ? 'time-series' : 'slices');
+                renderNewPivotTable(currentPivotData, mappingData, mode, splitValue);
             } else {
                 console.log('Нет данных для отображения');
             }
@@ -1768,51 +1781,62 @@
                 </div>
                 <div id="timeSeriesContainer" class="mt-3" style="display: block;">
                     <div class="card">
-                        <div class="card-header">
-                            <h6><i class="fas fa-chart-line me-2"></i>Временные ряды</h6>
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <h6 class="mb-0">
+                                <i class="fas fa-chart-line me-2"></i>
+                                <span id="pivotModeTitle">Временные ряды</span>
+                            </h6>
+                            <div class="btn-group" role="group">
+                                <button type="button" class="btn btn-sm btn-outline-secondary active" id="timeSeriesModeBtn" onclick="switchPivotMode('time-series')">
+                                    <i class="fas fa-clock me-1"></i>Временные ряды
+                                </button>
+                                <button type="button" class="btn btn-sm btn-outline-secondary" id="slicesModeBtn" onclick="switchPivotMode('slices')">
+                                    <i class="fas fa-layer-group me-1"></i>Срезы
+                                </button>
+                            </div>
                         </div>
                         <div class="card-body">
                             <div class="row mb-3">
                                 <div class="col-md-6">
-                                    <label class="form-label">Метрики</label>
+                                    <label class="form-label" id="primaryFieldLabel">Метрики</label>
                                     <div class="dropdown">
-                                        <button class="btn btn-outline-secondary dropdown-toggle w-100" type="button" id="metricsDropdown" data-bs-toggle="dropdown" aria-expanded="false">
-                                            <span id="metricsDropdownText">Выберите метрики</span>
+                                        <button class="btn btn-outline-secondary dropdown-toggle w-100" type="button" id="primaryFieldDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                                            <span id="primaryFieldDropdownText">Выберите метрики</span>
                                         </button>
-                                        <ul class="dropdown-menu w-100" id="metricsDropdownMenu">
+                                        <ul class="dropdown-menu w-100" id="primaryFieldDropdownMenu">
                                             <li class="dropdown-item-text">
                                                 <div class="form-check">
-                                                    <input class="form-check-input" type="checkbox" id="selectAllMetrics" onchange="toggleAllMetrics(this)">
-                                                    <label class="form-check-label fw-bold" for="selectAllMetrics">
+                                                    <input class="form-check-input" type="checkbox" id="selectAllPrimary" onchange="toggleAllPrimaryFields(this)">
+                                                    <label class="form-check-label fw-bold" for="selectAllPrimary">
                                                         Выбрать все
                                                     </label>
                                                 </div>
                                             </li>
                                             <li><hr class="dropdown-divider"></li>
-                                            <div id="metricsCheckboxes">
-                                                <!-- Чекбоксы метрик будут добавлены динамически -->
+                                            <div id="primaryFieldCheckboxes">
+                                                <!-- Чекбоксы будут добавлены динамически -->
                                             </div>
                                         </ul>
                                     </div>
                                 </div>
                                 <div class="col-md-6">
-                                    <label class="form-label">Разбивка по срезам</label>
+                                    <label class="form-label" id="splitFieldLabel">Разбивка по срезам</label>
                                     <div class="dropdown">
-                                        <button class="btn btn-outline-secondary dropdown-toggle w-100" type="button" id="slicesDropdown" data-bs-toggle="dropdown" aria-expanded="false">
-                                            <span id="slicesDropdownText">Только временные ряды</span>
+                                        <button class="btn btn-outline-secondary dropdown-toggle w-100" type="button" id="splitFieldDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                                            <span id="splitFieldDropdownText">Только временные ряды</span>
                                         </button>
-                                        <ul class="dropdown-menu w-100" id="slicesDropdownMenu">
+                                        <ul class="dropdown-menu w-100" id="splitFieldDropdownMenu">
                                             <li class="dropdown-item-text">
                                                 <div class="form-check">
-                                                    <input class="form-check-input" type="radio" name="sliceSelection" id="noSliceSelection" value="" onchange="updateSelectedSlice()" checked>
-                                                    <label class="form-check-label fw-bold" for="noSliceSelection">
-                                                        Только временные ряды
+                                                    <input class="form-check-input" type="radio" name="splitFieldSelection" id="noSplitFieldSelection" value="" onchange="updateSelectedSplitField()" checked>
+                                                    <label class="form-check-label fw-bold" for="noSplitFieldSelection">
+                                                        <span id="noSplitFieldText">Только временные ряды</span>
                                                     </label>
                                 </div>
                                             </li>
                                             <li><hr class="dropdown-divider"></li>
-                                            <div id="slicesRadioButtons">
-                                                <!-- Радиокнопки срезов будут добавлены динамически -->
+                                            <div id="splitFieldRadioButtons">
+                                                <!-- Радиокнопки будут добавлены динамически -->
                             </div>
                                         </ul>
                                     </div>
@@ -1983,58 +2007,89 @@
         }
 
         function populateTimeSeriesSelects() {
-            const metricsCheckboxes = document.getElementById('metricsCheckboxes');
-            const metricsDropdownText = document.getElementById('metricsDropdownText');
+            const primaryFieldCheckboxes = document.getElementById('primaryFieldCheckboxes');
+            const primaryFieldDropdownText = document.getElementById('primaryFieldDropdownText');
+            const splitFieldRadioButtons = document.getElementById('splitFieldRadioButtons');
+            const splitFieldDropdownText = document.getElementById('splitFieldDropdownText');
             
             // Проверяем наличие элементов
-            if (!metricsCheckboxes) {
-                console.error('Элемент чекбоксов метрик не найден');
+            if (!primaryFieldCheckboxes) {
+                console.error('Элемент чекбоксов основного поля не найден');
                 return;
             }
             
             // Очищаем чекбоксы
-            metricsCheckboxes.innerHTML = '';
+            primaryFieldCheckboxes.innerHTML = '';
+            splitFieldRadioButtons.innerHTML = '';
             
-            let availableMetrics = [];
+            let availablePrimaryFields = [];
+            let availableSplitFields = [];
             
             if (!processedData) {
                 console.log('processedData не найден, используем dataInfo');
                 // Используем dataInfo если processedData недоступен
                 const dataInfo = JSON.parse(sessionStorage.getItem('dataInfo') || '{}');
                 if (dataInfo.columns) {
-                    availableMetrics = getMetricsFromDataInfo(dataInfo);
+                    if (pivotState.currentPivotMode === 'time-series') {
+                        availablePrimaryFields = getMetricsFromDataInfo(dataInfo);
+                        availableSplitFields = getSlicesFromDataInfo(dataInfo);
+                    } else {
+                        availablePrimaryFields = getSlicesFromDataInfo(dataInfo);
+                        availableSplitFields = getTimeSeriesFromDataInfo(dataInfo);
+                    }
                 }
             } else {
-            // Получаем настройки маппинга
-            const mappingConfig = JSON.parse(sessionStorage.getItem('dataMapping') || '{}');
-            
-            // Заполняем селекты колонками
-            processedData.columns.forEach((col, index) => {
-                // Метрики - только колонки с ролью "metric"
-                const columnMapping = mappingConfig.columns?.find(c => c.name === col);
-                if (columnMapping && columnMapping.role === 'metric') {
-                        availableMetrics.push(col);
-                } else if (!mappingConfig.columns && processedData.dtypes[col] && 
-                    (processedData.dtypes[col].includes('int') || processedData.dtypes[col].includes('float'))) {
-                    // Fallback: если нет маппинга, используем числовые колонки
-                        availableMetrics.push(col);
-                    }
-                });
+                // Получаем настройки маппинга
+                const mappingConfig = JSON.parse(sessionStorage.getItem('dataMapping') || '{}');
+                
+                if (pivotState.currentPivotMode === 'time-series') {
+                    // Режим "Временные ряды"
+                    processedData.columns.forEach((col, index) => {
+                        // Метрики - только колонки с ролью "metric"
+                        const columnMapping = mappingConfig.columns?.find(c => c.name === col);
+                        if (columnMapping && columnMapping.role === 'metric') {
+                            availablePrimaryFields.push(col);
+                        } else if (!mappingConfig.columns && processedData.dtypes[col] && 
+                            (processedData.dtypes[col].includes('int') || processedData.dtypes[col].includes('float'))) {
+                            // Fallback: если нет маппинга, используем числовые колонки
+                            availablePrimaryFields.push(col);
+                        }
+                    });
+                    
+                    // Получаем срезы для разбивки
+                    availableSplitFields = getSlicesFromDataInfo(processedData || {});
+                } else {
+                    // Режим "Срезы"
+                    availablePrimaryFields = getSlicesFromDataInfo(processedData || {});
+                    availableSplitFields = getTimeSeriesFromDataInfo(processedData || {});
+                }
             }
             
-            // Создаем чекбоксы для метрик
-            createMetricsCheckboxes(availableMetrics);
-            
-            // Выбираем первую метрику по умолчанию
-            if (availableMetrics.length > 0) {
-                selectFirstMetric(availableMetrics[0]);
+            // Создаем чекбоксы для основного поля
+            if (pivotState.currentPivotMode === 'time-series') {
+                createMetricsCheckboxes(availablePrimaryFields);
+                
+                // Выбираем первую метрику по умолчанию
+                if (availablePrimaryFields.length > 0) {
+                    selectFirstMetric(availablePrimaryFields[0]);
+                }
+            } else {
+                createSlicesCheckboxes(availablePrimaryFields);
+                
+                // Выбираем первый срез по умолчанию
+                if (availablePrimaryFields.length > 0) {
+                    selectFirstSlice(availablePrimaryFields[0]);
+                }
             }
             
-            // Заполняем дропбокс разбивки по срезам
-            const availableSlices = getSlicesFromDataInfo(processedData || {});
-            createSlicesRadioButtons(availableSlices);
+            // Создаем радиокнопки для разбивки
+            if (pivotState.currentPivotMode === 'time-series') {
+                createSlicesRadioButtons(availableSplitFields);
+            } else {
+                createTimeSeriesRadioButtons(availableSplitFields);
+            }
             
-            console.log('Доступные срезы:', availableSlices);
+            console.log('Доступные поля для разбивки:', availableSplitFields);
             
             // Восстанавливаем ранее выбранный срез
             if (selectedSliceForSplit) {
@@ -2333,9 +2388,10 @@
                 // Получаем данные маппинга
                 const mappingConfig = JSON.parse(sessionStorage.getItem('dataMapping') || '{}');
                 
-                // Определяем режим и срез
-                const selectedSlice = getSelectedSlice();
-                const mode = selectedSlice ? 'split-columns' : 'time-series';
+                // Определяем режим и поле для разбивки
+                const splitValue = getSelectedSplitField();
+                const mode = splitValue ? 'split-columns' : 
+                    (pivotState.currentPivotMode === 'time-series' ? 'time-series' : 'slices');
                 
                 // Обновляем фильтры в конфигурации
                 if (window.currentPivotConfig) {
@@ -2345,18 +2401,29 @@
                 // Пересоздаем сводную таблицу с отфильтрованными данными
                 if (typeof renderNewPivotTable === 'function') {
                     console.log('Вызываем renderNewPivotTable с обновленными фильтрами');
-                    renderNewPivotTable(window.rawPivotData, mappingConfig, mode, selectedSlice);
+                    renderNewPivotTable(window.rawPivotData, mappingConfig, mode, splitValue);
                 } else {
                     console.error('Функция renderNewPivotTable не найдена');
                 }
-            } else {
+                            } else {
                 console.log('Нет необходимых данных для обновления сводной таблицы');
             }
         }
         
         // Получение выбранного среза
         function getSelectedSlice() {
-            const radioButtons = document.querySelectorAll('input[name="sliceSelection"]');
+            const radioButtons = document.querySelectorAll('input[name="splitFieldSelection"]');
+            for (const radio of radioButtons) {
+                if (radio.checked && radio.value !== '') {
+                    return radio.value;
+                }
+            }
+            return '';
+        }
+
+        // Функция для получения выбранного поля для разбивки
+        function getSelectedSplitField() {
+            const radioButtons = document.querySelectorAll('input[name="splitFieldSelection"]');
             for (const radio of radioButtons) {
                 if (radio.checked && radio.value !== '') {
                     return radio.value;
@@ -2400,7 +2467,7 @@
             if (window.rawPivotData) {
                 console.log('Есть исходные данные для тестирования:', window.rawPivotData.length, 'строк');
                 createAutoFilters();
-            } else {
+                } else {
                 console.log('Нет исходных данных для тестирования');
             }
         }
@@ -2889,8 +2956,8 @@
 
         // Функция для создания чекбоксов метрик
         function createMetricsCheckboxes(availableMetrics) {
-            const metricsCheckboxes = document.getElementById('metricsCheckboxes');
-            metricsCheckboxes.innerHTML = '';
+            const primaryFieldCheckboxes = document.getElementById('primaryFieldCheckboxes');
+            primaryFieldCheckboxes.innerHTML = '';
             
             availableMetrics.forEach(metric => {
                 const li = document.createElement('li');
@@ -2899,7 +2966,23 @@
                 li.className = 'metrics-checkbox-item';
                 li.innerHTML = '<div class="form-check"><input class="form-check-input" type="checkbox" id="' + checkboxId + '" value="' + metric + '" onchange="updateSelectedMetrics()"><label class="form-check-label" for="' + checkboxId + '">' + metric + '</label></div>';
                 
-                metricsCheckboxes.appendChild(li);
+                primaryFieldCheckboxes.appendChild(li);
+            });
+        }
+
+        // Функция для создания чекбоксов срезов
+        function createSlicesCheckboxes(availableSlices) {
+            const primaryFieldCheckboxes = document.getElementById('primaryFieldCheckboxes');
+            primaryFieldCheckboxes.innerHTML = '';
+            
+            availableSlices.forEach(slice => {
+                const li = document.createElement('li');
+                const checkboxId = 'slice_' + slice.name.replace(/[^a-zA-Z0-9]/g, '_');
+                
+                li.className = 'slices-checkbox-item';
+                li.innerHTML = '<div class="form-check"><input class="form-check-input" type="checkbox" id="' + checkboxId + '" value="' + slice.name + '" onchange="updateSelectedSlices()"><label class="form-check-label" for="' + checkboxId + '">' + slice.name + '</label></div>';
+                
+                primaryFieldCheckboxes.appendChild(li);
             });
         }
 
@@ -2914,11 +2997,22 @@
             }
         }
 
+        // Функция для выбора первого среза по умолчанию
+        function selectFirstSlice(firstSlice) {
+            const checkboxId = 'slice_' + firstSlice.name.replace(/[^a-zA-Z0-9]/g, '_');
+            const checkbox = document.getElementById(checkboxId);
+            
+            if (checkbox) {
+                checkbox.checked = true;
+                updateSelectedSlices();
+            }
+        }
+
         // Функция для обновления выбранных метрик
         function updateSelectedMetrics() {
-            const checkboxes = document.querySelectorAll('#metricsCheckboxes input[type="checkbox"]');
+            const checkboxes = document.querySelectorAll('#primaryFieldCheckboxes input[type="checkbox"]');
             const selectedMetrics = [];
-            const metricsDropdownText = document.getElementById('metricsDropdownText');
+            const primaryFieldDropdownText = document.getElementById('primaryFieldDropdownText');
             
             checkboxes.forEach(checkbox => {
                 if (checkbox.checked) {
@@ -2928,26 +3022,111 @@
             
             // Обновляем текст дропбокса
             if (selectedMetrics.length === 0) {
-                metricsDropdownText.textContent = 'Выберите метрики';
+                primaryFieldDropdownText.textContent = 'Выберите метрики';
             } else if (selectedMetrics.length === 1) {
-                metricsDropdownText.textContent = selectedMetrics[0];
-                        } else {
-                metricsDropdownText.textContent = 'Выбрано: ' + selectedMetrics.length;
+                primaryFieldDropdownText.textContent = selectedMetrics[0];
+            } else {
+                primaryFieldDropdownText.textContent = 'Выбрано: ' + selectedMetrics.length;
             }
             
             // Сохраняем выбранные метрики в глобальной переменной
             window.selectedMetrics = selectedMetrics;
         }
 
+        // Функция переключения режима сводной таблицы
+        function switchPivotMode(mode) {
+            pivotState.currentPivotMode = mode;
+            
+            // Обновляем активную кнопку
+            document.getElementById('timeSeriesModeBtn').classList.toggle('active', mode === 'time-series');
+            document.getElementById('slicesModeBtn').classList.toggle('active', mode === 'slices');
+            
+            // Обновляем заголовок
+            const titleElement = document.getElementById('pivotModeTitle');
+            const iconElement = titleElement.previousElementSibling;
+            
+            if (mode === 'time-series') {
+                titleElement.textContent = 'Временные ряды';
+                iconElement.className = 'fas fa-clock me-2';
+                
+                // Обновляем лейблы
+                document.getElementById('primaryFieldLabel').textContent = 'Метрики';
+                document.getElementById('splitFieldLabel').textContent = 'Разбивка по срезам';
+                document.getElementById('noSplitFieldText').textContent = 'Только временные ряды';
+                
+                // Обновляем функции
+                window.toggleAllPrimaryFields = toggleAllMetrics;
+                window.updateSelectedSplitField = updateSelectedSlice;
+            } else {
+                titleElement.textContent = 'Срезы';
+                iconElement.className = 'fas fa-layer-group me-2';
+                
+                // Обновляем лейблы
+                document.getElementById('primaryFieldLabel').textContent = 'Срезы';
+                document.getElementById('splitFieldLabel').textContent = 'Разбивка по временным рядам';
+                document.getElementById('noSplitFieldText').textContent = 'Только срезы';
+                
+                // Обновляем функции
+                window.toggleAllPrimaryFields = toggleAllSlices;
+                window.updateSelectedSplitField = updateSelectedTimeSeries;
+            }
+            
+            // Перезагружаем выпадающие меню
+            if (window.mappingConfig && window.rawPivotData) {
+                populateTimeSeriesSelects();
+            }
+        }
+
         // Функция для переключения "Выбрать все"
         function toggleAllMetrics(selectAllCheckbox) {
-            const checkboxes = document.querySelectorAll('#metricsCheckboxes input[type="checkbox"]');
+            const checkboxes = document.querySelectorAll('#primaryFieldCheckboxes input[type="checkbox"]');
             
             checkboxes.forEach(checkbox => {
                 checkbox.checked = selectAllCheckbox.checked;
             });
             
             updateSelectedMetrics();
+        }
+
+        // Функция для переключения "Выбрать все" для срезов
+        function toggleAllSlices(selectAllCheckbox) {
+            const checkboxes = document.querySelectorAll('#primaryFieldCheckboxes input[type="checkbox"]');
+            
+            checkboxes.forEach(checkbox => {
+                checkbox.checked = selectAllCheckbox.checked;
+            });
+            
+            updateSelectedSlices();
+        }
+
+        // Функция для обновления выбранных срезов
+        function updateSelectedSlices() {
+            const checkboxes = document.querySelectorAll('#primaryFieldCheckboxes input[type="checkbox"]:checked');
+            const selectedSlices = Array.from(checkboxes).map(cb => cb.value);
+            
+            // Обновляем текст кнопки
+            const buttonText = selectedSlices.length > 0 ? 
+                `Выбрано срезов: ${selectedSlices.length}` : 
+                'Выберите срезы';
+            document.getElementById('primaryFieldDropdownText').textContent = buttonText;
+            
+            // Сохраняем выбранные срезы в глобальной переменной
+            window.selectedSlices = selectedSlices;
+        }
+
+        // Функция для обновления выбранного временного ряда для разбивки
+        function updateSelectedTimeSeries() {
+            const selectedRadio = document.querySelector('input[name="splitFieldSelection"]:checked');
+            const selectedTimeSeries = selectedRadio ? selectedRadio.value : '';
+            
+            // Обновляем текст кнопки
+            const buttonText = selectedTimeSeries ? 
+                `Разбивка: ${selectedTimeSeries}` : 
+                'Только срезы';
+            document.getElementById('splitFieldDropdownText').textContent = buttonText;
+            
+            // Сохраняем выбранный временный ряд в глобальной переменной
+            window.selectedTimeSeries = selectedTimeSeries;
         }
 
         // Функция для получения срезов из dataInfo или mappingConfig
@@ -2962,10 +3141,10 @@
                         slices.push({
                             name: col.name,
                             level: col.nesting_level || 0
-                        });
-                    }
-                });
-                
+                    });
+                }
+            });
+            
                 // Сортируем срезы по уровню
                 slices.sort((a, b) => a.level - b.level);
             }
@@ -2973,28 +3152,69 @@
             return slices;
         }
 
+        // Функция для получения временных рядов из dataInfo или mappingConfig
+        function getTimeSeriesFromDataInfo(dataInfo) {
+            const mappingConfig = JSON.parse(sessionStorage.getItem('dataMapping') || '{}');
+            const timeSeries = [];
+            
+            if (mappingConfig.columns) {
+                mappingConfig.columns.forEach(col => {
+                    // Временные ряды - это колонки с ролью "dimension", которые имеют time_series
+                    if (col.role === 'dimension' && col.time_series && col.time_series !== '' && col.include) {
+                        timeSeries.push({
+                            name: col.name,
+                            level: col.nesting_level || 0
+                        });
+                    }
+                });
+                
+                // Сортируем временные ряды по уровню
+                timeSeries.sort((a, b) => a.level - b.level);
+            }
+            
+            return timeSeries;
+        }
+
         // Функция для создания радиокнопок срезов
         function createSlicesRadioButtons(availableSlices) {
-            const slicesRadioButtons = document.getElementById('slicesRadioButtons');
-            slicesRadioButtons.innerHTML = '';
+            const splitFieldRadioButtons = document.getElementById('splitFieldRadioButtons');
+            splitFieldRadioButtons.innerHTML = '';
                 
                 availableSlices.forEach(slice => {
                 const li = document.createElement('li');
                 const radioId = 'slice_' + slice.name.replace(/[^a-zA-Z0-9]/g, '_');
                 
                 li.className = 'slices-radio-item';
-                li.innerHTML = '<div class="form-check"><input class="form-check-input" type="radio" name="sliceSelection" id="' + radioId + '" value="' + slice.name + '" onchange="updateSelectedSlice()"><label class="form-check-label" for="' + radioId + '">' + slice.name + ' (уровень ' + slice.level + ')</label></div>';
+                li.innerHTML = '<div class="form-check"><input class="form-check-input" type="radio" name="splitFieldSelection" id="' + radioId + '" value="' + slice.name + '" onchange="updateSelectedSlice()"><label class="form-check-label" for="' + radioId + '">' + slice.name + ' (уровень ' + slice.level + ')</label></div>';
                 
-                slicesRadioButtons.appendChild(li);
+                splitFieldRadioButtons.appendChild(li);
             });
             
             console.log('Создано радиокнопок срезов:', availableSlices.length);
         }
 
+        // Функция для создания радиокнопок временных рядов
+        function createTimeSeriesRadioButtons(availableTimeSeries) {
+            const splitFieldRadioButtons = document.getElementById('splitFieldRadioButtons');
+            splitFieldRadioButtons.innerHTML = '';
+                
+            availableTimeSeries.forEach(timeSeries => {
+                const li = document.createElement('li');
+                const radioId = 'timeseries_' + timeSeries.name.replace(/[^a-zA-Z0-9]/g, '_');
+                
+                li.className = 'timeseries-radio-item';
+                li.innerHTML = '<div class="form-check"><input class="form-check-input" type="radio" name="splitFieldSelection" id="' + radioId + '" value="' + timeSeries.name + '" onchange="updateSelectedTimeSeries()"><label class="form-check-label" for="' + radioId + '">' + timeSeries.name + ' (уровень ' + timeSeries.level + ')</label></div>';
+                
+                splitFieldRadioButtons.appendChild(li);
+            });
+            
+            console.log('Создано радиокнопок временных рядов:', availableTimeSeries.length);
+        }
+
         // Функция для обновления выбранного среза
         function updateSelectedSlice() {
-            const radioButtons = document.querySelectorAll('input[name="sliceSelection"]');
-            const slicesDropdownText = document.getElementById('slicesDropdownText');
+            const radioButtons = document.querySelectorAll('input[name="splitFieldSelection"]');
+            const splitFieldDropdownText = document.getElementById('splitFieldDropdownText');
             let selectedSlice = '';
             
             radioButtons.forEach(radio => {
@@ -3005,9 +3225,9 @@
             
             // Обновляем текст дропбокса
             if (!selectedSlice) {
-                slicesDropdownText.textContent = 'Только временные ряды';
+                splitFieldDropdownText.textContent = 'Только временные ряды';
             } else {
-                slicesDropdownText.textContent = selectedSlice;
+                splitFieldDropdownText.textContent = selectedSlice;
             }
             
             // Сохраняем выбранный срез в глобальной переменной
@@ -3032,10 +3252,17 @@
                 return;
             }
             
-            // Проверяем наличие выбранных метрик
-            if (!window.selectedMetrics || window.selectedMetrics.length === 0) {
-                alert('Выберите хотя бы одну метрику');
-                return;
+            // Проверяем наличие выбранных полей в зависимости от режима
+            if (pivotState.currentPivotMode === 'time-series') {
+                if (!window.selectedMetrics || window.selectedMetrics.length === 0) {
+                    alert('Выберите хотя бы одну метрику');
+                    return;
+                }
+            } else {
+                if (!window.selectedSlices || window.selectedSlices.length === 0) {
+                    alert('Выберите хотя бы один срез');
+                    return;
+                }
             }
             
             // Автоматически определяем временную ось из настроек маппинга
@@ -3073,25 +3300,37 @@
             // Формируем URL для запроса
             const params = new URLSearchParams();
             params.append('time_column', timeColumn);
-            selectedMetrics.forEach(metric => params.append('metrics', metric));
+            
+            // Добавляем поля в зависимости от режима
+            if (pivotState.currentPivotMode === 'time-series') {
+                window.selectedMetrics.forEach(metric => params.append('metrics', metric));
+            } else {
+                window.selectedSlices.forEach(slice => params.append('slices', slice));
+            }
             
             // Всегда показываем сводную таблицу
             params.append('show_pivot', 'true');
             // Передаем режим сводной таблицы
-            params.append('pivot_mode', pivotState.pivotMode || 'slices');
-            // Передаем параметр разбивки по срезам (приоритет у глобальной переменной)
-            let sliceValue = selectedSliceForSplit || '';
-            if (!sliceValue) {
-                const radioButtons = document.querySelectorAll('input[name="sliceSelection"]');
+            params.append('pivot_mode', pivotState.currentPivotMode);
+            
+            // Передаем параметр разбивки
+            let splitValue = '';
+            if (pivotState.currentPivotMode === 'time-series') {
+                splitValue = window.selectedSlice || '';
+            } else {
+                splitValue = window.selectedTimeSeries || '';
+            }
+            if (!splitValue) {
+                const radioButtons = document.querySelectorAll('input[name="splitFieldSelection"]');
                 radioButtons.forEach(radio => {
                     if (radio.checked) {
-                        sliceValue = radio.value;
+                        splitValue = radio.value;
                     }
                 });
             }
-            if (sliceValue) {
-                params.append('split_by_slice', sliceValue);
-                console.log('Добавлен параметр split_by_slice:', sliceValue);
+            if (splitValue) {
+                params.append('split_by_slice', splitValue);
+                console.log('Добавлен параметр split_by_slice:', splitValue);
             } else {
                 console.log('split_by_slice пустое значение');
             }
@@ -3174,11 +3413,13 @@
                             
                             // Используем новую систему сводных таблиц
                             if (typeof renderNewPivotTable === 'function') {
-                                const mode = selectedSlice ? 'split-columns' : 'time-series';
+                                const mode = pivotState.currentPivotMode === 'time-series' ? 
+                                    (splitValue ? 'split-columns' : 'time-series') : 
+                                    (splitValue ? 'split-columns' : 'slices');
                                 console.log('🎯 === НАЧИНАЕМ ПРИМЕНЕНИЕ ФИЛЬТРОВ ===');
                                 console.log('renderNewPivotTable доступна:', typeof renderNewPivotTable);
                                 console.log('mode:', mode);
-                                console.log('selectedSlice:', selectedSlice);
+                                console.log('splitValue:', splitValue);
                                 
                                 // Сначала создаем фильтры если их нет
                                 if (!window.currentFilters || window.currentFilters.length === 0) {
@@ -3212,14 +3453,14 @@
                                         console.log(`🎯 Фильтрация данных: ${currentPivotData.length} -> ${filteredData.length} строк`);
                                         
                                         // Используем отфильтрованные данные
-                                        renderNewPivotTable(filteredData, mappingData, mode, selectedSlice);
+                                        renderNewPivotTable(filteredData, mappingData, mode, splitValue);
                                     } else {
                                         console.log('⚠️ Нет активных фильтров, используем все данные');
-                                        renderNewPivotTable(currentPivotData, mappingData, mode, selectedSlice);
+                                        renderNewPivotTable(currentPivotData, mappingData, mode, splitValue);
                                     }
                                 } else {
                                     console.log('⚠️ Нет фильтров, используем все данные');
-                                    renderNewPivotTable(currentPivotData, mappingData, mode, selectedSlice);
+                                    renderNewPivotTable(currentPivotData, mappingData, mode, splitValue);
                                 }
                                 
                                 // Сбрасываем флаг изменений фильтров после применения
@@ -3310,9 +3551,9 @@
                                     radioButtons.forEach(radio => {
                                         if (radio.checked) {
                                             selectedSlice = radio.value;
-                                        }
-                                    });
-                                }
+                            }
+                        });
+                    }
                                 renderPivotTableAndChart(pivotData, data.data, selectedSlice);
                             } else {
                                 console.log('Нет данных для отображения');
@@ -3438,9 +3679,9 @@
                                 display: true,
                                     text: 'Временные ряды'
                             }
-                        }
                     }
-                });
+                }
+            });
                     console.log('График создан успешно:', currentChart);
             } catch (error) {
                     console.error('Ошибка при создании графика:', error);
@@ -3677,7 +3918,7 @@
                             if (mappingData.data && mappingData.data.length > 0) {
                                 console.log('   mappingData.data:', mappingData.data.length + ' строк');
                                 console.log('   Первая строка mappingData.data:', mappingData.data[0]);
-                            } else {
+            } else {
                                 console.log('   mappingData.data: не определен');
                             }
                             
@@ -3697,7 +3938,7 @@
                                 dataToUse = currentPivotData;
                                 dataSource = 'currentPivotData';
                                 console.log('Используем данные из currentPivotData');
-                } else {
+                    } else {
                                 console.error('Нет данных для отображения');
                                 const container = document.getElementById('timeSeriesChartContainer');
                                 if (container) {
@@ -3810,7 +4051,7 @@
                     params.append('metrics', metric);
                 });
                 console.log('Добавляем выбранные метрики:', window.selectedMetrics);
-            } else {
+                    } else {
                 // Fallback: если ничего не выбрано, используем первую метрику из маппинга
                 if (mappingConfig && mappingConfig.columns) {
                     const metrics = mappingConfig.columns
@@ -3879,9 +4120,9 @@
                                 radioButtons.forEach(radio => {
                                     if (radio.checked) {
                                         selectedSlice = radio.value;
-                                    }
-                                });
-                            }
+                    }
+                });
+            }
                             console.log('Вызываем новую систему сводной таблицы с selectedSlice:', selectedSlice);
                             
                             // Получаем данные маппинга
@@ -3893,11 +4134,13 @@
                             
                             // Используем новую систему сводных таблиц
                             if (typeof renderNewPivotTable === 'function') {
-                                const mode = selectedSlice ? 'split-columns' : 'time-series';
+                                const mode = pivotState.currentPivotMode === 'time-series' ? 
+                                    (splitValue ? 'split-columns' : 'time-series') : 
+                                    (splitValue ? 'split-columns' : 'slices');
                                 console.log('🎯 === НАЧИНАЕМ ПРИМЕНЕНИЕ ФИЛЬТРОВ (второй fetch) ===');
                                 console.log('renderNewPivotTable доступна:', typeof renderNewPivotTable);
                                 console.log('mode:', mode);
-                                console.log('selectedSlice:', selectedSlice);
+                                console.log('splitValue:', splitValue);
                                 console.log('currentPivotData длина:', currentPivotData.length);
                                 console.log('window.currentFilters:', window.currentFilters);
                                 
@@ -3940,14 +4183,14 @@
                                             return activeFilters.every(filter => filter.matches(row));
                                         });
                                         console.log(`🎯 Фильтрация данных: ${currentPivotData.length} -> ${filteredData.length} строк`);
-                                        renderNewPivotTable(filteredData, mappingData, mode, selectedSlice);
-                } else {
+                                        renderNewPivotTable(filteredData, mappingData, mode, splitValue);
+                                    } else {
                                         console.log('⚠️ Нет активных фильтров, используем все данные');
-                                        renderNewPivotTable(currentPivotData, mappingData, mode, selectedSlice);
+                                        renderNewPivotTable(currentPivotData, mappingData, mode, splitValue);
                                     }
                                 } else {
                                     console.log('⚠️ Нет фильтров, используем все данные');
-                                    renderNewPivotTable(currentPivotData, mappingData, mode, selectedSlice);
+                                    renderNewPivotTable(currentPivotData, mappingData, mode, splitValue);
                                 }
                                 
                                 // Сбрасываем флаг изменений фильтров после применения
@@ -3966,10 +4209,10 @@
                             const errorMessage = data.message || data.error || 'Неизвестная ошибка';
                             chartContainer.innerHTML = `<div class="alert alert-danger">Ошибка загрузки данных: ${errorMessage}</div>`;
                         }
-                    }
-                })
-                .catch(error => {
-                    console.error('Error:', error);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
                     alert('Ошибка при загрузке данных');
                     if (chartContainer) {
                         chartContainer.innerHTML = '<div class="alert alert-danger">Ошибка загрузки данных</div>';
