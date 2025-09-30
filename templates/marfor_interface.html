@@ -2268,8 +2268,7 @@
             
             if (window.rawPivotData) {
                 console.log('Есть исходные данные для тестирования:', window.rawPivotData.length, 'строк');
-                const mappingData = JSON.parse(sessionStorage.getItem('dataMapping') || '{}');
-                populateFilters(window.rawPivotData, mappingData);
+                createAutoFilters();
             } else {
                 console.log('Нет исходных данных для тестирования');
             }
@@ -2322,6 +2321,166 @@
                 console.log('Нет currentPivotData для копирования');
                 return false;
             }
+        }
+        
+        // Автоматическое создание фильтров на основе данных
+        function createAutoFilters() {
+            console.log('=== АВТОМАТИЧЕСКОЕ СОЗДАНИЕ ФИЛЬТРОВ ===');
+            
+            const filtersContainer = document.getElementById('filtersContainer');
+            if (!filtersContainer) {
+                console.error('Контейнер filtersContainer не найден!');
+                return;
+            }
+            
+            // Очищаем контейнер
+            filtersContainer.innerHTML = '';
+            
+            // Получаем данные маппинга
+            const mappingConfig = JSON.parse(sessionStorage.getItem('dataMapping') || '{}');
+            
+            if (!mappingConfig.columns) {
+                console.log('Нет данных маппинга для создания фильтров');
+                return;
+            }
+            
+            // Создаем объекты фильтров для системы
+            window.currentFilters = [];
+            
+            // Создаем фильтры для временных рядов и срезов
+            mappingConfig.columns.forEach(col => {
+                if (col.include && (col.role === 'dimension' || col.time_series)) {
+                    console.log('Создаем фильтр для колонки:', col.name, col.type, col.role);
+                    
+                    // Создаем HTML для фильтра
+                    const filterHTML = createAutoFilterHTML(col);
+                    filtersContainer.appendChild(filterHTML);
+                    
+                    // Создаем объект фильтра для системы
+                    const filter = new PivotFilter(col.name, col.type, col.name);
+                    
+                    // Устанавливаем значения для фильтра на основе типа
+                    if (col.type === 'numeric') {
+                        // Для числовых полей создаем слайдер
+                        const values = window.rawPivotData?.map(row => parseFloat(row[col.name])).filter(v => !isNaN(v)) || [];
+                        if (values.length > 0) {
+                            filter.minValue = Math.min(...values);
+                            filter.maxValue = Math.max(...values);
+                            filter.availableValues = values.sort((a, b) => a - b);
+                        }
+                    } else if (col.type === 'text') {
+                        // Для текстовых полей создаем чекбоксы
+                        const uniqueValues = [...new Set(window.rawPivotData?.map(row => row[col.name]).filter(v => v !== null && v !== undefined) || [])];
+                        filter.values = [];
+                        filter.availableValues = uniqueValues.sort();
+                    }
+                    
+                    window.currentFilters.push(filter);
+                }
+            });
+            
+            console.log('Автоматически создано фильтров:', window.currentFilters.length);
+        }
+        
+        // Создание HTML для автоматического фильтра
+        function createAutoFilterHTML(col) {
+            const div = document.createElement('div');
+            div.className = 'filter-card';
+            div.id = `filter-${col.name}`;
+            
+            // Заголовок фильтра
+            const header = document.createElement('div');
+            header.className = 'filter-header';
+            header.innerHTML = `
+                <h6 class="mb-0">${col.name}</h6>
+                <button class="btn btn-sm btn-outline-secondary" onclick="toggleFilter('${col.name}')">
+                    <i class="fas fa-chevron-down me-1"></i>
+                </button>
+            `;
+            div.appendChild(header);
+            
+            // Тело фильтра
+            const body = document.createElement('div');
+            body.className = 'filter-body';
+            body.id = `filter-body-${col.name}`;
+            body.style.display = 'none';
+            
+            if (col.type === 'numeric') {
+                // Числовой фильтр со слайдерами
+                const values = window.rawPivotData?.map(row => parseFloat(row[col.name])).filter(v => !isNaN(v)) || [];
+                if (values.length > 0) {
+                    const minVal = Math.min(...values);
+                    const maxVal = Math.max(...values);
+                    
+                    body.innerHTML = `
+                        <div class="filter-slider">
+                            <div class="d-flex justify-content-between mb-2">
+                                <span id="filter-${col.name}-min-label">${minVal}</span>
+                                <span id="filter-${col.name}-range">${minVal} - ${maxVal}</span>
+                                <span id="filter-${col.name}-max-label">${maxVal}</span>
+                            </div>
+                            <div class="row">
+                                <div class="col-6">
+                                    <label class="form-label small">От:</label>
+                                    <input type="range" class="form-range" id="filter-${col.name}-min" 
+                                           min="${minVal}" max="${maxVal}" value="${minVal}" 
+                                           oninput="updateNumberFilter('${col.name}')">
+                                </div>
+                                <div class="col-6">
+                                    <label class="form-label small">До:</label>
+                                    <input type="range" class="form-range" id="filter-${col.name}-max" 
+                                           min="${minVal}" max="${maxVal}" value="${maxVal}" 
+                                           oninput="updateNumberFilter('${col.name}')">
+                                </div>
+                            </div>
+                            <div class="mt-2">
+                                <button class="btn btn-sm btn-outline-secondary" onclick="resetAllFilters()">
+                                    Сбросить
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                }
+            } else if (col.type === 'text') {
+                // Текстовый фильтр с чекбоксами
+                const uniqueValues = [...new Set(window.rawPivotData?.map(row => row[col.name]).filter(v => v !== null && v !== undefined) || [])].sort();
+                
+                if (uniqueValues.length > 0) {
+                    const checkboxesHTML = uniqueValues.map(value => `
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" value="${value}" 
+                                   id="filter-${col.name}-${value}" checked onchange="updateTextFilter('${col.name}')">
+                            <label class="form-check-label" for="filter-${col.name}-${value}">
+                                ${value}
+                            </label>
+                        </div>
+                    `).join('');
+                    
+                    body.innerHTML = `
+                        <div class="filter-checkboxes">
+                            <div class="d-flex justify-content-between mb-2">
+                                <button class="btn btn-sm btn-outline-primary" onclick="selectAllFilterValues('${col.name}')">
+                                    Выбрать все
+                                </button>
+                                <button class="btn btn-sm btn-outline-secondary" onclick="clearFilterValues('${col.name}')">
+                                    Очистить
+                                </button>
+                            </div>
+                            <div class="filter-list" style="max-height: 150px; overflow-y: auto;">
+                                ${checkboxesHTML}
+                            </div>
+                            <div class="mt-2">
+                                <small class="text-muted" id="filter-${col.name}-count">
+                                    Выбрано: ${uniqueValues.length}
+                                </small>
+                            </div>
+                        </div>
+                    `;
+                }
+            }
+            
+            div.appendChild(body);
+            return div;
         }
         
         // Простая функция для создания фильтров временных рядов
@@ -2782,12 +2941,12 @@
                                 const mode = selectedSlice ? 'split-columns' : 'time-series';
                                 renderNewPivotTable(currentPivotData, mappingData, mode, selectedSlice);
                                 
-                                // Заполняем фильтры после успешного рендеринга
-                                console.log('Вызываем populateFilters с данными:', {
+                                // Автоматически создаем фильтры после успешного рендеринга
+                                console.log('Автоматически создаем фильтры с данными:', {
                                     rawPivotData: window.rawPivotData?.length,
                                     mappingData: mappingData?.columns?.length
                                 });
-                                populateFilters(window.rawPivotData, mappingData);
+                                createAutoFilters();
                         } else {
                                 console.error('Функция renderNewPivotTable не найдена');
                             }
