@@ -2229,18 +2229,32 @@
                 // Применяем фильтры к исходным данным
                 let filteredData = window.rawPivotData;
                 if (window.currentFilters && window.currentFilters.length > 0) {
-                    console.log('Применяем фильтры:', window.currentFilters.map(f => ({ 
+                    const activeFilters = window.currentFilters.filter(f => f.isActive);
+                    console.log('Активные фильтры:', activeFilters.map(f => ({ 
                         name: f.fieldName, 
                         isActive: f.isActive, 
-                        type: f.fieldType 
+                        type: f.fieldType,
+                        values: f.values,
+                        minValue: f.minValue,
+                        maxValue: f.maxValue
                     })));
                     
-                    filteredData = window.rawPivotData.filter(row => {
-                        return window.currentFilters.every(filter => filter.matches(row));
-                    });
-                    console.log(`Фильтрация данных: ${window.rawPivotData.length} -> ${filteredData.length} строк`);
+                    if (activeFilters.length > 0) {
+                        filteredData = window.rawPivotData.filter(row => {
+                            return activeFilters.every(filter => {
+                                const matches = filter.matches(row);
+                                if (!matches) {
+                                    console.log(`Строка не прошла фильтр ${filter.fieldName}:`, row[filter.fieldName]);
+                                }
+                                return matches;
+                            });
+                        });
+                        console.log(`Фильтрация данных: ${window.rawPivotData.length} -> ${filteredData.length} строк`);
+                    } else {
+                        console.log('Нет активных фильтров, используем все данные');
+                    }
                 } else {
-                    console.log('Нет активных фильтров, используем все данные');
+                    console.log('Нет фильтров вообще, используем все данные');
                 }
                 
                 // Переобрабатываем отфильтрованные данные
@@ -2341,6 +2355,10 @@
                 return;
             }
             
+            // Сохраняем текущее состояние фильтров перед очисткой
+            const currentFilterStates = saveFilterStates();
+            console.log('Сохранили состояние фильтров:', currentFilterStates);
+            
             // Очищаем контейнер
             filtersContainer.innerHTML = '';
             
@@ -2394,6 +2412,64 @@
             });
             
             console.log('Автоматически создано фильтров:', window.currentFilters.length);
+            
+            // Восстанавливаем состояние фильтров
+            restoreFilterStates(currentFilterStates);
+        }
+        
+        // Сохранение состояния фильтров
+        function saveFilterStates() {
+            const states = {};
+            if (window.currentFilters) {
+                window.currentFilters.forEach(filter => {
+                    states[filter.fieldName] = {
+                        values: filter.values ? [...filter.values] : [],
+                        minValue: filter.minValue,
+                        maxValue: filter.maxValue,
+                        isActive: filter.isActive
+                    };
+                });
+            }
+            return states;
+        }
+        
+        // Восстановление состояния фильтров
+        function restoreFilterStates(states) {
+            if (!states || !window.currentFilters) return;
+            
+            window.currentFilters.forEach(filter => {
+                const state = states[filter.fieldName];
+                if (state) {
+                    filter.values = state.values ? [...state.values] : [];
+                    filter.minValue = state.minValue;
+                    filter.maxValue = state.maxValue;
+                    filter.isActive = state.isActive;
+                    
+                    // Восстанавливаем UI элементы
+                    restoreFilterUI(filter.fieldName, state);
+                }
+            });
+        }
+        
+        // Восстановление UI элементов фильтра
+        function restoreFilterUI(filterName, state) {
+            // Для числовых фильтров
+            const minSlider = document.getElementById(`filter-${filterName}-min`);
+            const maxSlider = document.getElementById(`filter-${filterName}-max`);
+            if (minSlider && maxSlider && state.minValue !== undefined && state.maxValue !== undefined) {
+                minSlider.value = state.minValue;
+                maxSlider.value = state.maxValue;
+                updateNumberFilter(filterName);
+            }
+            
+            // Для текстовых фильтров
+            const checkboxes = document.querySelectorAll(`#filter-body-${filterName} input[type="checkbox"]`);
+            if (checkboxes.length > 0) {
+                checkboxes.forEach(checkbox => {
+                    checkbox.checked = state.values.includes(checkbox.value);
+                });
+                updateTextFilter(filterName);
+            }
         }
         
         // Создание HTML для автоматического фильтра
