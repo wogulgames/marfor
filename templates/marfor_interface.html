@@ -336,6 +336,29 @@
             margin: 20px 0;
             text-align: center;
         }
+        
+        /* Стили для дропбокса метрик */
+        #metricsDropdownMenu {
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        
+        .metrics-checkbox-item {
+            padding: 0.25rem 1rem;
+            cursor: pointer;
+        }
+        
+        .metrics-checkbox-item:hover {
+            background-color: #f8f9fa;
+        }
+        
+        .metrics-checkbox-item .form-check {
+            margin: 0;
+        }
+        
+        .metrics-checkbox-item .form-check-input {
+            margin-right: 0.5rem;
+        }
     </style>
 </head>
 <body>
@@ -1469,9 +1492,25 @@
                             <div class="row mb-3">
                                 <div class="col-md-12">
                                     <label class="form-label">Метрики</label>
-                                    <select class="form-select" id="metricsSelect" multiple>
-                                        <option value="">Выберите метрики</option>
-                                    </select>
+                                    <div class="dropdown">
+                                        <button class="btn btn-outline-secondary dropdown-toggle w-100" type="button" id="metricsDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                                            <span id="metricsDropdownText">Выберите метрики</span>
+                                        </button>
+                                        <ul class="dropdown-menu w-100" id="metricsDropdownMenu">
+                                            <li class="dropdown-item-text">
+                                                <div class="form-check">
+                                                    <input class="form-check-input" type="checkbox" id="selectAllMetrics" onchange="toggleAllMetrics(this)">
+                                                    <label class="form-check-label fw-bold" for="selectAllMetrics">
+                                                        Выбрать все
+                                                    </label>
+                                                </div>
+                                            </li>
+                                            <li><hr class="dropdown-divider"></li>
+                                            <div id="metricsCheckboxes">
+                                                <!-- Чекбоксы метрик будут добавлены динамически -->
+                                            </div>
+                                        </ul>
+                                    </div>
                                 </div>
                             </div>
                             <div class="text-center">
@@ -1616,55 +1655,61 @@
         }
 
         function populateTimeSeriesSelects() {
-            const metricsSelect = document.getElementById('metricsSelect');
+            const metricsCheckboxes = document.getElementById('metricsCheckboxes');
+            const metricsDropdownText = document.getElementById('metricsDropdownText');
             
             // Проверяем наличие элементов
-            if (!metricsSelect) {
-                console.error('Элемент селекта метрик не найден');
+            if (!metricsCheckboxes) {
+                console.error('Элемент чекбоксов метрик не найден');
                 return;
             }
             
-            // Очищаем селект
-            metricsSelect.innerHTML = '<option value="">Выберите метрики</option>';
+            // Очищаем чекбоксы
+            metricsCheckboxes.innerHTML = '';
+            
+            let availableMetrics = [];
             
             if (!processedData) {
                 console.log('processedData не найден, используем dataInfo');
                 // Используем dataInfo если processedData недоступен
                 const dataInfo = JSON.parse(sessionStorage.getItem('dataInfo') || '{}');
                 if (dataInfo.columns) {
-                    populateSelectsFromDataInfo(dataInfo, metricsSelect);
+                    availableMetrics = getMetricsFromDataInfo(dataInfo);
                 }
-                return;
+            } else {
+                // Получаем настройки маппинга
+                const mappingConfig = JSON.parse(sessionStorage.getItem('dataMapping') || '{}');
+                
+                // Заполняем селекты колонками
+                processedData.columns.forEach((col, index) => {
+                    // Метрики - только колонки с ролью "metric"
+                    const columnMapping = mappingConfig.columns?.find(c => c.name === col);
+                    if (columnMapping && columnMapping.role === 'metric') {
+                        availableMetrics.push(col);
+                    } else if (!mappingConfig.columns && processedData.dtypes[col] && 
+                        (processedData.dtypes[col].includes('int') || processedData.dtypes[col].includes('float'))) {
+                        // Fallback: если нет маппинга, используем числовые колонки
+                        availableMetrics.push(col);
+                    }
+                });
             }
             
-            // Получаем настройки маппинга
-            const mappingConfig = JSON.parse(sessionStorage.getItem('dataMapping') || '{}');
+            // Создаем чекбоксы для метрик
+            createMetricsCheckboxes(availableMetrics);
             
-            // Заполняем селекты колонками
-            processedData.columns.forEach((col, index) => {
-                // Метрики - только колонки с ролью "metric"
-                const columnMapping = mappingConfig.columns?.find(c => c.name === col);
-                if (columnMapping && columnMapping.role === 'metric') {
-                    const option2 = document.createElement('option');
-                    option2.value = col;
-                    option2.textContent = col;
-                    metricsSelect.appendChild(option2);
-                } else if (!mappingConfig.columns && processedData.dtypes[col] && 
-                    (processedData.dtypes[col].includes('int') || processedData.dtypes[col].includes('float'))) {
-                    // Fallback: если нет маппинга, используем числовые колонки
-                    const option2 = document.createElement('option');
-                    option2.value = col;
-                    option2.textContent = col;
-                    metricsSelect.appendChild(option2);
-                }
-                
-            });
+            // Выбираем первую метрику по умолчанию
+            if (availableMetrics.length > 0) {
+                selectFirstMetric(availableMetrics[0]);
+            }
             
             // Заполняем селект разбивки по срезам
             const splitBySliceSelect = document.getElementById('splitBySlice');
             if (splitBySliceSelect) {
                 // Очищаем предыдущие опции
                 splitBySliceSelect.innerHTML = '<option value="">Без разбивки</option>';
+                
+                // Получаем настройки маппинга
+                const mappingConfig = JSON.parse(sessionStorage.getItem('dataMapping') || '{}');
                 
                 // Добавляем срезы из маппинга
                 if (mappingConfig && mappingConfig.columns) {
@@ -1684,8 +1729,7 @@
                 }
             }
             
-            // Автоматически выбираем временную ось из маппинга
-            // (теперь временная ось определяется автоматически в loadTimeSeriesData)
+            console.log('Дропбокс метрик заполнен:', availableMetrics);
         }
 
         function populateSelectsFromDataInfo(dataInfo, metricsSelect) {
@@ -1713,6 +1757,91 @@
             });
         }
 
+        // Функция для получения метрик из dataInfo
+        function getMetricsFromDataInfo(dataInfo) {
+            const mappingConfig = JSON.parse(sessionStorage.getItem('dataMapping') || '{}');
+            const metrics = [];
+            
+            if (dataInfo.columns) {
+                dataInfo.columns.forEach((col, index) => {
+                    // Метрики - только колонки с ролью "metric"
+                    const columnMapping = mappingConfig.columns?.find(c => c.name === col);
+                    if (columnMapping && columnMapping.role === 'metric') {
+                        metrics.push(col);
+                    } else if (!mappingConfig.columns && dataInfo.dtypes && dataInfo.dtypes[col] && 
+                        (dataInfo.dtypes[col].includes('int') || dataInfo.dtypes[col].includes('float'))) {
+                        // Fallback: если нет маппинга, используем числовые колонки
+                        metrics.push(col);
+                    }
+                });
+            }
+            
+            return metrics;
+        }
+
+        // Функция для создания чекбоксов метрик
+        function createMetricsCheckboxes(availableMetrics) {
+            const metricsCheckboxes = document.getElementById('metricsCheckboxes');
+            metricsCheckboxes.innerHTML = '';
+            
+            availableMetrics.forEach(metric => {
+                const li = document.createElement('li');
+                const checkboxId = 'metric_' + metric.replace(/[^a-zA-Z0-9]/g, '_');
+                
+                li.className = 'metrics-checkbox-item';
+                li.innerHTML = '<div class="form-check"><input class="form-check-input" type="checkbox" id="' + checkboxId + '" value="' + metric + '" onchange="updateSelectedMetrics()"><label class="form-check-label" for="' + checkboxId + '">' + metric + '</label></div>';
+                
+                metricsCheckboxes.appendChild(li);
+            });
+        }
+
+        // Функция для выбора первой метрики по умолчанию
+        function selectFirstMetric(firstMetric) {
+            const checkboxId = 'metric_' + firstMetric.replace(/[^a-zA-Z0-9]/g, '_');
+            const checkbox = document.getElementById(checkboxId);
+            
+            if (checkbox) {
+                checkbox.checked = true;
+                updateSelectedMetrics();
+            }
+        }
+
+        // Функция для обновления выбранных метрик
+        function updateSelectedMetrics() {
+            const checkboxes = document.querySelectorAll('#metricsCheckboxes input[type="checkbox"]');
+            const selectedMetrics = [];
+            const metricsDropdownText = document.getElementById('metricsDropdownText');
+            
+            checkboxes.forEach(checkbox => {
+                if (checkbox.checked) {
+                    selectedMetrics.push(checkbox.value);
+                }
+            });
+            
+            // Обновляем текст дропбокса
+            if (selectedMetrics.length === 0) {
+                metricsDropdownText.textContent = 'Выберите метрики';
+            } else if (selectedMetrics.length === 1) {
+                metricsDropdownText.textContent = selectedMetrics[0];
+            } else {
+                metricsDropdownText.textContent = 'Выбрано: ' + selectedMetrics.length;
+            }
+            
+            // Сохраняем выбранные метрики в глобальной переменной
+            window.selectedMetrics = selectedMetrics;
+        }
+
+        // Функция для переключения "Выбрать все"
+        function toggleAllMetrics(selectAllCheckbox) {
+            const checkboxes = document.querySelectorAll('#metricsCheckboxes input[type="checkbox"]');
+            
+            checkboxes.forEach(checkbox => {
+                checkbox.checked = selectAllCheckbox.checked;
+            });
+            
+            updateSelectedMetrics();
+        }
+
         function loadTimeSeriesData() {
             // Проверяем, что сессия инициализирована
             if (!currentSessionId) {
@@ -1721,16 +1850,10 @@
                 return;
             }
             
-            const metricsSelect = document.getElementById('metricsSelect');
-            if (!metricsSelect) {
-                console.error('Элемент metricsSelect не найден');
-                alert('Ошибка: элемент выбора метрик не найден');
+            // Проверяем наличие выбранных метрик
+            if (!window.selectedMetrics || window.selectedMetrics.length === 0) {
+                alert('Выберите хотя бы одну метрику');
                 return;
-            }
-            
-            // Если ни одна метрика не выбрана, автоматически выбираем первую
-            if (metricsSelect.selectedOptions.length === 0 && metricsSelect.options.length > 1) {
-                metricsSelect.options[1].selected = true; // Первая опция (индекс 1, так как 0 - это "Выберите метрики")
             }
             
             // Автоматически определяем временную ось из настроек маппинга
@@ -1759,11 +1882,7 @@
                 return;
             }
             
-            const selectedMetrics = Array.from(metricsSelect.selectedOptions).map(option => option.value);
-            if (selectedMetrics.length === 0) {
-                alert('Выберите хотя бы одну метрику');
-                return;
-            }
+            const selectedMetrics = window.selectedMetrics;
             
             // Показываем загрузку
             const chartContainer = document.getElementById('timeSeriesChartContainer');
@@ -1851,7 +1970,7 @@
                             if (typeof renderNewPivotTable === 'function') {
                                 const mode = selectedSlice ? 'split-columns' : 'time-series';
                                 renderNewPivotTable(currentPivotData, mappingData, mode, selectedSlice);
-                            } else {
+                        } else {
                                 console.error('Функция renderNewPivotTable не найдена');
                             }
                         } else {
@@ -1897,7 +2016,7 @@
                                 renderPivotTableAndChart(pivotData, data.data, selectedSlice);
                             } else {
                                 console.log('Нет данных для отображения');
-                                renderTimeSeriesChart(data.data);
+                            renderTimeSeriesChart(data.data);
                             }
                         }
                     } else {
@@ -2146,13 +2265,13 @@
                         if (value === 0) {
                             displayValue = `<span class="text-muted">${displayValue}</span>`;
                         }
-                    } else {
+            } else {
                         displayValue = String(value);
                     }
                     
                     html += `<td>${displayValue}</td>`;
-                });
-                html += '</tr>';
+                    });
+                    html += '</tr>';
             }
             html += '</tbody>';
             
@@ -2213,16 +2332,16 @@
                                 if (container) {
                                     container.innerHTML = '<div class="alert alert-warning">Данные маппинга не загружены. Сначала загрузите данные для анализа.</div>';
                                 }
-                                return;
-                            }
-                            
+                return;
+            }
+            
                             // Используем данные от сервера (уже преобразованные после маппинга)
                             console.log('Используем данные от сервера после маппинга');
                             console.log('Количество колонок в маппинге:', mappingData.columns.length);
                             console.log('Колонки маппинга:', mappingData.columns.map(col => `${col.name} (${col.role})`));
                             
                             // Получаем выбранную метрику
-                            const metricsSelect = document.getElementById('metricsSelect');
+            const metricsSelect = document.getElementById('metricsSelect');
                             const selectedMetric = metricsSelect && metricsSelect.value ? metricsSelect.value : 'revenue_first_transactions';
                             console.log('Выбранная метрика:', selectedMetric);
                             
@@ -2284,9 +2403,9 @@
                                 if (container) {
                                     container.innerHTML = '<div class="alert alert-warning">Нет данных для отображения сводной таблицы.</div>';
                                 }
-                                return;
-                            }
-                            
+                    return;
+                }
+                
                             console.log('Выбранный источник данных:', dataSource, 'с', dataToUse.length, 'строками');
                             console.log('Первые 3 строки выбранных данных:', dataToUse.slice(0, 3));
                             console.log('Структура выбранных данных:', Object.keys(dataToUse[0] || {}));
@@ -2386,13 +2505,11 @@
             }
             
             // Добавляем метрики из выбранных в дропбоксе
-            const metricsSelect = document.getElementById('metricsSelect');
-            if (metricsSelect && metricsSelect.selectedOptions.length > 0) {
-                const selectedMetrics = Array.from(metricsSelect.selectedOptions).map(option => option.value);
-                selectedMetrics.forEach(metric => {
+            if (window.selectedMetrics && window.selectedMetrics.length > 0) {
+                window.selectedMetrics.forEach(metric => {
                     params.append('metrics', metric);
                 });
-                console.log('Добавляем выбранные метрики:', selectedMetrics);
+                console.log('Добавляем выбранные метрики:', window.selectedMetrics);
                     } else {
                 // Fallback: если ничего не выбрано, используем первую метрику из маппинга
                 if (mappingConfig && mappingConfig.columns) {
@@ -2422,7 +2539,7 @@
             if (mappingData && mappingData.columns && mappingData.columns.length > 0) {
                 params.append('mapping_data', JSON.stringify(mappingData));
                 console.log('Передаем данные маппинга в запросе:', mappingData.columns.length, 'колонок');
-            } else {
+                } else {
                 console.warn('Данные маппинга не найдены в sessionStorage');
             }
             
@@ -2465,23 +2582,23 @@
                             if (typeof renderNewPivotTable === 'function') {
                                 const mode = selectedSlice ? 'split-columns' : 'time-series';
                                 renderNewPivotTable(currentPivotData, mappingData, mode, selectedSlice);
-                            } else {
+                    } else {
                                 console.error('Функция renderNewPivotTable не найдена');
                             }
-                        } else {
+            } else {
                             console.log('Нет сводной таблицы, показываем только график');
                             renderTimeSeriesChart(data.data);
                         }
-                    } else {
+            } else {
                         console.error('Ошибка загрузки данных:', data);
                         if (chartContainer) {
                             const errorMessage = data.message || data.error || 'Неизвестная ошибка';
                             chartContainer.innerHTML = `<div class="alert alert-danger">Ошибка загрузки данных: ${errorMessage}</div>`;
                         }
-                    }
-                })
-                .catch(error => {
-                    console.error('Error:', error);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
                     alert('Ошибка при загрузке данных');
                     if (chartContainer) {
                         chartContainer.innerHTML = '<div class="alert alert-danger">Ошибка загрузки данных</div>';
@@ -2573,7 +2690,7 @@
                 return;
             }
             
-            window.open(`/download/${format}/${currentSessionId}`, '_blank');
+            window.open('/download/' + format + '/' + currentSessionId, '_blank');
         }
     </script>
 </body>
