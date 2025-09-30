@@ -2326,6 +2326,8 @@
         // Автоматическое создание фильтров на основе данных
         function createAutoFilters() {
             console.log('=== АВТОМАТИЧЕСКОЕ СОЗДАНИЕ ФИЛЬТРОВ ===');
+            console.log('rawPivotData:', !!window.rawPivotData, window.rawPivotData?.length);
+            console.log('PivotFilter доступен:', typeof PivotFilter !== 'undefined');
             
             const filtersContainer = document.getElementById('filtersContainer');
             if (!filtersContainer) {
@@ -2338,9 +2340,15 @@
             
             // Получаем данные маппинга
             const mappingConfig = JSON.parse(sessionStorage.getItem('dataMapping') || '{}');
+            console.log('mappingConfig:', mappingConfig);
             
             if (!mappingConfig.columns) {
                 console.log('Нет данных маппинга для создания фильтров');
+                return;
+            }
+            
+            if (!window.rawPivotData || window.rawPivotData.length === 0) {
+                console.log('Нет rawPivotData для создания фильтров');
                 return;
             }
             
@@ -2946,7 +2954,23 @@
                                     rawPivotData: window.rawPivotData?.length,
                                     mappingData: mappingData?.columns?.length
                                 });
-                                createAutoFilters();
+                                console.log('rawPivotData детали:', window.rawPivotData);
+                                console.log('mappingData детали:', mappingData);
+                                
+                                // Проверяем наличие данных перед созданием фильтров
+                                if (window.rawPivotData && mappingData) {
+                                    console.log('Данные есть, создаем фильтры...');
+                                    createAutoFilters();
+                                } else {
+                                    console.log('Нет данных для создания фильтров, пытаемся использовать currentPivotData...');
+                                    if (window.currentPivotData) {
+                                        window.rawPivotData = window.currentPivotData;
+                                        console.log('Скопировали currentPivotData в rawPivotData');
+                                        createAutoFilters();
+                                    } else {
+                                        console.log('Нет данных вообще для создания фильтров');
+                                    }
+                                }
                         } else {
                                 console.error('Функция renderNewPivotTable не найдена');
                             }
