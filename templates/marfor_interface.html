@@ -3045,13 +3045,45 @@
                             // Используем новую систему сводных таблиц
                             if (typeof renderNewPivotTable === 'function') {
                                 const mode = selectedSlice ? 'split-columns' : 'time-series';
-                                renderNewPivotTable(currentPivotData, mappingData, mode, selectedSlice);
+                                
+                                // Сначала создаем фильтры если их нет
+                                if (!window.currentFilters || window.currentFilters.length === 0) {
+                                    console.log('Создаем фильтры перед рендерингом...');
+                                    createAutoFilters();
+                                }
+                                
+                                // Применяем фильтры к данным перед рендерингом
+                                if (window.currentFilters && window.currentFilters.length > 0) {
+                                    console.log('Применяем фильтры к данным перед рендерингом:', window.currentFilters.map(f => ({
+                                        name: f.fieldName,
+                                        isActive: f.isActive,
+                                        type: f.fieldType
+                                    })));
+                                    
+                                    // Фильтруем данные
+                                    const activeFilters = window.currentFilters.filter(f => f.isActive);
+                                    if (activeFilters.length > 0) {
+                                        const filteredData = currentPivotData.filter(row => {
+                                            return activeFilters.every(filter => filter.matches(row));
+                                        });
+                                        console.log(`Фильтрация данных: ${currentPivotData.length} -> ${filteredData.length} строк`);
+                                        
+                                        // Используем отфильтрованные данные
+                                        renderNewPivotTable(filteredData, mappingData, mode, selectedSlice);
+                                    } else {
+                                        // Нет активных фильтров, используем все данные
+                                        renderNewPivotTable(currentPivotData, mappingData, mode, selectedSlice);
+                                    }
+                                } else {
+                                    // Нет фильтров, используем все данные
+                                    renderNewPivotTable(currentPivotData, mappingData, mode, selectedSlice);
+                                }
                                 
                                 // Сбрасываем флаг изменений фильтров после применения
                                 window.filtersChanged = false;
                                 updateBuildButtonText();
                                 
-                                // Автоматически создаем фильтры после успешного рендеринга
+                                // Автоматически создаем фильтры после успешного рендеринга (только если их не было)
                                 console.log('Автоматически создаем фильтры с данными:', {
                                     rawPivotData: window.rawPivotData?.length,
                                     mappingData: mappingData?.columns?.length
