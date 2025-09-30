@@ -1743,7 +1743,7 @@
                             </div>
                             
                             <div class="text-center">
-                                <button class="btn btn-primary" onclick="loadTimeSeriesData()">
+                                <button class="btn btn-primary" id="buildChartBtn" onclick="loadTimeSeriesData()">
                                     <i class="fas fa-chart-line me-2"></i>Построить график
                                 </button>
                             </div>
@@ -2117,7 +2117,7 @@
             if (body.style.display === 'none') {
                 body.style.display = 'block';
                 icon.className = 'fas fa-chevron-up me-2';
-            } else {
+                    } else {
                 body.style.display = 'none';
                 icon.className = 'fas fa-chevron-down me-2';
             }
@@ -2135,9 +2135,12 @@
                 filter.isActive = selectedValues.length > 0 && selectedValues.length < filter.availableValues.length;
                 updateFilterCount(filterName, selectedValues.length);
                 
-                // Обновляем сводную таблицу
-                console.log('Обновляем фильтр:', filterName, { selectedValues, isActive: filter.isActive });
-                updatePivotTableWithFilters();
+                // Обновляем только состояние фильтра, не применяем к таблице
+                console.log('Обновили фильтр:', filterName, { selectedValues, isActive: filter.isActive });
+                
+                // Отмечаем, что фильтры изменены
+                window.filtersChanged = true;
+                updateBuildButtonText();
             }
         }
         
@@ -2168,9 +2171,12 @@
                 filter.isActive = minValue > filter.availableValues[0] || maxValue < filter.availableValues[filter.availableValues.length - 1];
                 updateFilterCount(filterName, maxValue - minValue + 1);
                 
-                // Обновляем сводную таблицу
-                console.log('Обновляем фильтр:', filterName, { minValue, maxValue, isActive: filter.isActive });
-                updatePivotTableWithFilters();
+                // Обновляем только состояние фильтра, не применяем к таблице
+                console.log('Обновили фильтр:', filterName, { minValue, maxValue, isActive: filter.isActive });
+                
+                // Отмечаем, что фильтры изменены
+                window.filtersChanged = true;
+                updateBuildButtonText();
             }
         }
         
@@ -2210,8 +2216,8 @@
                         }
                     }
                 });
-                // Обновляем сводную таблицу после сброса фильтров
-                updatePivotTableWithFilters();
+                // Сбрасываем только состояние фильтров, не применяем к таблице
+                console.log('Сбросили все фильтры');
             }
         }
         
@@ -2258,6 +2264,20 @@
                 }
             }
             return '';
+        }
+        
+        // Обновление текста кнопки "Построить график"
+        function updateBuildButtonText() {
+            const button = document.getElementById('buildChartBtn');
+            if (button) {
+                if (window.filtersChanged) {
+                    button.innerHTML = '<i class="fas fa-chart-line me-2"></i>Применить фильтры и построить график';
+                    button.className = 'btn btn-warning';
+                } else {
+                    button.innerHTML = '<i class="fas fa-chart-line me-2"></i>Построить график';
+                    button.className = 'btn btn-primary';
+                }
+            }
         }
         
         // Тестовая функция для проверки фильтров
@@ -2349,6 +2369,10 @@
             
             // Очищаем контейнер
             filtersContainer.innerHTML = '';
+            
+            // Сбрасываем флаг изменений фильтров
+            window.filtersChanged = false;
+            updateBuildButtonText();
             
             // Получаем данные маппинга
             const mappingConfig = JSON.parse(sessionStorage.getItem('dataMapping') || '{}');
@@ -2779,7 +2803,7 @@
                 metricsDropdownText.textContent = 'Выберите метрики';
             } else if (selectedMetrics.length === 1) {
                 metricsDropdownText.textContent = selectedMetrics[0];
-            } else {
+                        } else {
                 metricsDropdownText.textContent = 'Выбрано: ' + selectedMetrics.length;
             }
             
@@ -2825,8 +2849,8 @@
         function createSlicesRadioButtons(availableSlices) {
             const slicesRadioButtons = document.getElementById('slicesRadioButtons');
             slicesRadioButtons.innerHTML = '';
-            
-            availableSlices.forEach(slice => {
+                
+                availableSlices.forEach(slice => {
                 const li = document.createElement('li');
                 const radioId = 'slice_' + slice.name.replace(/[^a-zA-Z0-9]/g, '_');
                 
@@ -3183,15 +3207,15 @@
             } else {
                 // Обычные данные
                 data.time_series.forEach((series, index) => {
-                    datasets.push({
+                datasets.push({
                         label: series.metric,
                         data: series.data,
-                        borderColor: colors[index % colors.length],
-                        backgroundColor: colors[index % colors.length] + '20',
-                        fill: false,
-                        tension: 0.1
-                    });
+                    borderColor: colors[index % colors.length],
+                    backgroundColor: colors[index % colors.length] + '20',
+                    fill: false,
+                    tension: 0.1
                 });
+            });
             }
             
             // Создаем график
@@ -3200,46 +3224,46 @@
                 datasets: datasets
             });
             
-                try {
-                    const ctx = canvas.getContext('2d');
-                    currentChart = new Chart(ctx, {
-                        type: 'line',
-                        data: {
+            try {
+                const ctx = canvas.getContext('2d');
+                currentChart = new Chart(ctx, {
+                    type: 'line',
+                    data: {
                             labels: data.time_labels,
-                            datasets: datasets
-                        },
-                        options: {
+                        datasets: datasets
+                    },
+                    options: {
                             responsive: true,
-                            maintainAspectRatio: false,
-                            scales: {
-                                y: {
-                                    beginAtZero: true,
-                                    title: {
-                                        display: true,
-                                        text: 'Значение'
-                                    }
-                                },
-                                x: {
-                                    title: {
-                                        display: true,
-                                        text: 'Время'
-                                    }
-                                }
-                            },
-                            plugins: {
-                                legend: {
-                                    display: true,
-                                    position: 'top'
-                                },
+                        maintainAspectRatio: false,
+                        scales: {
+                            y: {
+                                beginAtZero: true,
                                 title: {
                                     display: true,
-                                    text: 'Временные ряды'
+                                    text: 'Значение'
+                                }
+                            },
+                            x: {
+                                title: {
+                                    display: true,
+                                        text: 'Время'
                                 }
                             }
+                        },
+                        plugins: {
+                            legend: {
+                                display: true,
+                                position: 'top'
+                            },
+                            title: {
+                                display: true,
+                                    text: 'Временные ряды'
+                            }
                         }
-                    });
+                    }
+                });
                     console.log('График создан успешно:', currentChart);
-                } catch (error) {
+            } catch (error) {
                     console.error('Ошибка при создании графика:', error);
                     // Показываем ошибку в контейнере
                     const container = document.getElementById('timeSeriesContainer');
@@ -3494,7 +3518,7 @@
                                 dataToUse = currentPivotData;
                                 dataSource = 'currentPivotData';
                                 console.log('Используем данные из currentPivotData');
-                            } else {
+                } else {
                                 console.error('Нет данных для отображения');
                                 const container = document.getElementById('timeSeriesChartContainer');
                                 if (container) {
@@ -3607,7 +3631,7 @@
                     params.append('metrics', metric);
                 });
                 console.log('Добавляем выбранные метрики:', window.selectedMetrics);
-                    } else {
+            } else {
                 // Fallback: если ничего не выбрано, используем первую метрику из маппинга
                 if (mappingConfig && mappingConfig.columns) {
                     const metrics = mappingConfig.columns
@@ -3698,7 +3722,7 @@
                             console.log('Нет сводной таблицы, показываем только график');
                             renderTimeSeriesChart(data.data);
                         }
-                    } else {
+                } else {
                         console.error('Ошибка загрузки данных:', data);
                         if (chartContainer) {
                             const errorMessage = data.message || data.error || 'Неизвестная ошибка';
