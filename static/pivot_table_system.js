@@ -54,6 +54,7 @@ class PivotFilter {
     
     // Проверка, проходит ли строка через фильтр
     matches(row) {
+        console.log(`🔍 matches вызван для ${this.fieldName}, isActive: ${this.isActive}`);
         if (!this.isActive) return true;
         
         const value = row[this.fieldName];
