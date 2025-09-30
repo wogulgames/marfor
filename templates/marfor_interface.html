@@ -2129,13 +2129,14 @@
                 .filter(cb => cb.checked)
                 .map(cb => cb.value);
             
-            const filter = window.currentFilters.find(f => f.fieldName === filterName);
+            const filter = window.currentFilters?.find(f => f.fieldName === filterName);
             if (filter) {
                 filter.values = selectedValues;
                 filter.isActive = selectedValues.length > 0 && selectedValues.length < filter.availableValues.length;
                 updateFilterCount(filterName, selectedValues.length);
                 
                 // Обновляем сводную таблицу
+                console.log('Обновляем фильтр:', filterName, { selectedValues, isActive: filter.isActive });
                 updatePivotTableWithFilters();
             }
         }
@@ -2160,7 +2161,7 @@
             maxLabel.textContent = maxValue;
             rangeLabel.textContent = `${minValue} - ${maxValue}`;
             
-            const filter = window.currentFilters.find(f => f.fieldName === filterName);
+            const filter = window.currentFilters?.find(f => f.fieldName === filterName);
             if (filter) {
                 filter.minValue = minValue;
                 filter.maxValue = maxValue;
@@ -2168,6 +2169,7 @@
                 updateFilterCount(filterName, maxValue - minValue + 1);
                 
                 // Обновляем сводную таблицу
+                console.log('Обновляем фильтр:', filterName, { minValue, maxValue, isActive: filter.isActive });
                 updatePivotTableWithFilters();
             }
         }
@@ -2214,6 +2216,12 @@
         }
         
         function updatePivotTableWithFilters() {
+            console.log('=== updatePivotTableWithFilters ВЫЗВАНА ===');
+            console.log('rawPivotData:', !!window.rawPivotData, window.rawPivotData?.length);
+            console.log('currentPivotConfig:', !!window.currentPivotConfig);
+            console.log('currentPivotRenderer:', !!window.currentPivotRenderer);
+            console.log('currentFilters:', window.currentFilters?.length);
+            
             // Проверяем, что у нас есть данные и конфигурация
             if (window.rawPivotData && window.currentPivotConfig && window.currentPivotRenderer) {
                 console.log('Обновляем сводную таблицу с учетом фильтров');
@@ -2221,10 +2229,18 @@
                 // Применяем фильтры к исходным данным
                 let filteredData = window.rawPivotData;
                 if (window.currentFilters && window.currentFilters.length > 0) {
+                    console.log('Применяем фильтры:', window.currentFilters.map(f => ({ 
+                        name: f.fieldName, 
+                        isActive: f.isActive, 
+                        type: f.fieldType 
+                    })));
+                    
                     filteredData = window.rawPivotData.filter(row => {
                         return window.currentFilters.every(filter => filter.matches(row));
                     });
                     console.log(`Фильтрация данных: ${window.rawPivotData.length} -> ${filteredData.length} строк`);
+                } else {
+                    console.log('Нет активных фильтров, используем все данные');
                 }
                 
                 // Переобрабатываем отфильтрованные данные
@@ -2236,6 +2252,9 @@
                 
                 // Обновляем глобальные переменные
                 window.currentPivotData = newPivotData;
+                console.log('Сводная таблица обновлена!');
+            } else {
+                console.log('Нет необходимых данных для обновления сводной таблицы');
             }
         }
         
@@ -2277,13 +2296,32 @@
                 { name: 'Halfyear', label: 'Полугодие', type: 'text', values: ['H1', 'H2'] }
             ];
             
-            timeFilters.forEach(filter => {
-                const filterHTML = createSimpleFilterHTML(filter);
+            // Создаем объекты фильтров для системы
+            window.currentFilters = [];
+            
+            timeFilters.forEach(filterConfig => {
+                // Создаем HTML для фильтра
+                const filterHTML = createSimpleFilterHTML(filterConfig);
                 filtersContainer.appendChild(filterHTML);
-                console.log('Создан фильтр:', filter.name);
+                
+                // Создаем объект фильтра для системы
+                const filter = new PivotFilter(filterConfig.name, filterConfig.type, filterConfig.label);
+                
+                // Устанавливаем значения для фильтра
+                if (filterConfig.type === 'number') {
+                    filter.minValue = filterConfig.min;
+                    filter.maxValue = filterConfig.max;
+                    filter.availableValues = Array.from({length: filterConfig.max - filterConfig.min + 1}, (_, i) => i + filterConfig.min);
+                } else if (filterConfig.type === 'text') {
+                    filter.values = [];
+                    filter.availableValues = filterConfig.values;
+                }
+                
+                window.currentFilters.push(filter);
+                console.log('Создан фильтр:', filterConfig.name, filter);
             });
             
-            console.log('Фильтры временных рядов созданы!');
+            console.log('Фильтры временных рядов созданы!', window.currentFilters);
         }
         
         function createSimpleFilterHTML(filter) {
