@@ -2803,6 +2803,10 @@
         }
 
         function loadTimeSeriesData() {
+            console.log('🔥 === ФУНКЦИЯ loadTimeSeriesData() ВЫЗВАНА ===');
+            console.log('currentSessionId:', currentSessionId);
+            console.log('window.selectedMetrics:', window.selectedMetrics);
+            
             // Проверяем, что сессия инициализирована
             if (!currentSessionId) {
                 console.error('Сессия не инициализирована');
