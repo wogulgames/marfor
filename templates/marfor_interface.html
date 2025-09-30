@@ -1476,15 +1476,20 @@
             console.log('DOMContentLoaded вызван');
             
             // Привязываем событие к кнопке построения графика
+            console.log('🔍 Ищем кнопку buildChartBtn...');
             const buildChartBtn = document.getElementById('buildChartBtn');
+            console.log('buildChartBtn найден:', !!buildChartBtn);
+            console.log('buildChartBtn элемент:', buildChartBtn);
+            
             if (buildChartBtn) {
                 buildChartBtn.addEventListener('click', function() {
                     console.log('🔴 КНОПКА НАЖАТА через addEventListener!');
                     loadTimeSeriesData();
                 });
-                console.log('Событие click привязано к кнопке buildChartBtn');
+                console.log('✅ Событие click привязано к кнопке buildChartBtn');
             } else {
-                console.error('Кнопка buildChartBtn не найдена!');
+                console.error('❌ Кнопка buildChartBtn не найдена!');
+                console.log('Доступные элементы с id:', Array.from(document.querySelectorAll('[id]')).map(el => el.id));
             }
             
             // Проверяем параметр проекта в URL
@@ -2283,6 +2288,16 @@
         function updateBuildButtonText() {
             const button = document.getElementById('buildChartBtn');
             if (button) {
+                // Убеждаемся, что событие привязано
+                if (!button.hasAttribute('data-event-attached')) {
+                    button.addEventListener('click', function() {
+                        console.log('🔴 КНОПКА НАЖАТА через addEventListener в updateBuildButtonText!');
+                        loadTimeSeriesData();
+                    });
+                    button.setAttribute('data-event-attached', 'true');
+                    console.log('✅ Событие click привязано к кнопке в updateBuildButtonText');
+                }
+                
                 if (window.filtersChanged) {
                     button.innerHTML = '<i class="fas fa-chart-line me-2"></i>Применить фильтры и построить график';
                     button.className = 'btn btn-warning';
@@ -2290,6 +2305,8 @@
                     button.innerHTML = '<i class="fas fa-chart-line me-2"></i>Построить график';
                     button.className = 'btn btn-primary';
                 }
+            } else {
+                console.error('❌ Кнопка buildChartBtn не найдена в updateBuildButtonText!');
             }
         }
         
