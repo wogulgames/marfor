@@ -854,6 +854,7 @@ function renderNewPivotTable(rawData, mappingData, mode = 'normal', splitBySlice
         window.currentPivotRenderer = renderer;
         window.currentPivotData = pivotData;
         window.currentPivotConfig = config;
+        window.rawPivotData = rawData; // Сохраняем исходные данные для фильтров
         
         renderer.render(pivotData, config);
         
