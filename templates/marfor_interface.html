@@ -1743,7 +1743,7 @@
                             </div>
                             
                             <div class="text-center">
-                                <button class="btn btn-primary" id="buildChartBtn" onclick="loadTimeSeriesData()">
+                                <button class="btn btn-primary" id="buildChartBtn" onclick="console.log('🔴 КНОПКА НАЖАТА!'); loadTimeSeriesData()">
                                     <i class="fas fa-chart-line me-2"></i>Построить график
                                 </button>
                             </div>
@@ -2270,12 +2270,20 @@
         function updateBuildButtonText() {
             const button = document.getElementById('buildChartBtn');
             if (button) {
+                // Сохраняем onclick перед изменением innerHTML
+                const onClickHandler = button.getAttribute('onclick');
+                
                 if (window.filtersChanged) {
                     button.innerHTML = '<i class="fas fa-chart-line me-2"></i>Применить фильтры и построить график';
                     button.className = 'btn btn-warning';
                 } else {
                     button.innerHTML = '<i class="fas fa-chart-line me-2"></i>Построить график';
                     button.className = 'btn btn-primary';
+                }
+                
+                // Восстанавливаем onclick после изменения innerHTML
+                if (onClickHandler) {
+                    button.setAttribute('onclick', onClickHandler);
                 }
             }
         }
