@@ -219,6 +219,33 @@ class PivotData {
     getColumnFields(colKey) {
         return this.columnGroups.get(colKey)?.fields || {};
     }
+    
+    // Расчет итоговых сумм для строки Total
+    calculateTotals(config) {
+        const totals = {};
+        const rowKeys = this.getRowKeys();
+        const columnKeys = this.getColumnKeys();
+        
+        // Инициализируем структуру для итогов
+        config.values.forEach(valueField => {
+            totals[valueField.name] = {};
+            columnKeys.forEach(colKey => {
+                totals[valueField.name][colKey] = 0;
+            });
+        });
+        
+        // Суммируем все значения
+        rowKeys.forEach(rowKey => {
+            config.values.forEach(valueField => {
+                columnKeys.forEach(colKey => {
+                    const value = this.getValue(rowKey, colKey, valueField.name);
+                    totals[valueField.name][colKey] += value;
+                });
+            });
+        });
+        
+        return totals;
+    }
 }
 
 class PivotRenderer {
@@ -464,6 +491,9 @@ class PivotRenderer {
             });
         }
         
+        // Добавляем строку Total
+        html += this.createTotalRowHTML(pivotData, config);
+        
         html += '</tbody>';
         return html;
     }
@@ -476,6 +506,73 @@ class PivotRenderer {
             }).format(value);
         }
         return value || '';
+    }
+    
+    // Создание HTML для строки Total
+    createTotalRowHTML(pivotData, config) {
+        let html = '<tr class="pivot-total-row">';
+        
+        if (config.mode === 'split-columns') {
+            // Режим разбивки по столбцам
+            const visibleTimeFields = this.getVisibleTimeFields(config);
+            const columnKeys = pivotData.getColumnKeys();
+            const totals = pivotData.calculateTotals(config);
+            
+            // Пустые ячейки для временных полей
+            visibleTimeFields.forEach(() => {
+                html += '<td class="pivot-cell pivot-total-cell"></td>';
+            });
+            
+            // Итоговые значения для каждой метрики и каждого столбца (среза)
+            config.values.forEach(valueField => {
+                columnKeys.forEach(colKey => {
+                    const totalValue = totals[valueField.name][colKey] || 0;
+                    html += `<td class="pivot-cell pivot-total-cell" style="text-align: right; font-weight: bold;">${this.formatValue(totalValue)}</td>`;
+                });
+            });
+            
+        } else if (config.mode === 'time-series') {
+            // Режим временных рядов
+            const visibleTimeFields = this.getVisibleTimeFields(config);
+            const totals = pivotData.calculateTotals(config);
+            
+            // Пустые ячейки для временных полей
+            visibleTimeFields.forEach(() => {
+                html += '<td class="pivot-cell pivot-total-cell"></td>';
+            });
+            
+            // Итоговые значения для метрик (суммируем по всем столбцам)
+            config.values.forEach(valueField => {
+                const columnKeys = pivotData.getColumnKeys();
+                let totalValue = 0;
+                columnKeys.forEach(colKey => {
+                    totalValue += totals[valueField.name][colKey] || 0;
+                });
+                html += `<td class="pivot-cell pivot-total-cell" style="text-align: right; font-weight: bold;">${this.formatValue(totalValue)}</td>`;
+            });
+        } else {
+            // Обычный режим
+            const visibleTimeFields = this.getVisibleTimeFields(config);
+            const totals = pivotData.calculateTotals(config);
+            
+            // Пустые ячейки для временных полей
+            visibleTimeFields.forEach(() => {
+                html += '<td class="pivot-cell pivot-total-cell"></td>';
+            });
+            
+            // Итоговые значения для метрик
+            config.values.forEach(valueField => {
+                const columnKeys = pivotData.getColumnKeys();
+                let totalValue = 0;
+                columnKeys.forEach(colKey => {
+                    totalValue += totals[valueField.name][colKey] || 0;
+                });
+                html += `<td class="pivot-cell pivot-total-cell" style="text-align: right; font-weight: bold;">${this.formatValue(totalValue)}</td>`;
+            });
+        }
+        
+        html += '</tr>';
+        return html;
     }
     
     // Методы для работы с коллапсированием временных полей
