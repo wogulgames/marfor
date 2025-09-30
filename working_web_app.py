@@ -931,59 +931,60 @@ def get_time_series_data(session_id):
                             print(f"  Строка {i}: {row}")
                     
                     print(f"DEBUG: Итоговая иерархия создана")
-                    elif pivot_mode == 'slices':
-                        # В режиме срезов - срезы в строках, метрики/временные ряды в столбцах
-                        print(f"DEBUG: Попадаем в блок slices")
-                        if split_by_slice and split_by_slice in [col['name'] for col in time_series_cols]:
-                            print(f"DEBUG: Включаем режим разбивки по временному ряду: {split_by_slice}")
-                            # Разбивка по временному ряду - срезы в строках, временной ряд в столбцах
-                            slice_col_names = [col['name'] for col in slice_cols]
-                            split_col = [col for col in time_series_cols if col['name'] == split_by_slice][0]
-                            print(f"DEBUG: Найден временной ряд для разбивки: {split_col}")
-                            
-                            # Создаем pivot table с метриками в столбцах для каждого значения временного ряда
-                            pivot_data = df_sorted.groupby(slice_col_names + [split_by_slice])[slice_columns].sum().reset_index()
-                            
-                            # Создаем структуру с разбивкой по столбцам
-                            unique_time_values = sorted(pivot_data[split_by_slice].unique())
-                            column_headers = {}
-                            
-                            for time_value in unique_time_values:
-                                column_headers[str(time_value)] = slice_columns
-                            
-                            # Включаем ВСЕ данные из маппинга для разбивки по временному ряду
-                            all_mapping_columns = [col['name'] for col in mapping_config.get('columns', [])]
-                            available_columns = [col for col in all_mapping_columns if col in df_sorted.columns]
-                            
-                            result_data['pivot_table'] = {
-                                'columns': available_columns,
-                                'data': df_sorted[available_columns].to_dict('records'),
-                                'raw_data': df_sorted[available_columns].to_dict('records'),  # Добавляем исходные данные для фильтров
-                                'time_series_info': slice_cols + [split_col],
-                                'column_headers': column_headers,
-                                'available_slices': time_series_cols
-                            }
-                        else:
-                            # Обычный режим срезов без разбивки
-                            print(f"DEBUG: Обычный режим срезов")
-                            # Создаем сводную таблицу с срезами в строках
-                            all_cols = slice_cols.copy()
-                            print(f"DEBUG: Все срезы: {all_cols}")
-                            
-                            # Форматируем данные для отображения
-                            # Включаем ВСЕ данные из маппинга
-                            all_mapping_columns = [col['name'] for col in mapping_config.get('columns', [])]
-                            available_columns = [col for col in all_mapping_columns if col in df_sorted.columns]
-                            
-                            result_data['pivot_table'] = {
-                                'columns': available_columns,
-                                'data': df_sorted[available_columns].to_dict('records'),
-                                'raw_data': df_sorted[available_columns].to_dict('records'),  # Добавляем исходные данные для фильтров
-                                'time_series_info': all_cols,
-                                'available_slices': time_series_cols
-                            }
+                elif pivot_mode == 'slices':
+                    # В режиме срезов - срезы в строках, метрики/временные ряды в столбцах
+                    print(f"DEBUG: Попадаем в блок slices")
+                    if split_by_slice and split_by_slice in [col['name'] for col in time_series_cols]:
+                        print(f"DEBUG: Включаем режим разбивки по временному ряду: {split_by_slice}")
+                        # Разбивка по временному ряду - срезы в строках, временной ряд в столбцах
+                        slice_col_names = [col['name'] for col in slice_cols]
+                        split_col = [col for col in time_series_cols if col['name'] == split_by_slice][0]
+                        print(f"DEBUG: Найден временной ряд для разбивки: {split_col}")
                         
-                        print(f"DEBUG: Сводная таблица создана в режиме 'slices'")
+                        # Создаем pivot table с метриками в столбцах для каждого значения временного ряда
+                        pivot_data = df_sorted.groupby(slice_col_names + [split_by_slice])[metric_columns].sum().reset_index()
+                        
+                        # Создаем структуру с разбивкой по столбцам
+                        unique_time_values = sorted(pivot_data[split_by_slice].unique())
+                        column_headers = {}
+                        
+                        for time_value in unique_time_values:
+                            column_headers[str(time_value)] = slice_columns
+                        
+                        # Включаем ВСЕ данные из маппинга для разбивки по временному ряду
+                        all_mapping_columns = [col['name'] for col in mapping_config.get('columns', [])]
+                        available_columns = [col for col in all_mapping_columns if col in df_sorted.columns]
+                        
+                        result_data['pivot_table'] = {
+                            'columns': available_columns,
+                            'data': df_sorted[available_columns].to_dict('records'),
+                            'raw_data': df_sorted[available_columns].to_dict('records'),  # Добавляем исходные данные для фильтров
+                            'time_series_info': slice_cols + [split_col],
+                            'column_headers': column_headers,
+                            'available_slices': time_series_cols
+                        }
+                    else:
+                        # Обычный режим срезов без разбивки
+                        print(f"DEBUG: Обычный режим срезов")
+                        # Создаем сводную таблицу с срезами в строках, метриками в значениях
+                        print(f"DEBUG: Все срезы: {slice_cols}")
+                        print(f"DEBUG: Метрики: {metric_columns}")
+                        
+                        # Форматируем данные для отображения
+                        # Включаем ВСЕ данные из маппинга
+                        all_mapping_columns = [col['name'] for col in mapping_config.get('columns', [])]
+                        available_columns = [col for col in all_mapping_columns if col in df_sorted.columns]
+                        
+                        result_data['pivot_table'] = {
+                            'columns': available_columns,
+                            'data': df_sorted[available_columns].to_dict('records'),
+                            'raw_data': df_sorted[available_columns].to_dict('records'),  # Добавляем исходные данные для фильтров
+                            'time_series_info': slice_cols,  # Срезы в строках
+                            'available_slices': time_series_cols,  # Временные ряды для разбивки
+                            'metrics': metric_columns  # Метрики для значений
+                        }
+                    
+                    print(f"DEBUG: Сводная таблица создана в режиме 'slices'")
                     
             except Exception as e:
                 print(f"Ошибка создания сводной таблицы: {e}")

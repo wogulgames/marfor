@@ -2043,7 +2043,7 @@
                 const mappingConfig = JSON.parse(sessionStorage.getItem('dataMapping') || '{}');
                 
                 if (pivotState.currentPivotMode === 'time-series') {
-                    // Режим "Временные ряды"
+                    // Режим "Временные ряды" - первичное поле = метрики, разбивка = срезы
                     processedData.columns.forEach((col, index) => {
                         // Метрики - только колонки с ролью "metric"
                         const columnMapping = mappingConfig.columns?.find(c => c.name === col);
@@ -2059,27 +2059,30 @@
                     // Получаем срезы для разбивки
                     availableSplitFields = getSlicesFromDataInfo(processedData || {});
                 } else {
-                    // Режим "Срезы"
-                    availablePrimaryFields = getSlicesFromDataInfo(processedData || {});
+                    // Режим "Срезы" - первичное поле = метрики (для значений), разбивка = временные ряды
+                    processedData.columns.forEach((col, index) => {
+                        // Метрики - только колонки с ролью "metric"
+                        const columnMapping = mappingConfig.columns?.find(c => c.name === col);
+                        if (columnMapping && columnMapping.role === 'metric') {
+                            availablePrimaryFields.push(col);
+                        } else if (!mappingConfig.columns && processedData.dtypes[col] && 
+                            (processedData.dtypes[col].includes('int') || processedData.dtypes[col].includes('float'))) {
+                            // Fallback: если нет маппинга, используем числовые колонки
+                            availablePrimaryFields.push(col);
+                        }
+                    });
+                    
+                    // Получаем временные ряды для разбивки
                     availableSplitFields = getTimeSeriesFromDataInfo(processedData || {});
                 }
             }
             
-            // Создаем чекбоксы для основного поля
-            if (pivotState.currentPivotMode === 'time-series') {
-                createMetricsCheckboxes(availablePrimaryFields);
-                
-                // Выбираем первую метрику по умолчанию
-                if (availablePrimaryFields.length > 0) {
-                    selectFirstMetric(availablePrimaryFields[0]);
-                }
-            } else {
-                createSlicesCheckboxes(availablePrimaryFields);
-                
-                // Выбираем первый срез по умолчанию
-                if (availablePrimaryFields.length > 0) {
-                    selectFirstSlice(availablePrimaryFields[0]);
-                }
+            // Создаем чекбоксы для основного поля (всегда метрики)
+            createMetricsCheckboxes(availablePrimaryFields);
+            
+            // Выбираем первую метрику по умолчанию
+            if (availablePrimaryFields.length > 0) {
+                selectFirstMetric(availablePrimaryFields[0]);
             }
             
             // Создаем радиокнопки для разбивки
@@ -3062,12 +3065,12 @@
                 iconElement.className = 'fas fa-layer-group me-2';
                 
                 // Обновляем лейблы
-                document.getElementById('primaryFieldLabel').textContent = 'Срезы';
+                document.getElementById('primaryFieldLabel').textContent = 'Метрики';
                 document.getElementById('splitFieldLabel').textContent = 'Разбивка по временным рядам';
                 document.getElementById('noSplitFieldText').textContent = 'Только срезы';
                 
                 // Обновляем функции
-                window.toggleAllPrimaryFields = toggleAllSlices;
+                window.toggleAllPrimaryFields = toggleAllMetrics;
                 window.updateSelectedSplitField = updateSelectedTimeSeries;
             }
             
