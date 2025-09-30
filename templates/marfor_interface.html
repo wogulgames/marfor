@@ -1952,20 +1952,36 @@
 
         // Функции для работы с фильтрами
         function populateFilters(rawData, mappingData) {
+            console.log('populateFilters вызвана с данными:', { rawData, mappingData });
+            
+            // Проверяем, что класс PivotFilter доступен
+            if (typeof PivotFilter === 'undefined') {
+                console.error('Класс PivotFilter не определен! Проверьте загрузку static/pivot_table_system.js');
+                return;
+            }
+            
             const filtersContainer = document.getElementById('filtersContainer');
-            if (!filtersContainer) return;
+            if (!filtersContainer) {
+                console.error('Контейнер filtersContainer не найден!');
+                return;
+            }
             
             // Очищаем контейнер
             filtersContainer.innerHTML = '';
             
             if (!rawData || !mappingData || !mappingData.columns) {
+                console.log('Нет данных для создания фильтров:', { rawData: !!rawData, mappingData: !!mappingData, columns: mappingData?.columns?.length });
                 filtersContainer.innerHTML = '<p class="text-muted text-center">Выберите данные для отображения фильтров</p>';
                 return;
             }
             
             // Создаем фильтры для временных полей и срезов
             const filters = [];
+            console.log('Создаем фильтры из колонок:', mappingData.columns.length);
+            
             mappingData.columns.forEach(col => {
+                console.log('Обрабатываем колонку:', { name: col.name, role: col.role, include: col.include, type: col.type });
+                
                 if (col.role === 'dimension' && col.include) {
                     let fieldType = 'text';
                     if (col.type === 'numeric') {
@@ -1974,28 +1990,44 @@
                         fieldType = 'date';
                     }
                     
+                    console.log('Создаем фильтр для:', col.name, 'тип:', fieldType);
+                    
                     const filter = new PivotFilter(col.name, fieldType, col.name);
                     filter.getAvailableValues(rawData);
                     filters.push(filter);
+                    
+                    console.log('Фильтр создан:', { 
+                        name: filter.fieldName, 
+                        type: filter.fieldType, 
+                        valuesCount: filter.availableValues.length,
+                        firstValues: filter.availableValues.slice(0, 5)
+                    });
                 }
             });
             
+            console.log('Создано фильтров:', filters.length);
+            
             if (filters.length === 0) {
+                console.log('Нет доступных фильтров для отображения');
                 filtersContainer.innerHTML = '<p class="text-muted text-center">Нет доступных фильтров</p>';
                 return;
             }
             
             // Создаем HTML для каждого фильтра
-            filters.forEach(filter => {
+            filters.forEach((filter, index) => {
+                console.log(`Создаем HTML для фильтра ${index + 1}:`, filter.fieldName);
                 const filterHTML = createFilterHTML(filter);
                 filtersContainer.appendChild(filterHTML);
             });
             
             // Сохраняем фильтры для использования
             window.currentFilters = filters;
+            console.log('Фильтры сохранены в window.currentFilters:', filters.length);
         }
         
         function createFilterHTML(filter) {
+            console.log('createFilterHTML для фильтра:', filter.fieldName, 'тип:', filter.fieldType);
+            
             const div = document.createElement('div');
             div.className = 'filter-card';
             div.id = `filter-${filter.fieldName}`;
@@ -2003,8 +2035,10 @@
             let bodyHTML = '';
             if (filter.fieldType === 'text') {
                 bodyHTML = createTextFilterHTML(filter);
+                console.log('Создан HTML для текстового фильтра:', bodyHTML.length, 'символов');
             } else if (filter.fieldType === 'number') {
                 bodyHTML = createNumberFilterHTML(filter);
+                console.log('Создан HTML для числового фильтра:', bodyHTML.length, 'символов');
             }
             
             div.innerHTML = `
@@ -2190,6 +2224,21 @@
                 
                 // Обновляем глобальные переменные
                 window.currentPivotData = newPivotData;
+            }
+        }
+        
+        // Тестовая функция для проверки фильтров
+        function testFilters() {
+            console.log('Тестируем фильтры...');
+            console.log('PivotFilter доступен:', typeof PivotFilter !== 'undefined');
+            console.log('filtersContainer найден:', !!document.getElementById('filtersContainer'));
+            
+            if (window.currentPivotData && window.currentPivotConfig) {
+                console.log('Есть данные для тестирования:', window.currentPivotData.length, 'строк');
+                const mappingData = JSON.parse(sessionStorage.getItem('dataMapping') || '{}');
+                populateFilters(window.currentPivotData, mappingData);
+            } else {
+                console.log('Нет данных для тестирования');
             }
         }
 
