@@ -3834,8 +3834,18 @@
                                         
                                         // Отладка структуры данных и фильтра
                                         console.log('🔍 Первая строка данных:', currentPivotData[0]);
+                                        console.log('🔍 Значение year в первой строке:', currentPivotData[0].year);
                                         console.log('🔍 Фильтр year:', activeFilters[0]);
+                                        console.log('🔍 minValue фильтра:', activeFilters[0].minValue);
+                                        console.log('🔍 maxValue фильтра:', activeFilters[0].maxValue);
                                         console.log('🔍 Тест фильтра на первой строке:', activeFilters[0].matches(currentPivotData[0]));
+                                        
+                                        // Проверяем несколько строк
+                                        for (let i = 0; i < Math.min(5, currentPivotData.length); i++) {
+                                            const row = currentPivotData[i];
+                                            const matches = activeFilters[0].matches(row);
+                                            console.log(`🔍 Строка ${i}: year=${row.year}, matches=${matches}`);
+                                        }
                                         
                                         const filteredData = currentPivotData.filter(row => {
                                             return activeFilters.every(filter => filter.matches(row));
