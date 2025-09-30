@@ -3047,6 +3047,10 @@
                                 const mode = selectedSlice ? 'split-columns' : 'time-series';
                                 renderNewPivotTable(currentPivotData, mappingData, mode, selectedSlice);
                                 
+                                // Сбрасываем флаг изменений фильтров после применения
+                                window.filtersChanged = false;
+                                updateBuildButtonText();
+                                
                                 // Автоматически создаем фильтры после успешного рендеринга
                                 console.log('Автоматически создаем фильтры с данными:', {
                                     rawPivotData: window.rawPivotData?.length,
