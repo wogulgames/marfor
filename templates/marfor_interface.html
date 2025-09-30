@@ -2326,6 +2326,25 @@
             }
         }
         
+        // Тестовая функция для проверки кнопки
+        function testButton() {
+            console.log('🔍 Тестируем кнопку...');
+            const button = document.getElementById('buildChartBtn');
+            console.log('Кнопка найдена:', !!button);
+            console.log('Кнопка элемент:', button);
+            console.log('Кнопка onclick:', button?.onclick);
+            console.log('Кнопка hasAttribute data-event-attached:', button?.hasAttribute('data-event-attached'));
+            
+            if (button) {
+                // Пробуем привязать событие вручную
+                button.addEventListener('click', function() {
+                    console.log('🔴 КНОПКА НАЖАТА через тестовое событие!');
+                    loadTimeSeriesData();
+                });
+                console.log('✅ Тестовое событие привязано к кнопке');
+            }
+        }
+        
         // Функция диагностики состояния фильтров
         function diagnoseFilters() {
             console.log('=== ДИАГНОСТИКА ФИЛЬТРОВ ===');
