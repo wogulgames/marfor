@@ -846,8 +846,21 @@ function renderNewPivotTable(rawData, mappingData, mode = 'normal', splitBySlice
         // Создаем рендерер
         const renderer = new PivotRenderer('timeSeriesChartContainer');
         
+        // Применяем фильтры к данным перед обработкой
+        let dataToProcess = rawData;
+        if (config.filters && config.filters.length > 0) {
+            const activeFilters = config.filters.filter(f => f.isActive);
+            if (activeFilters.length > 0) {
+                console.log('Применяем фильтры к данным перед обработкой:', activeFilters.map(f => f.fieldName));
+                dataToProcess = rawData.filter(row => {
+                    return activeFilters.every(filter => filter.matches(row));
+                });
+                console.log(`Фильтрация данных: ${rawData.length} -> ${dataToProcess.length} строк`);
+            }
+        }
+        
         // Обрабатываем данные с учетом состояния коллапсирования
-        const pivotData = new PivotData(rawData);
+        const pivotData = new PivotData(dataToProcess);
         pivotData.process(config, renderer);
         
         // Сохраняем ссылки для перерисовки при коллапсировании

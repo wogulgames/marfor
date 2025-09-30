@@ -2219,57 +2219,45 @@
             console.log('=== updatePivotTableWithFilters ВЫЗВАНА ===');
             console.log('rawPivotData:', !!window.rawPivotData, window.rawPivotData?.length);
             console.log('currentPivotConfig:', !!window.currentPivotConfig);
-            console.log('currentPivotRenderer:', !!window.currentPivotRenderer);
             console.log('currentFilters:', window.currentFilters?.length);
             
             // Проверяем, что у нас есть данные и конфигурация
-            if (window.rawPivotData && window.currentPivotConfig && window.currentPivotRenderer) {
+            if (window.rawPivotData && window.currentPivotConfig) {
                 console.log('Обновляем сводную таблицу с учетом фильтров');
                 
-                // Применяем фильтры к исходным данным
-                let filteredData = window.rawPivotData;
-                if (window.currentFilters && window.currentFilters.length > 0) {
-                    const activeFilters = window.currentFilters.filter(f => f.isActive);
-                    console.log('Активные фильтры:', activeFilters.map(f => ({ 
-                        name: f.fieldName, 
-                        isActive: f.isActive, 
-                        type: f.fieldType,
-                        values: f.values,
-                        minValue: f.minValue,
-                        maxValue: f.maxValue
-                    })));
-                    
-                    if (activeFilters.length > 0) {
-                        filteredData = window.rawPivotData.filter(row => {
-                            return activeFilters.every(filter => {
-                                const matches = filter.matches(row);
-                                if (!matches) {
-                                    console.log(`Строка не прошла фильтр ${filter.fieldName}:`, row[filter.fieldName]);
-                                }
-                                return matches;
-                            });
-                        });
-                        console.log(`Фильтрация данных: ${window.rawPivotData.length} -> ${filteredData.length} строк`);
-                    } else {
-                        console.log('Нет активных фильтров, используем все данные');
-                    }
-                } else {
-                    console.log('Нет фильтров вообще, используем все данные');
+                // Получаем данные маппинга
+                const mappingConfig = JSON.parse(sessionStorage.getItem('dataMapping') || '{}');
+                
+                // Определяем режим и срез
+                const selectedSlice = getSelectedSlice();
+                const mode = selectedSlice ? 'split-columns' : 'time-series';
+                
+                // Обновляем фильтры в конфигурации
+                if (window.currentPivotConfig) {
+                    window.currentPivotConfig.filters = window.currentFilters || [];
                 }
                 
-                // Переобрабатываем отфильтрованные данные
-                const newPivotData = new PivotData(filteredData);
-                newPivotData.process(window.currentPivotConfig, window.currentPivotRenderer);
-                
-                // Перерендериваем таблицу
-                window.currentPivotRenderer.render(newPivotData, window.currentPivotConfig);
-                
-                // Обновляем глобальные переменные
-                window.currentPivotData = newPivotData;
-                console.log('Сводная таблица обновлена!');
+                // Пересоздаем сводную таблицу с отфильтрованными данными
+                if (typeof renderNewPivotTable === 'function') {
+                    console.log('Вызываем renderNewPivotTable с обновленными фильтрами');
+                    renderNewPivotTable(window.rawPivotData, mappingConfig, mode, selectedSlice);
+                } else {
+                    console.error('Функция renderNewPivotTable не найдена');
+                }
             } else {
                 console.log('Нет необходимых данных для обновления сводной таблицы');
             }
+        }
+        
+        // Получение выбранного среза
+        function getSelectedSlice() {
+            const radioButtons = document.querySelectorAll('input[name="sliceSelection"]');
+            for (const radio of radioButtons) {
+                if (radio.checked && radio.value !== '') {
+                    return radio.value;
+                }
+            }
+            return '';
         }
         
         // Тестовая функция для проверки фильтров
