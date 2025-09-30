@@ -15,6 +15,70 @@ class PivotField {
     }
 }
 
+// Класс для фильтров
+class PivotFilter {
+    constructor(fieldName, fieldType, fieldLabel) {
+        this.fieldName = fieldName;
+        this.fieldType = fieldType; // 'text', 'number', 'date'
+        this.fieldLabel = fieldLabel;
+        this.isActive = false;
+        this.values = []; // для текстовых фильтров - выбранные значения
+        this.minValue = null; // для числовых фильтров - минимальное значение
+        this.maxValue = null; // для числовых фильтров - максимальное значение
+        this.availableValues = []; // доступные значения для фильтра
+    }
+    
+    // Получение уникальных значений из данных
+    getAvailableValues(rawData) {
+        const values = new Set();
+        rawData.forEach(row => {
+            if (row[this.fieldName] !== null && row[this.fieldName] !== undefined) {
+                values.add(row[this.fieldName]);
+            }
+        });
+        
+        this.availableValues = Array.from(values);
+        
+        // Для числовых полей сортируем и устанавливаем min/max
+        if (this.fieldType === 'number') {
+            this.availableValues.sort((a, b) => a - b);
+            this.minValue = this.availableValues[0];
+            this.maxValue = this.availableValues[this.availableValues.length - 1];
+        } else {
+            // Для текстовых полей сортируем по алфавиту
+            this.availableValues.sort();
+        }
+        
+        return this.availableValues;
+    }
+    
+    // Проверка, проходит ли строка через фильтр
+    matches(row) {
+        if (!this.isActive) return true;
+        
+        const value = row[this.fieldName];
+        if (value === null || value === undefined) return false;
+        
+        if (this.fieldType === 'text') {
+            return this.values.includes(value);
+        } else if (this.fieldType === 'number') {
+            return value >= this.minValue && value <= this.maxValue;
+        }
+        
+        return true;
+    }
+    
+    // Сброс фильтра
+    reset() {
+        this.isActive = false;
+        this.values = [];
+        if (this.fieldType === 'number') {
+            this.minValue = this.availableValues[0];
+            this.maxValue = this.availableValues[this.availableValues.length - 1];
+        }
+    }
+}
+
 class PivotConfig {
     constructor() {
         this.rows = []; // Поля для строк
@@ -66,13 +130,17 @@ class PivotData {
         this.rowGroups.clear();
         this.columnGroups.clear();
         
+        // Применяем фильтры к данным
+        const filteredData = this.applyFilters(this.rawData, config.filters);
+        console.log(`Данные отфильтрованы: ${this.rawData.length} -> ${filteredData.length} строк`);
+        
         // Получаем видимые временные поля для группировки строк
         const visibleRowFields = renderer ? renderer.getVisibleTimeFields(config) : config.rows;
         
         console.log('Группировка строк по полям:', visibleRowFields.map(f => f.name));
         
         // Группировка по строкам (только по видимым временным полям)
-        this.rawData.forEach(row => {
+        filteredData.forEach(row => {
             const rowKey = this.createRowKey(row, visibleRowFields);
             if (!this.rowGroups.has(rowKey)) {
                 this.rowGroups.set(rowKey, {
@@ -85,7 +153,7 @@ class PivotData {
         });
         
         // Группировка по столбцам
-        this.rawData.forEach(row => {
+        filteredData.forEach(row => {
             const colKey = this.createColumnKey(row, config.columns);
             if (!this.columnGroups.has(colKey)) {
                 this.columnGroups.set(colKey, {
@@ -218,6 +286,17 @@ class PivotData {
     
     getColumnFields(colKey) {
         return this.columnGroups.get(colKey)?.fields || {};
+    }
+    
+    // Применение фильтров к данным
+    applyFilters(data, filters) {
+        if (!filters || filters.length === 0) {
+            return data;
+        }
+        
+        return data.filter(row => {
+            return filters.every(filter => filter.matches(row));
+        });
     }
     
     // Расчет итоговых сумм для строки Total
@@ -616,6 +695,34 @@ class PivotRenderer {
 }
 
 // Функции для работы с новой системой
+function createFiltersFromMapping(mappingData) {
+    const filters = [];
+    
+    if (!mappingData || !mappingData.columns) {
+        return filters;
+    }
+    
+    mappingData.columns.forEach(col => {
+        // Создаем фильтры для временных полей и срезов (dimensions)
+        if (col.role === 'dimension' && col.include) {
+            let fieldType = 'text';
+            
+            // Определяем тип поля для фильтра
+            if (col.type === 'numeric') {
+                fieldType = 'number';
+            } else if (col.type === 'date') {
+                fieldType = 'date';
+            }
+            
+            const filter = new PivotFilter(col.name, fieldType, col.name);
+            filters.push(filter);
+            console.log('Создан фильтр:', { name: col.name, type: fieldType });
+        }
+    });
+    
+    return filters;
+}
+
 function createPivotConfigFromMapping(mappingData, mode = 'normal', splitBySlice = '') {
     console.log('Создание конфигурации сводной таблицы из маппинга:', { mappingData, mode, splitBySlice });
     
@@ -686,10 +793,15 @@ function createPivotConfigFromMapping(mappingData, mode = 'normal', splitBySlice
         console.log('Обычный режим:', { timeFields: timeFields.length, sliceFields: sliceFields.length, values: metricFields.length });
     }
     
+    // Создаем фильтры для временных полей и срезов
+    const filters = createFiltersFromMapping(mappingData);
+    config.filters = filters;
+    
     console.log('Финальная конфигурация:', {
         rows: config.rows.map(r => r.name),
         columns: config.columns.map(c => c.name),
-        values: config.values.map(v => v.name)
+        values: config.values.map(v => v.name),
+        filters: config.filters.map(f => f.fieldName)
     });
     
     console.log('Конфигурация создана:', config);
@@ -716,6 +828,21 @@ function renderNewPivotTable(rawData, mappingData, mode = 'normal', splitBySlice
     try {
         // Создаем конфигурацию
         const config = createPivotConfigFromMapping(mappingData, mode, splitBySlice);
+        
+        // Используем фильтры из глобальной переменной, если они есть
+        if (window.currentFilters && window.currentFilters.length > 0) {
+            config.filters = window.currentFilters;
+            console.log('Используем активные фильтры:', config.filters.map(f => ({ 
+                name: f.fieldName, 
+                isActive: f.isActive, 
+                type: f.fieldType 
+            })));
+        } else {
+            // Инициализируем фильтры с данными
+            config.filters.forEach(filter => {
+                filter.getAvailableValues(rawData);
+            });
+        }
         
         // Создаем рендерер
         const renderer = new PivotRenderer('timeSeriesChartContainer');
@@ -755,6 +882,7 @@ if (typeof module !== 'undefined' && module.exports) {
 // Делаем функции доступными в глобальной области видимости для браузера
 if (typeof window !== 'undefined') {
     window.PivotField = PivotField;
+    window.PivotFilter = PivotFilter;
     window.PivotConfig = PivotConfig;
     window.PivotData = PivotData;
     window.PivotRenderer = PivotRenderer;
