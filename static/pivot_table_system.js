@@ -940,8 +940,15 @@ function createPivotConfigFromMapping(mappingData, mode = 'normal', splitBySlice
         metricFields: metricFields.length
     });
     
+    console.log('Поля срезов до сортировки:', sliceFields.map(f => ({ name: f.name, level: f.level })));
+    
     // Сортируем временные поля по уровню
     timeFields.sort((a, b) => a.level - b.level);
+    
+    // Сортируем поля срезов по уровню
+    sliceFields.sort((a, b) => a.level - b.level);
+    
+    console.log('Поля срезов после сортировки:', sliceFields.map(f => ({ name: f.name, level: f.level })));
     
     // Конфигурируем в зависимости от режима
     if (mode === 'split-columns' && splitBySlice) {
