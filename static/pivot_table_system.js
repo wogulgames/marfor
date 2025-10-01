@@ -137,14 +137,31 @@ class PivotData {
         // Данные уже отфильтрованы на уровне клиента, используем их как есть
         console.log(`Обрабатываем данные: ${this.rawData.length} строк`);
         
-        // Получаем видимые временные поля для группировки строк
-        const visibleRowFields = renderer ? renderer.getVisibleTimeFields(config) : config.rows;
+        // Получаем поля для группировки строк в зависимости от режима
+        let visibleRowFields;
+        if (config.mode === 'slices') {
+            // В режиме срезов группируем по срезам (не временным полям)
+            visibleRowFields = config.rows;
+        } else {
+            // В других режимах используем видимые временные поля
+            visibleRowFields = renderer ? renderer.getVisibleTimeFields(config) : config.rows;
+        }
         
         console.log('Группировка строк по полям:', visibleRowFields.map(f => f.name));
         
-        // Группировка по строкам (только по видимым временным полям)
-        this.rawData.forEach(row => {
+        // Группировка по строкам
+        this.rawData.forEach((row, index) => {
             const rowKey = this.createRowKey(row, visibleRowFields);
+            
+            // Отладочная информация для первых нескольких строк
+            if (index < 3) {
+                console.log(`Строка ${index}:`, {
+                    rowKey,
+                    visibleRowFields: visibleRowFields.map(f => f.name),
+                    fieldValues: visibleRowFields.map(f => ({ name: f.name, value: row[f.name] }))
+                });
+            }
+            
             if (!this.rowGroups.has(rowKey)) {
                 this.rowGroups.set(rowKey, {
                     key: rowKey,
@@ -178,8 +195,15 @@ class PivotData {
     createCrossTable(config, renderer = null) {
         this.crossTable.clear();
         
-        // Получаем видимые поля для создания ключей
-        const visibleRowFields = renderer ? renderer.getVisibleTimeFields(config) : config.rows;
+        // Получаем поля для создания ключей в зависимости от режима
+        let visibleRowFields;
+        if (config.mode === 'slices') {
+            // В режиме срезов группируем по срезам (не временным полям)
+            visibleRowFields = config.rows;
+        } else {
+            // В других режимах используем видимые временные поля
+            visibleRowFields = renderer ? renderer.getVisibleTimeFields(config) : config.rows;
+        }
         
         console.log('Создание перекрестной таблицы:', {
             rawDataLength: this.rawData.length,
