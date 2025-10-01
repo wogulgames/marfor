@@ -3090,13 +3090,15 @@
             }
             
             // Перезагружаем выпадающие меню
+            const mappingConfig = JSON.parse(sessionStorage.getItem('dataMapping') || '{}');
             console.log('switchPivotMode - проверяем доступность данных:', {
-                mappingConfig: !!window.mappingConfig,
+                mappingConfig: !!mappingConfig,
+                mappingConfigKeys: Object.keys(mappingConfig),
                 rawPivotData: !!window.rawPivotData,
                 rawPivotDataLength: window.rawPivotData ? window.rawPivotData.length : 0
             });
             
-            if (window.mappingConfig && window.rawPivotData) {
+            if (mappingConfig && Object.keys(mappingConfig).length > 0 && window.rawPivotData) {
                 console.log('switchPivotMode - вызываем populateTimeSeriesSelects()');
                 populateTimeSeriesSelects();
             } else {
