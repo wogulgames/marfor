@@ -2007,6 +2007,8 @@
         }
 
         function populateTimeSeriesSelects() {
+            console.log('🚀 populateTimeSeriesSelects() вызвана, режим:', pivotState.currentPivotMode);
+            
             const primaryFieldCheckboxes = document.getElementById('primaryFieldCheckboxes');
             const primaryFieldDropdownText = document.getElementById('primaryFieldDropdownText');
             const splitFieldRadioButtons = document.getElementById('splitFieldRadioButtons');
@@ -3076,8 +3078,17 @@
             }
             
             // Перезагружаем выпадающие меню
+            console.log('switchPivotMode - проверяем доступность данных:', {
+                mappingConfig: !!window.mappingConfig,
+                rawPivotData: !!window.rawPivotData,
+                rawPivotDataLength: window.rawPivotData ? window.rawPivotData.length : 0
+            });
+            
             if (window.mappingConfig && window.rawPivotData) {
+                console.log('switchPivotMode - вызываем populateTimeSeriesSelects()');
                 populateTimeSeriesSelects();
+            } else {
+                console.log('switchPivotMode - данные недоступны, не вызываем populateTimeSeriesSelects()');
             }
         }
 
