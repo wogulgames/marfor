@@ -2008,6 +2008,7 @@
 
         function populateTimeSeriesSelects() {
             console.log('🚀 populateTimeSeriesSelects() вызвана, режим:', pivotState.currentPivotMode);
+            console.log('🚀 Вызов из стека:', new Error().stack);
             
             const primaryFieldCheckboxes = document.getElementById('primaryFieldCheckboxes');
             const primaryFieldDropdownText = document.getElementById('primaryFieldDropdownText');
@@ -3049,7 +3050,10 @@
 
         // Функция переключения режима сводной таблицы
         function switchPivotMode(mode) {
+            console.log('🔄 switchPivotMode вызвана с режимом:', mode);
+            console.log('🔄 Старый режим:', pivotState.currentPivotMode);
             pivotState.currentPivotMode = mode;
+            console.log('🔄 Новый режим:', pivotState.currentPivotMode);
             
             // Обновляем активную кнопку
             document.getElementById('timeSeriesModeBtn').classList.toggle('active', mode === 'time-series');
