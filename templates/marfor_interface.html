@@ -2074,6 +2074,7 @@
                     
                     // Получаем временные ряды для разбивки
                     availableSplitFields = getTimeSeriesFromDataInfo(processedData || {});
+                    console.log('Режим slices - доступные временные ряды для разбивки:', availableSplitFields);
                 }
             }
             
@@ -3160,14 +3161,25 @@
             const mappingConfig = JSON.parse(sessionStorage.getItem('dataMapping') || '{}');
             const timeSeries = [];
             
+            console.log('getTimeSeriesFromDataInfo вызвана с mappingConfig:', mappingConfig);
+            
             if (mappingConfig.columns) {
                 mappingConfig.columns.forEach(col => {
+                    console.log('Проверяем колонку:', {
+                        name: col.name,
+                        role: col.role,
+                        time_series: col.time_series,
+                        include: col.include,
+                        isTimeSeries: col.role === 'dimension' && col.time_series && col.time_series !== '' && col.include
+                    });
+                    
                     // Временные ряды - это колонки с ролью "dimension", которые имеют time_series
                     if (col.role === 'dimension' && col.time_series && col.time_series !== '' && col.include) {
                         timeSeries.push({
                             name: col.name,
                             level: col.nesting_level || 0
                         });
+                        console.log('Добавлен временной ряд:', col.name);
                     }
                 });
                 
@@ -3175,6 +3187,7 @@
                 timeSeries.sort((a, b) => a.level - b.level);
             }
             
+            console.log('getTimeSeriesFromDataInfo возвращает:', timeSeries);
             return timeSeries;
         }
 
