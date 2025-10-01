@@ -434,6 +434,28 @@ class PivotRenderer {
             });
             
             html += '</tr>';
+        } else if (config.mode === 'slices') {
+            // Режим срезов
+            html += '<tr>';
+            
+            // Заголовки для срезов (строки) - без коллапсирования, так как это не временные поля
+            config.rows.forEach(rowField => {
+                html += `<th class="pivot-header slice-header" data-field="${rowField.name}" data-level="${rowField.level}">${rowField.label}</th>`;
+            });
+            
+            // Если есть разбивка по столбцам (временные поля)
+            if (config.columns.length > 0) {
+                config.columns.forEach(colField => {
+                    html += `<th class="pivot-header time-header" data-field="${colField.name}">${colField.label}</th>`;
+                });
+            }
+            
+            // Заголовки для метрик (значения)
+            config.values.forEach(valueField => {
+                html += `<th class="pivot-header">${valueField.label}</th>`;
+            });
+            
+            html += '</tr>';
         } else {
             // Обычный режим
             html += '<tr>';
@@ -527,6 +549,48 @@ class PivotRenderer {
                         });
                         
                         console.log(`Итого для ${rowKey}: ${aggregatedValue}`);
+                    }
+                    
+                    html += `<td class="pivot-cell" style="text-align: right;">${this.formatValue(aggregatedValue)}</td>`;
+                });
+                
+                html += '</tr>';
+            });
+        } else if (config.mode === 'slices') {
+            // Режим срезов
+            const rowKeys = pivotData.getRowKeys();
+            const columnKeys = pivotData.getColumnKeys();
+            
+            rowKeys.forEach(rowKey => {
+                html += '<tr>';
+                
+                // Значения срезов (строки)
+                const rowFields = pivotData.getRowFields(rowKey);
+                config.rows.forEach(rowField => {
+                    html += `<td class="pivot-cell">${rowFields[rowField.name] || ''}</td>`;
+                });
+                
+                // Если есть разбивка по столбцам (временные поля)
+                if (config.columns.length > 0) {
+                    columnKeys.forEach(colKey => {
+                        const colFields = pivotData.getColumnFields(colKey);
+                        config.columns.forEach(colField => {
+                            html += `<td class="pivot-cell">${colFields[colField.name] || ''}</td>`;
+                        });
+                    });
+                }
+                
+                // Значения метрик - агрегируем по всем строкам в группе
+                config.values.forEach(valueField => {
+                    const rowGroup = pivotData.rowGroups.get(rowKey);
+                    let aggregatedValue = 0;
+                    
+                    // Суммируем все значения метрики в группе строк
+                    if (rowGroup && rowGroup.rows) {
+                        rowGroup.rows.forEach(row => {
+                            const value = parseFloat(row[valueField.name]) || 0;
+                            aggregatedValue += value;
+                        });
                     }
                     
                     html += `<td class="pivot-cell" style="text-align: right;">${this.formatValue(aggregatedValue)}</td>`;
@@ -634,6 +698,33 @@ class PivotRenderer {
                 });
                 html += `<td class="pivot-cell pivot-total-cell" style="text-align: right; font-weight: bold;">${this.formatValue(totalValue)}</td>`;
             });
+        } else if (config.mode === 'slices') {
+            // Режим срезов
+            const totals = pivotData.calculateTotals(config);
+            
+            // Ячейки для срезов с "Total" в первой
+            config.rows.forEach((field, index) => {
+                const cellContent = index === 0 ? '<strong>Total</strong>' : '';
+                html += `<td class="pivot-cell pivot-total-cell">${cellContent}</td>`;
+            });
+            
+            // Если есть разбивка по столбцам (временные поля)
+            if (config.columns.length > 0) {
+                config.columns.forEach((field, index) => {
+                    const cellContent = index === 0 ? '<strong>Total</strong>' : '';
+                    html += `<td class="pivot-cell pivot-total-cell">${cellContent}</td>`;
+                });
+            }
+            
+            // Итоговые значения для метрик (суммируем по всем столбцам)
+            config.values.forEach(valueField => {
+                const columnKeys = pivotData.getColumnKeys();
+                let totalValue = 0;
+                columnKeys.forEach(colKey => {
+                    totalValue += totals[valueField.name][colKey] || 0;
+                });
+                html += `<td class="pivot-cell pivot-total-cell" style="text-align: right; font-weight: bold;">${this.formatValue(totalValue)}</td>`;
+            });
         } else {
             // Обычный режим
             const visibleTimeFields = this.getVisibleTimeFields(config);
@@ -682,6 +773,11 @@ class PivotRenderer {
     }
     
     getVisibleTimeFields(config) {
+        // В режиме срезов нет временных полей в строках
+        if (config.mode === 'slices') {
+            return [];
+        }
+        
         // Возвращаем только видимые временные поля (не свернутые)
         return config.rows.filter(field => {
             if (field.type !== 'time') return true;
@@ -783,11 +879,35 @@ function createPivotConfigFromMapping(mappingData, mode = 'normal', splitBySlice
         config.setValues(metricFields);
         console.log('Режим split-columns:', { timeFields: timeFields.length, columns: 1, values: metricFields.length });
     } else if (mode === 'time-series') {
-        // Режим временных рядов
+        // Режим временных рядов - временные поля в строках
         config.setRows(timeFields);
         config.setColumns([]);
         config.setValues(metricFields);
         console.log('Режим time-series:', { timeFields: timeFields.length, columns: 0, values: metricFields.length });
+    } else if (mode === 'slices') {
+        // Режим срезов - срезы в строках, временные поля для разбивки (если есть)
+        if (splitBySlice) {
+            // Разбивка по временному ряду
+            const splitField = timeFields.find(field => field.name === splitBySlice);
+            if (splitField) {
+                config.setRows(sliceFields);
+                config.setColumns([splitField]);
+                config.setValues(metricFields);
+                console.log('Режим slices с разбивкой:', { sliceFields: sliceFields.length, columns: 1, values: metricFields.length });
+            } else {
+                // Fallback: обычный режим срезов
+                config.setRows(sliceFields);
+                config.setColumns([]);
+                config.setValues(metricFields);
+                console.log('Режим slices (fallback):', { sliceFields: sliceFields.length, columns: 0, values: metricFields.length });
+            }
+        } else {
+            // Обычный режим срезов
+            config.setRows(sliceFields);
+            config.setColumns([]);
+            config.setValues(metricFields);
+            console.log('Режим slices:', { sliceFields: sliceFields.length, columns: 0, values: metricFields.length });
+        }
     } else {
         // Обычный режим
         config.setRows(timeFields);
