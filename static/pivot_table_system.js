@@ -938,7 +938,10 @@ function createPivotConfigFromMapping(mappingData, mode = 'normal', splitBySlice
     console.log('Результат обработки полей:', {
         timeFields: timeFields.length,
         sliceFields: sliceFields.length,
-        metricFields: metricFields.length
+        metricFields: metricFields.length,
+        timeFieldsNames: timeFields.map(f => f.name),
+        sliceFieldsNames: sliceFields.map(f => f.name),
+        metricFieldsNames: metricFields.map(f => f.name)
     });
     
     console.log('Поля срезов до сортировки:', sliceFields.map(f => ({ name: f.name, level: f.level })));
@@ -1001,9 +1004,10 @@ function createPivotConfigFromMapping(mappingData, mode = 'normal', splitBySlice
     config.filters = filters;
     
     console.log('Финальная конфигурация:', {
-        rows: config.rows.map(r => r.name),
-        columns: config.columns.map(c => c.name),
-        values: config.values.map(v => v.name),
+        mode: config.mode,
+        rows: config.rows.map(r => ({ name: r.name, type: r.type, level: r.level })),
+        columns: config.columns.map(c => ({ name: c.name, type: c.type, level: c.level })),
+        values: config.values.map(v => ({ name: v.name, type: v.type })),
         filters: config.filters.map(f => f.fieldName)
     });
     
