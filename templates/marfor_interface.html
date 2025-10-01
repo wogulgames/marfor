@@ -2041,19 +2041,19 @@
                     }
                 }
             } else {
-                // Получаем настройки маппинга
-                const mappingConfig = JSON.parse(sessionStorage.getItem('dataMapping') || '{}');
-                
+            // Получаем настройки маппинга
+            const mappingConfig = JSON.parse(sessionStorage.getItem('dataMapping') || '{}');
+            
                 if (pivotState.currentPivotMode === 'time-series') {
                     // Режим "Временные ряды" - первичное поле = метрики, разбивка = срезы
-                    processedData.columns.forEach((col, index) => {
-                        // Метрики - только колонки с ролью "metric"
-                        const columnMapping = mappingConfig.columns?.find(c => c.name === col);
-                        if (columnMapping && columnMapping.role === 'metric') {
+            processedData.columns.forEach((col, index) => {
+                // Метрики - только колонки с ролью "metric"
+                const columnMapping = mappingConfig.columns?.find(c => c.name === col);
+                if (columnMapping && columnMapping.role === 'metric') {
                             availablePrimaryFields.push(col);
-                        } else if (!mappingConfig.columns && processedData.dtypes[col] && 
-                            (processedData.dtypes[col].includes('int') || processedData.dtypes[col].includes('float'))) {
-                            // Fallback: если нет маппинга, используем числовые колонки
+                } else if (!mappingConfig.columns && processedData.dtypes[col] && 
+                    (processedData.dtypes[col].includes('int') || processedData.dtypes[col].includes('float'))) {
+                    // Fallback: если нет маппинга, используем числовые колонки
                             availablePrimaryFields.push(col);
                         }
                     });
@@ -2063,13 +2063,13 @@
                 } else {
                     // Режим "Срезы" - первичное поле = метрики (для значений), разбивка = временные ряды
                     processedData.columns.forEach((col, index) => {
-                        // Метрики - только колонки с ролью "metric"
-                        const columnMapping = mappingConfig.columns?.find(c => c.name === col);
-                        if (columnMapping && columnMapping.role === 'metric') {
+                // Метрики - только колонки с ролью "metric"
+                const columnMapping = mappingConfig.columns?.find(c => c.name === col);
+                if (columnMapping && columnMapping.role === 'metric') {
                             availablePrimaryFields.push(col);
                         } else if (!mappingConfig.columns && processedData.dtypes[col] && 
                             (processedData.dtypes[col].includes('int') || processedData.dtypes[col].includes('float'))) {
-                            // Fallback: если нет маппинга, используем числовые колонки
+                    // Fallback: если нет маппинга, используем числовые колонки
                             availablePrimaryFields.push(col);
                         }
                     });
@@ -2089,9 +2089,17 @@
             }
             
             // Создаем радиокнопки для разбивки
+            console.log('Создаем радиокнопки для разбивки:', {
+                mode: pivotState.currentPivotMode,
+                availableSplitFields: availableSplitFields,
+                availableSplitFieldsLength: availableSplitFields.length
+            });
+            
             if (pivotState.currentPivotMode === 'time-series') {
+                console.log('Вызываем createSlicesRadioButtons');
                 createSlicesRadioButtons(availableSplitFields);
             } else {
+                console.log('Вызываем createTimeSeriesRadioButtons');
                 createTimeSeriesRadioButtons(availableSplitFields);
             }
             
@@ -2408,7 +2416,7 @@
                 if (typeof renderNewPivotTable === 'function') {
                     console.log('Вызываем renderNewPivotTable с обновленными фильтрами');
                     renderNewPivotTable(window.rawPivotData, mappingConfig, mode, splitValue);
-                } else {
+                        } else {
                     console.error('Функция renderNewPivotTable не найдена');
                 }
                             } else {
@@ -2457,7 +2465,7 @@
                 if (onClickHandler) {
                     button.setAttribute('onclick', onClickHandler);
                 }
-            } else {
+                        } else {
                 console.error('❌ Кнопка buildChartBtn не найдена в updateBuildButtonText!');
             }
         }
@@ -3204,6 +3212,7 @@
 
         // Функция для создания радиокнопок срезов
         function createSlicesRadioButtons(availableSlices) {
+            console.log('createSlicesRadioButtons вызвана с:', availableSlices);
             const splitFieldRadioButtons = document.getElementById('splitFieldRadioButtons');
             splitFieldRadioButtons.innerHTML = '';
                 
@@ -3222,6 +3231,7 @@
 
         // Функция для создания радиокнопок временных рядов
         function createTimeSeriesRadioButtons(availableTimeSeries) {
+            console.log('createTimeSeriesRadioButtons вызвана с:', availableTimeSeries);
             const splitFieldRadioButtons = document.getElementById('splitFieldRadioButtons');
             splitFieldRadioButtons.innerHTML = '';
                 
@@ -3285,7 +3295,7 @@
                     alert('Выберите хотя бы одну метрику');
                     return;
                 }
-            } else {
+                    } else {
                 if (!window.selectedSlices || window.selectedSlices.length === 0) {
                     alert('Выберите хотя бы один срез');
                     return;
@@ -3590,7 +3600,7 @@
                         });
                     }
                                 renderPivotTableAndChart(pivotData, data.data, selectedSlice);
-                            } else {
+                } else {
                                 console.log('Нет данных для отображения');
                             renderTimeSeriesChart(data.data);
                             }
@@ -3658,8 +3668,8 @@
                         });
                         colorIndex++;
                     }
-                }
-            } else {
+                            }
+                        } else {
                 // Обычные данные
                 data.time_series.forEach((series, index) => {
                 datasets.push({
@@ -4227,7 +4237,7 @@
                                         });
                                         console.log(`🎯 Фильтрация данных: ${currentPivotData.length} -> ${filteredData.length} строк`);
                                         renderNewPivotTable(filteredData, mappingData, mode, splitValue);
-                                    } else {
+                } else {
                                         console.log('⚠️ Нет активных фильтров, используем все данные');
                                         renderNewPivotTable(currentPivotData, mappingData, mode, splitValue);
                                     }
