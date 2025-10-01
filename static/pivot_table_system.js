@@ -463,8 +463,9 @@ class PivotRenderer {
             // Режим срезов
             html += '<tr>';
             
-            // Заголовки для срезов (строки) с поддержкой коллапсирования
-            config.rows.forEach(rowField => {
+            // Заголовки для видимых срезов (строки) с поддержкой коллапсирования
+            const visibleSliceFields = this.getVisibleSliceFields(config);
+            visibleSliceFields.forEach(rowField => {
                 const isCollapsible = this.hasChildSliceFields(config, rowField);
                 const isCollapsed = this.isSliceFieldCollapsed(rowField.name);
                 const collapseIcon = isCollapsible ? 
