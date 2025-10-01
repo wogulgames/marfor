@@ -140,8 +140,8 @@ class PivotData {
         // Получаем поля для группировки строк в зависимости от режима
         let visibleRowFields;
         if (config.mode === 'slices') {
-            // В режиме срезов группируем по срезам (не временным полям)
-            visibleRowFields = config.rows;
+            // В режиме срезов группируем по видимым полям срезов
+            visibleRowFields = renderer ? renderer.getVisibleSliceFields(config) : config.rows;
         } else {
             // В других режимах используем видимые временные поля
             visibleRowFields = renderer ? renderer.getVisibleTimeFields(config) : config.rows;
@@ -198,8 +198,8 @@ class PivotData {
         // Получаем поля для создания ключей в зависимости от режима
         let visibleRowFields;
         if (config.mode === 'slices') {
-            // В режиме срезов группируем по срезам (не временным полям)
-            visibleRowFields = config.rows;
+            // В режиме срезов группируем по видимым полям срезов
+            visibleRowFields = renderer ? renderer.getVisibleSliceFields(config) : config.rows;
         } else {
             // В других режимах используем видимые временные поля
             visibleRowFields = renderer ? renderer.getVisibleTimeFields(config) : config.rows;
@@ -358,6 +358,7 @@ class PivotRenderer {
     constructor(containerId) {
         this.containerId = containerId;
         this.collapsedTimeFields = new Set(); // Отслеживаем свернутые временные поля
+        this.collapsedSliceFields = new Set(); // Отслеживаем свернутые поля срезов
     }
     
     render(pivotData, config) {
@@ -462,9 +463,15 @@ class PivotRenderer {
             // Режим срезов
             html += '<tr>';
             
-            // Заголовки для срезов (строки) - без коллапсирования, так как это не временные поля
+            // Заголовки для срезов (строки) с поддержкой коллапсирования
             config.rows.forEach(rowField => {
-                html += `<th class="pivot-header slice-header" data-field="${rowField.name}" data-level="${rowField.level}">${rowField.label}</th>`;
+                const isCollapsible = this.hasChildSliceFields(config, rowField);
+                const isCollapsed = this.isSliceFieldCollapsed(rowField.name);
+                const collapseIcon = isCollapsible ? 
+                    `<span class="collapse-icon" onclick="toggleSliceFieldCollapse('${rowField.name}')" style="cursor: pointer; margin-right: 5px;">${isCollapsed ? '+' : '−'}</span>` : 
+                    '<span style="margin-right: 12px;"></span>';
+                
+                html += `<th class="pivot-header slice-header" data-field="${rowField.name}" data-level="${rowField.level}">${collapseIcon}${rowField.label}</th>`;
             });
             
             // Если есть разбивка по столбцам (временные поля)
@@ -588,9 +595,10 @@ class PivotRenderer {
             rowKeys.forEach(rowKey => {
                 html += '<tr>';
                 
-                // Значения срезов (строки)
+                // Значения видимых срезов (строки)
                 const rowFields = pivotData.getRowFields(rowKey);
-                config.rows.forEach(rowField => {
+                const visibleSliceFields = this.getVisibleSliceFields(config);
+                visibleSliceFields.forEach(rowField => {
                     html += `<td class="pivot-cell">${rowFields[rowField.name] || ''}</td>`;
                 });
                 
@@ -725,9 +733,10 @@ class PivotRenderer {
         } else if (config.mode === 'slices') {
             // Режим срезов
             const totals = pivotData.calculateTotals(config);
+            const visibleSliceFields = this.getVisibleSliceFields(config);
             
-            // Ячейки для срезов с "Total" в первой
-            config.rows.forEach((field, index) => {
+            // Ячейки для видимых срезов с "Total" в первой
+            visibleSliceFields.forEach((field, index) => {
                 const cellContent = index === 0 ? '<strong>Total</strong>' : '';
                 html += `<td class="pivot-cell pivot-total-cell">${cellContent}</td>`;
             });
@@ -783,8 +792,19 @@ class PivotRenderer {
         );
     }
     
+    hasChildSliceFields(config, field) {
+        // Проверяем, есть ли дочерние поля срезов с более высоким уровнем
+        return config.rows.some(otherField => 
+            otherField.type === 'slice' && otherField.level > field.level
+        );
+    }
+    
     isTimeFieldCollapsed(fieldName) {
         return this.collapsedTimeFields.has(fieldName);
+    }
+    
+    isSliceFieldCollapsed(fieldName) {
+        return this.collapsedSliceFields.has(fieldName);
     }
     
     toggleTimeFieldCollapse(fieldName) {
@@ -793,7 +813,16 @@ class PivotRenderer {
         } else {
             this.collapsedTimeFields.add(fieldName);
         }
-        console.log('Переключено состояние коллапсирования для поля:', fieldName, 'Свернуто:', this.collapsedTimeFields.has(fieldName));
+        console.log('Переключено состояние коллапсирования для временного поля:', fieldName, 'Свернуто:', this.collapsedTimeFields.has(fieldName));
+    }
+    
+    toggleSliceFieldCollapse(fieldName) {
+        if (this.collapsedSliceFields.has(fieldName)) {
+            this.collapsedSliceFields.delete(fieldName);
+        } else {
+            this.collapsedSliceFields.add(fieldName);
+        }
+        console.log('Переключено состояние коллапсирования для поля среза:', fieldName, 'Свернуто:', this.collapsedSliceFields.has(fieldName));
     }
     
     getVisibleTimeFields(config) {
@@ -814,6 +843,25 @@ class PivotRenderer {
             
             return !parentField;
         });
+    }
+    
+    getVisibleSliceFields(config) {
+        // В режиме срезов возвращаем только видимые поля срезов (не свернутые)
+        if (config.mode === 'slices') {
+            return config.rows.filter(field => {
+                if (field.type !== 'slice') return true;
+                
+                // Проверяем, не свернут ли родительский элемент
+                const parentField = config.rows.find(parent => 
+                    parent.type === 'slice' && parent.level < field.level && 
+                    this.collapsedSliceFields.has(parent.name)
+                );
+                
+                return !parentField;
+            });
+        }
+        
+        return [];
     }
 }
 
@@ -1057,11 +1105,36 @@ if (typeof window !== 'undefined') {
     
     // Глобальная функция для переключения состояния коллапсирования
     window.toggleTimeFieldCollapse = function(fieldName) {
-        console.log('Переключение коллапсирования для поля:', fieldName);
+        console.log('Переключение коллапсирования для временного поля:', fieldName);
         
         // Находим активный рендерер (если есть)
         if (window.currentPivotRenderer) {
             window.currentPivotRenderer.toggleTimeFieldCollapse(fieldName);
+            
+            // Переобрабатываем данные с учетом нового состояния коллапсирования
+            if (window.currentPivotData && window.currentPivotConfig) {
+                // Получаем исходные данные
+                const rawData = window.currentPivotData.rawData;
+                
+                // Создаем новые данные с обновленной группировкой
+                const newPivotData = new PivotData(rawData);
+                newPivotData.process(window.currentPivotConfig, window.currentPivotRenderer);
+                
+                // Обновляем ссылку на данные
+                window.currentPivotData = newPivotData;
+                
+                // Перерисовываем таблицу
+                window.currentPivotRenderer.render(newPivotData, window.currentPivotConfig);
+            }
+        }
+    };
+    
+    window.toggleSliceFieldCollapse = function(fieldName) {
+        console.log('Переключение коллапсирования для поля среза:', fieldName);
+        
+        // Находим активный рендерер (если есть)
+        if (window.currentPivotRenderer) {
+            window.currentPivotRenderer.toggleSliceFieldCollapse(fieldName);
             
             // Переобрабатываем данные с учетом нового состояния коллапсирования
             if (window.currentPivotData && window.currentPivotConfig) {
