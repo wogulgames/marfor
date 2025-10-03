@@ -924,11 +924,14 @@ function createFiltersFromMapping(mappingData) {
                 fieldType = 'number';
             } else if (col.type === 'date') {
                 fieldType = 'date';
+            } else if (col.type === 'text') {
+                // Для текстовых полей (включая временные поля с текстовыми значениями)
+                fieldType = 'text';
             }
             
             const filter = new PivotFilter(col.name, fieldType, col.name);
             filters.push(filter);
-            console.log('Создан фильтр:', { name: col.name, type: fieldType });
+            console.log('Создан фильтр:', { name: col.name, type: fieldType, time_series: col.time_series });
         }
     });
     

@@ -2616,8 +2616,8 @@
                     const filterHTML = createAutoFilterHTML(col);
                     filtersContainer.appendChild(filterHTML);
                     
-                    // Определяем тип фильтра: для временных рядов всегда number
-                    const isNumeric = col.type === 'numeric' || col.time_series || ['year', 'month', 'quarter', 'week', 'halfyear'].includes(col.name.toLowerCase());
+                    // Определяем тип фильтра на основе фактического типа данных
+                    const isNumeric = col.type === 'numeric';
                     const filterType = isNumeric ? 'number' : 'text';
                     
                     // Создаем объект фильтра для системы
@@ -2727,8 +2727,8 @@
             body.id = `filter-body-${col.name}`;
             body.style.display = 'none';
             
-            // Определяем тип фильтра: для временных рядов всегда числовой
-            const isNumeric = col.type === 'numeric' || col.time_series || ['year', 'month', 'quarter', 'week', 'halfyear'].includes(col.name.toLowerCase());
+            // Определяем тип фильтра на основе фактического типа данных
+            const isNumeric = col.type === 'numeric';
             
             if (isNumeric) {
                 // Числовой фильтр со слайдерами
