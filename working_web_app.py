@@ -14,6 +14,25 @@ from datetime import datetime
 import warnings
 warnings.filterwarnings('ignore')
 
+def convert_to_json_serializable(obj):
+    """Конвертация pandas/numpy объектов в JSON-совместимые типы"""
+    if isinstance(obj, np.integer):
+        return int(obj)
+    elif isinstance(obj, np.floating):
+        return float(obj)
+    elif isinstance(obj, np.ndarray):
+        return obj.tolist()
+    elif isinstance(obj, pd.Series):
+        return obj.tolist()
+    elif isinstance(obj, dict):
+        return {key: convert_to_json_serializable(value) for key, value in obj.items()}
+    elif isinstance(obj, list):
+        return [convert_to_json_serializable(item) for item in obj]
+    elif pd.isna(obj):
+        return None
+    else:
+        return obj
+
 # Flask
 from flask import Flask, render_template, render_template_string, request, jsonify, send_file, redirect
 from werkzeug.utils import secure_filename
@@ -121,7 +140,7 @@ class WorkingForecastApp:
             return None
         
         # Очищаем NaN значения для JSON
-        sample_data = self.df.head(5).fillna('').to_dict('records')
+        sample_data = convert_to_json_serializable(self.df.head(5).fillna('').to_dict('records'))
         
         info = {
             'shape': self.df.shape,
@@ -225,14 +244,14 @@ class WorkingForecastApp:
                 if month_col in df.columns:
                     # Обработка текстовых месяцев
                     month_mapping = {
-                        'январь': 1, 'февраль': 2, 'март': 3, 'апрель': 4,
-                        'май': 5, 'июнь': 6, 'июль': 7, 'август': 8,
-                        'сентябрь': 9, 'октябрь': 10, 'ноябрь': 11, 'декабрь': 12
+                    'январь': 1, 'февраль': 2, 'март': 3, 'апрель': 4,
+                    'май': 5, 'июнь': 6, 'июль': 7, 'август': 8,
+                    'сентябрь': 9, 'октябрь': 10, 'ноябрь': 11, 'декабрь': 12
                     }
                     if df[month_col].dtype == 'object':
                         df['month'] = df[month_col].str.lower().map(month_mapping).fillna(pd.to_numeric(df[month_col], errors='coerce'))
-                    else:
-                        df['month'] = pd.to_numeric(df[month_col], errors='coerce')
+                else:
+                    df['month'] = pd.to_numeric(df[month_col], errors='coerce')
             
             if time_series.get('quarter'):
                 quarter_col = df.columns[int(time_series['quarter'])]
@@ -252,9 +271,9 @@ class WorkingForecastApp:
             # Создаем дополнительные временные признаки
             if 'year' in df.columns and 'month' in df.columns:
                 df['season'] = df['month'].map({12: 0, 1: 0, 2: 0,  # Зима
-                                               3: 1, 4: 1, 5: 1,    # Весна
-                                               6: 2, 7: 2, 8: 2,    # Лето
-                                               9: 3, 10: 3, 11: 3}) # Осень
+                                       3: 1, 4: 1, 5: 1,    # Весна
+                                       6: 2, 7: 2, 8: 2,    # Лето
+                                       9: 3, 10: 3, 11: 3}) # Осень
                 df['is_weekend'] = 0  # Заглушка для будущего расширения
         
         # Обновляем данные в экземпляре
@@ -455,13 +474,13 @@ class WorkingForecastApp:
             for forecast in self.forecast_results['forecast_data']:
                 for period in forecast['forecast_periods']:
                     all_results.append({
-                        'column': forecast['column_name'],
-                        'year': period['year'],
-                        'month': period['month'],
-                        'forecast': period['forecast'],
-                        'model_type': forecast['model_type'],
-                        'r2': forecast['r2'],
-                        'mae': forecast['mae']
+                    'column': forecast['column_name'],
+                    'year': period['year'],
+                    'month': period['month'],
+                    'forecast': period['forecast'],
+                    'model_type': forecast['model_type'],
+                    'r2': forecast['r2'],
+                    'mae': forecast['mae']
                     })
             
             if all_results:
@@ -504,46 +523,46 @@ def forecast():
                     if project['data_info'].get('full_data'):
                         # Используем полные данные из data_info
                         full_data = project['data_info']['full_data']
-                        df = pd.DataFrame(full_data)
-                        # Заполняем пропуски и заменяем NaN
-                        df = df.fillna('')
-                        # Дополнительная очистка NaN значений
-                        df = df.replace([np.nan, 'nan', 'NaN'], '')
-                        
-                        # Сохраняем в forecast_app
-                        forecast_app.df = df
-                        forecast_app.session_id = project['session_id']
-                    elif project.get('processed_data') and project['processed_data'].get('sample_data'):
-                        # Используем данные из processed_data
-                        sample_data = project['processed_data']['sample_data']
+                    df = pd.DataFrame(full_data)
+                    # Заполняем пропуски и заменяем NaN
+                    df = df.fillna('')
+                    # Дополнительная очистка NaN значений
+                    df = df.replace([np.nan, 'nan', 'NaN'], '')
+                    
+                    # Сохраняем в forecast_app
+                    forecast_app.df = df
+                    forecast_app.session_id = project['session_id']
+                elif project.get('processed_data') and project['processed_data'].get('sample_data'):
+                    # Используем данные из processed_data
+                    sample_data = project['processed_data']['sample_data']
+                    df = pd.DataFrame(sample_data)
+                    # Заполняем пропуски и заменяем NaN
+                    df = df.fillna('')
+                    # Дополнительная очистка NaN значений
+                    df = df.replace([np.nan, 'nan', 'NaN'], '')
+                    
+                    # Сохраняем в forecast_app
+                    forecast_app.df = df
+                    forecast_app.session_id = project['session_id']
+                else:
+                    # Fallback: используем sample_data из data_info
+                    sample_data = project['data_info'].get('sample_data', [])
+                    if sample_data:
                         df = pd.DataFrame(sample_data)
-                        # Заполняем пропуски и заменяем NaN
-                        df = df.fillna('')
-                        # Дополнительная очистка NaN значений
-                        df = df.replace([np.nan, 'nan', 'NaN'], '')
-                        
-                        # Сохраняем в forecast_app
-                        forecast_app.df = df
-                        forecast_app.session_id = project['session_id']
-                    else:
-                        # Fallback: используем sample_data из data_info
-                        sample_data = project['data_info'].get('sample_data', [])
-                        if sample_data:
-                            df = pd.DataFrame(sample_data)
-                            # Заполняем пропуски и заменяем NaN
-                            df = df.fillna('')
-                            # Дополнительная очистка NaN значений
-                            df = df.replace([np.nan, 'nan', 'NaN'], '')
-                            
-                            # Сохраняем в forecast_app
-                            forecast_app.df = df
-                            forecast_app.session_id = project['session_id']
-                            print(f"DEBUG: Загружено {len(df)} строк в forecast_app для проекта {project_id}")
-                        
-                        # Обновляем время последнего доступа
-                        project['updated_at'] = datetime.now().isoformat()
-                        with open(project_file, 'w', encoding='utf-8') as f:
-                            json.dump(project, f, ensure_ascii=False, indent=2)
+                    # Заполняем пропуски и заменяем NaN
+                    df = df.fillna('')
+                    # Дополнительная очистка NaN значений
+                    df = df.replace([np.nan, 'nan', 'NaN'], '')
+                    
+                    # Сохраняем в forecast_app
+                    forecast_app.df = df
+                    forecast_app.session_id = project['session_id']
+                    print(f"DEBUG: Загружено {len(df)} строк в forecast_app для проекта {project_id}")
+                    
+                    # Обновляем время последнего доступа
+                    project['updated_at'] = datetime.now().isoformat()
+                    with open(project_file, 'w', encoding='utf-8') as f:
+                        json.dump(project, f, ensure_ascii=False, indent=2)
         except Exception as e:
             print(f"Ошибка при загрузке проекта: {e}")
     
@@ -596,7 +615,7 @@ def apply_mapping():
                 'columns': list(processed_data.columns),
                 'dtypes': {col: str(dtype) for col, dtype in processed_data.dtypes.items()},
                 'missing_values': processed_data.isnull().sum().to_dict(),
-                'sample_data': processed_data.head(5).fillna('').to_dict('records')
+                'sample_data': convert_to_json_serializable(processed_data.head(5).fillna('').to_dict('records'))
             }
         })
         
@@ -628,6 +647,7 @@ def get_processed_data(session_id):
 def get_time_series_data(session_id):
     """Получение данных временных рядов для визуализации"""
     try:
+        print(f"🔧 ВЕРСИЯ КОДА: 2.2.2 - Исправлена логика разбивки в режиме срезов, восстановлена функциональность коллапсирования")
         if not session_id or forecast_app.session_id != session_id:
             return jsonify({'success': False, 'message': 'Сессия не найдена'})
         
@@ -655,32 +675,23 @@ def get_time_series_data(session_id):
         # Получаем маппинг из параметров запроса
         mapping_data = request.args.get('mapping_data', '{}')
         import json
-        mapping_config = json.loads(mapping_data) if mapping_data else {}
+        try:
+            mapping_config = json.loads(mapping_data) if mapping_data else {}
+        except json.JSONDecodeError as e:
+            print(f"ERROR: Некорректный JSON в маппинге: {e}")
+            return jsonify({
+                'success': False, 
+                'message': f'Критическая ошибка: некорректный формат маппинга данных. Ошибка JSON: {str(e)}'
+            })
+        
         print(f"DEBUG: Маппинг конфигурация: {mapping_config}")
         print(f"DEBUG: Количество колонок в маппинге: {len(mapping_config.get('columns', []))}")
         
-        if not mapping_config:
-            print("DEBUG: Маппинг не найден, создаем базовую сводную таблицу")
-            # Сортируем данные по времени
-            df_sorted = df.sort_values(time_column)
-            
-            # Создаем базовую сводную таблицу без маппинга
-            result_data = {
-                'time_series': [],
-                'grouped_series': {},
-                'time_labels': [],
-                'metrics': metric_columns,
-                'pivot_table': {
-                    'columns': [time_column] + metric_columns,
-                    'data': df_sorted[[time_column] + metric_columns].to_dict('records'),
-                    'raw_data': df_sorted[[time_column] + metric_columns].to_dict('records'),  # Добавляем исходные данные для фильтров
-                    'time_series_info': [{'name': time_column, 'type': 'time', 'level': 0}],
-                    'available_slices': []
-                }
-            }
+        if not mapping_config or not mapping_config.get('columns'):
+            print("ERROR: Маппинг не найден или пустой - это критическая ошибка!")
             return jsonify({
-                'success': True,
-                'data': result_data
+                'success': False, 
+                'message': 'Критическая ошибка: маппинг данных не настроен или пустой. Пожалуйста, настройте маппинг колонок перед созданием сводной таблицы.'
             })
         
         if not time_column or not metric_columns:
@@ -729,8 +740,8 @@ def get_time_series_data(session_id):
                     # Агрегируем данные по времени (сумма для числовых, последнее значение для категориальных)
                     if df[metric].dtype in ['int64', 'float64']:
                         metric_data = group_data.groupby(time_column)[metric].sum()
-                    else:
-                        metric_data = group_data.groupby(time_column)[metric].last()
+                else:
+                    metric_data = group_data.groupby(time_column)[metric].last()
                     
                     # Заполняем пропуски
                     full_series = []
@@ -800,138 +811,129 @@ def get_time_series_data(session_id):
                 print(f"DEBUG: Временные ряды: {time_series_cols}")
                 print(f"DEBUG: Срезы: {slice_cols}")
                 
-                if time_series_cols:
-                    # В зависимости от режима сводной таблицы
-                    print(f"DEBUG: pivot_mode = {pivot_mode}")
-                    print(f"DEBUG: split_by_slice = {split_by_slice}")
-                    if pivot_mode == 'time-series':
-                        # В режиме временных рядов
-                        print(f"DEBUG: Попадаем в блок time-series")
-                        if split_by_slice and split_by_slice in [col['name'] for col in slice_cols]:
-                            print(f"DEBUG: Включаем режим разбивки по срезу: {split_by_slice}")
-                            # Разбивка по срезу - временные колонки в строках, срез в столбцах
-                            time_cols = time_series_cols.copy()
-                            split_col = [col for col in slice_cols if col['name'] == split_by_slice][0]
-                            print(f"DEBUG: Найден срез для разбивки: {split_col}")
-                            
-                            # Создаем сводную таблицу с разбивкой по срезу
-                            pivot_cols = [col['name'] for col in time_cols]
-                            print(f"DEBUG: Разбивка по срезу {split_by_slice}, временные колонки: {pivot_cols}")
-                            
-                            # Создаем pivot table с метриками в столбцах для каждого значения среза
-                            pivot_data = df_sorted.groupby(pivot_cols + [split_by_slice])[metric_columns].sum().reset_index()
-                            
-                            # Создаем структуру с разбивкой по столбцам
-                            unique_slices = sorted(pivot_data[split_by_slice].unique())
-                            column_headers = {}
-                            
-                            for slice_value in unique_slices:
-                                slice_data = pivot_data[pivot_data[split_by_slice] == slice_value]
-                                column_headers[str(slice_value)] = {}
-                                for metric in metric_columns:
-                                    column_headers[str(slice_value)][metric] = {}
-                                    for _, row in slice_data.iterrows():
-                                        # Создаем ключ из временных значений
-                                        time_key = '_'.join(str(row[col]) for col in pivot_cols)
-                                        column_headers[str(slice_value)][metric][time_key] = float(row[metric]) if pd.notna(row[metric]) else 0
-                            
-                            # Включаем ВСЕ данные из маппинга для разбивки по срезам
-                            all_mapping_columns = [col['name'] for col in mapping_config.get('columns', [])]
-                            available_columns = [col for col in all_mapping_columns if col in df_sorted.columns]
-                            
-                            result_data['pivot_table'] = {
-                                'columns': available_columns,
-                                'data': df_sorted[available_columns].to_dict('records'),
-                                'raw_data': df_sorted[available_columns].to_dict('records'),  # Добавляем исходные данные для фильтров
-                                'time_series_info': time_cols + [split_col],
-                                'column_headers': column_headers,
-                                'split_by_slice': split_by_slice,
-                                'unique_slices': unique_slices,
-                                'metrics': metric_columns,
-                                'available_slices': slice_cols
-                            }
-                            
-                            print(f"DEBUG: Создана сводная таблица с разбивкой:")
-                            print(f"  - Колонки: {pivot_cols}")
-                            print(f"  - Уникальные срезы: {unique_slices}")
-                            print(f"  - Метрики: {metric_columns}")
-                            print(f"  - Количество строк данных: {len(pivot_data)}")
-                            print(f"  - Структура column_headers: {list(column_headers.keys())}")
-                            print(f"  - Первые 3 строки данных:")
-                            for i, row in enumerate(pivot_data.head(3).to_dict('records')):
-                                print(f"    Строка {i}: {row}")
-                            print(f"  - Структура данных: {pivot_data.columns.tolist()}")
-                            print(f"  - Типы данных: {pivot_data.dtypes.to_dict()}")
-                            
-                            print(f"DEBUG: Создана сводная таблица с разбивкой по {split_by_slice}, уникальные значения: {unique_slices}")
-                        else:
-                            # Обычный режим временных рядов - только временные колонки
-                            all_cols = time_series_cols.copy()
-                            print(f"DEBUG: Режим временных рядов - используем только временные колонки: {all_cols}")
-                            
-                            # Создаем сводную таблицу
-                            pivot_cols = [col['name'] for col in all_cols]
-                            print(f"DEBUG: Колонки для сводной таблицы: {pivot_cols}")
-                            print(f"DEBUG: Метрики: {metric_columns}")
-                            
-                            pivot_data = df_sorted.groupby(pivot_cols)[metric_columns].sum().reset_index()
-                            print(f"DEBUG: Создана сводная таблица с {len(pivot_data)} строками")
-                            
-                            # Форматируем данные для отображения
-                            # Включаем ВСЕ данные из маппинга
-                            all_mapping_columns = [col['name'] for col in mapping_config.get('columns', [])]
-                            available_columns = [col for col in all_mapping_columns if col in df_sorted.columns]
-                            
-                            result_data['pivot_table'] = {
-                                'columns': available_columns,
-                                'data': df_sorted[available_columns].to_dict('records'),
-                                'raw_data': df_sorted[available_columns].to_dict('records'),  # Добавляем исходные данные для фильтров
-                                'time_series_info': all_cols,
-                                'available_slices': slice_cols
-                            }
+                # В зависимости от режима сводной таблицы
+                print(f"DEBUG: pivot_mode = {pivot_mode}")
+                print(f"DEBUG: split_by_slice = {split_by_slice}")
+                
+                if pivot_mode == 'time-series' and time_series_cols:
+                    # В режиме временных рядов
+                    print(f"DEBUG: Попадаем в блок time-series")
+                    time_cols = time_series_cols.copy()
+                    
+                    if split_by_slice and split_by_slice in [col['name'] for col in slice_cols]:
+                        print(f"DEBUG: Включаем режим разбивки по срезу: {split_by_slice}")
+                        # Разбивка по срезу - временные колонки в строках, срез в столбцах
+                        split_col = [col for col in slice_cols if col['name'] == split_by_slice][0]
+                        print(f"DEBUG: Найден срез для разбивки: {split_col}")
+                        
+                        # Создаем сводную таблицу с разбивкой по срезу
+                        pivot_cols = [col['name'] for col in time_cols]
+                        print(f"DEBUG: Разбивка по срезу {split_by_slice}, временные колонки: {pivot_cols}")
                     else:
-                        # В режиме time-series без разбивки по срезам
-                        print(f"DEBUG: Попадаем в блок else - time-series без разбивки")
-                        max_time_level = max(col['level'] for col in time_series_cols)
-                        all_cols = time_series_cols.copy()
-                        for slice_col in slice_cols:
-                            # Срезы становятся дочерними элементами самого низкого временного ряда
-                            slice_col['level'] = max_time_level + 1 + slice_col['level']
-                            all_cols.append(slice_col)
-                        print(f"DEBUG: Режим срезов - используем временные колонки + срезы: {all_cols}")
-                        
-                        # Создаем сводную таблицу
-                        pivot_cols = [col['name'] for col in all_cols]
-                        print(f"DEBUG: Колонки для сводной таблицы: {pivot_cols}")
-                        print(f"DEBUG: Метрики: {metric_columns}")
-                        
+                        print(f"DEBUG: Обычный режим временных рядов без разбивки")
+                        # Обычный режим временных рядов - только временные колонки
+                        pivot_cols = [col['name'] for col in time_cols]
+                        print(f"DEBUG: Временные колонки: {pivot_cols}")
+                    
+                    # Создаем pivot table с метриками
+                    if split_by_slice and split_by_slice in [col['name'] for col in slice_cols]:
+                        # С разбивкой по срезу
+                        pivot_data = df_sorted.groupby(pivot_cols + [split_by_slice])[metric_columns].sum().reset_index()
+                    else:
+                        # Без разбивки - только временные колонки
                         pivot_data = df_sorted.groupby(pivot_cols)[metric_columns].sum().reset_index()
-                        print(f"DEBUG: Создана сводная таблица с {len(pivot_data)} строками")
+                    
+                    # Создаем структуру с разбивкой по столбцам
+                    if split_by_slice and split_by_slice in [col['name'] for col in slice_cols]:
+                        unique_slices = sorted(pivot_data[split_by_slice].unique())
+                        column_headers = {}
                         
-                        # Форматируем данные для отображения
-                        # Включаем ВСЕ данные из маппинга, а не только выбранные метрики
-                        all_mapping_columns = [col['name'] for col in mapping_config.get('columns', [])]
-                        print(f"DEBUG: Все колонки из маппинга: {all_mapping_columns}")
-                        
-                        # Проверяем, какие колонки из маппинга есть в данных
-                        available_columns = [col for col in all_mapping_columns if col in df_sorted.columns]
-                        print(f"DEBUG: Доступные колонки в данных: {available_columns}")
-                        
+                        for slice_value in unique_slices:
+                            slice_data = pivot_data[pivot_data[split_by_slice] == slice_value]
+                            column_headers[str(slice_value)] = {}
+                            for metric in metric_columns:
+                                column_headers[str(slice_value)][metric] = {}
+                                for _, row in slice_data.iterrows():
+                                    # Создаем ключ из временных значений
+                                    time_key = '_'.join(str(row[col]) for col in pivot_cols)
+                                    column_headers[str(slice_value)][metric][time_key] = float(row[metric]) if pd.notna(row[metric]) else 0
+                    else:
+                        # Без разбивки - простые заголовки
+                        unique_slices = []
+                        column_headers = {}
+                    
+                    # Включаем ВСЕ данные из маппинга для разбивки по срезам
+                    all_mapping_columns = [col['name'] for col in mapping_config.get('columns', [])]
+                    available_columns = [col for col in all_mapping_columns if col in df_sorted.columns]
+                    
+                    if split_by_slice and split_by_slice in [col['name'] for col in slice_cols]:
                         result_data['pivot_table'] = {
                             'columns': available_columns,
-                            'data': df_sorted[available_columns].to_dict('records'),
-                            'raw_data': df_sorted[available_columns].to_dict('records'),  # Добавляем исходные данные для фильтров
-                            'time_series_info': all_cols,
-                            'available_slices': slice_cols
+                            'data': convert_to_json_serializable(df_sorted[available_columns].to_dict('records')),
+                            'raw_data': convert_to_json_serializable(df_sorted[available_columns].to_dict('records')),  # Добавляем исходные данные для фильтров
+                            'time_series_info': time_cols + [split_col],
+                            'column_headers': convert_to_json_serializable(column_headers),
+                            'split_by_slice': split_by_slice,
+                            'unique_slices': convert_to_json_serializable(unique_slices),
+                            'metrics': metric_columns,
+                            'available_slices': slice_cols,
+                            'pivot_mode': 'time-series'  # Явно указываем режим временных рядов
                         }
-                        
-                        print(f"DEBUG: Сводная таблица создана с {len(available_columns)} колонками")
-                        print(f"DEBUG: Первые 3 строки сводной таблицы:")
-                        for i, row in enumerate(result_data['pivot_table']['data'][:3]):
-                            print(f"  Строка {i}: {row}")
+                    else:
+                        result_data['pivot_table'] = {
+                            'columns': available_columns,
+                            'data': convert_to_json_serializable(df_sorted[available_columns].to_dict('records')),
+                            'raw_data': convert_to_json_serializable(df_sorted[available_columns].to_dict('records')),  # Добавляем исходные данные для фильтров
+                            'time_series_info': time_cols,
+                            'column_headers': convert_to_json_serializable(column_headers),
+                            'split_by_slice': '',
+                            'unique_slices': convert_to_json_serializable(unique_slices),
+                            'metrics': metric_columns,
+                            'available_slices': slice_cols,
+                            'pivot_mode': 'time-series'  # Явно указываем режим временных рядов
+                        }
                     
-                    print(f"DEBUG: Итоговая иерархия создана")
-                elif pivot_mode == 'slices':
+                    print(f"DEBUG: Создана сводная таблица с разбивкой:")
+                    print(f"  - Колонки: {pivot_cols}")
+                    print(f"  - Уникальные срезы: {unique_slices}")
+                    print(f"  - Метрики: {metric_columns}")
+                    print(f"  - Количество строк данных: {len(pivot_data)}")
+                    print(f"  - Структура column_headers: {list(column_headers.keys())}")
+                    print(f"  - Первые 3 строки данных:")
+                    for i, row in enumerate(pivot_data.head(3).to_dict('records')):
+                        print(f"    Строка {i}: {row}")
+                    print(f"  - Структура данных: {pivot_data.columns.tolist()}")
+                    print(f"  - Типы данных: {pivot_data.dtypes.to_dict()}")
+                    
+                    print(f"DEBUG: Создана сводная таблица с разбивкой по {split_by_slice}, уникальные значения: {unique_slices}")
+                else:
+                    # Обычный режим временных рядов - только временные колонки
+                    all_cols = time_series_cols.copy()
+                    print(f"DEBUG: Режим временных рядов - используем только временные колонки: {all_cols}")
+                    
+                    # Создаем сводную таблицу
+                    pivot_cols = [col['name'] for col in all_cols]
+                    print(f"DEBUG: Колонки для сводной таблицы: {pivot_cols}")
+                    print(f"DEBUG: Метрики: {metric_columns}")
+                    
+                    pivot_data = df_sorted.groupby(pivot_cols)[metric_columns].sum().reset_index()
+                    print(f"DEBUG: Создана сводная таблица с {len(pivot_data)} строками")
+                    
+                    # Форматируем данные для отображения
+                    # Включаем ВСЕ данные из маппинга
+                    all_mapping_columns = [col['name'] for col in mapping_config.get('columns', [])]
+                    available_columns = [col for col in all_mapping_columns if col in df_sorted.columns]
+                    
+                    result_data['pivot_table'] = {
+                        'columns': available_columns,
+                        'data': convert_to_json_serializable(df_sorted[available_columns].to_dict('records')),
+                        'raw_data': convert_to_json_serializable(df_sorted[available_columns].to_dict('records')),  # Добавляем исходные данные для фильтров
+                        'time_series_info': all_cols,
+                        'available_slices': slice_cols,
+                        'pivot_mode': 'time-series'  # Явно указываем режим временных рядов
+                    }
+                
+                if pivot_mode == 'slices':
                     # В режиме срезов - срезы в строках, метрики/временные ряды в столбцах
                     print(f"DEBUG: Попадаем в блок slices")
                     if split_by_slice and split_by_slice in [col['name'] for col in time_series_cols]:
@@ -940,16 +942,23 @@ def get_time_series_data(session_id):
                         slice_col_names = [col['name'] for col in slice_cols]
                         split_col = [col for col in time_series_cols if col['name'] == split_by_slice][0]
                         print(f"DEBUG: Найден временной ряд для разбивки: {split_col}")
-                        
+                    
                         # Создаем pivot table с метриками в столбцах для каждого значения временного ряда
                         pivot_data = df_sorted.groupby(slice_col_names + [split_by_slice])[metric_columns].sum().reset_index()
                         
-                        # Создаем структуру с разбивкой по столбцам
+                        # Создаем структуру с разбивкой по столбцам (как в режиме временных рядов)
                         unique_time_values = sorted(pivot_data[split_by_slice].unique())
                         column_headers = {}
                         
                         for time_value in unique_time_values:
-                            column_headers[str(time_value)] = slice_columns
+                            time_data = pivot_data[pivot_data[split_by_slice] == time_value]
+                            column_headers[str(time_value)] = {}
+                            for metric in metric_columns:
+                                column_headers[str(time_value)][metric] = {}
+                                for _, row in time_data.iterrows():
+                                    # Создаем ключ из срезов (аналогично временным рядам)
+                                    slice_key = '_'.join(str(row[col]) for col in slice_col_names)
+                                    column_headers[str(time_value)][metric][slice_key] = float(row[metric]) if pd.notna(row[metric]) else 0
                         
                         # Включаем ВСЕ данные из маппинга для разбивки по временному ряду
                         all_mapping_columns = [col['name'] for col in mapping_config.get('columns', [])]
@@ -957,11 +966,16 @@ def get_time_series_data(session_id):
                         
                         result_data['pivot_table'] = {
                             'columns': available_columns,
-                            'data': df_sorted[available_columns].to_dict('records'),
-                            'raw_data': df_sorted[available_columns].to_dict('records'),  # Добавляем исходные данные для фильтров
-                            'time_series_info': slice_cols + [split_col],
-                            'column_headers': column_headers,
-                            'available_slices': time_series_cols
+                            'data': convert_to_json_serializable(df_sorted[available_columns].to_dict('records')),
+                            'raw_data': convert_to_json_serializable(df_sorted[available_columns].to_dict('records')),  # Добавляем исходные данные для фильтров
+                            'time_series_info': [],  # В режиме срезов временные ряды НЕ в строках
+                            'column_headers': convert_to_json_serializable(column_headers),
+                            'split_by_slice': split_by_slice,
+                            'unique_time_values': convert_to_json_serializable(unique_time_values),
+                            'metrics': metric_columns,
+                            'available_slices': slice_cols,  # Срезы для строк
+                            'available_time_series': time_series_cols,  # Временные ряды для разбивки по столбцам
+                            'pivot_mode': 'slices'  # Явно указываем режим срезов
                         }
                     else:
                         # Обычный режим срезов без разбивки
@@ -977,14 +991,16 @@ def get_time_series_data(session_id):
                         
                         result_data['pivot_table'] = {
                             'columns': available_columns,
-                            'data': df_sorted[available_columns].to_dict('records'),
-                            'raw_data': df_sorted[available_columns].to_dict('records'),  # Добавляем исходные данные для фильтров
-                            'time_series_info': slice_cols,  # Срезы в строках
-                            'available_slices': time_series_cols,  # Временные ряды для разбивки
-                            'metrics': metric_columns  # Метрики для значений
+                            'data': convert_to_json_serializable(df_sorted[available_columns].to_dict('records')),
+                            'raw_data': convert_to_json_serializable(df_sorted[available_columns].to_dict('records')),  # Добавляем исходные данные для фильтров
+                            'time_series_info': [],  # В режиме срезов временные ряды не в строках
+                            'available_slices': slice_cols,  # Срезы для строк
+                            'available_time_series': time_series_cols,  # Временные ряды для разбивки
+                            'metrics': metric_columns,  # Метрики для значений
+                            'pivot_mode': 'slices'  # Явно указываем режим срезов
                         }
-                    
-                    print(f"DEBUG: Сводная таблица создана в режиме 'slices'")
+                        
+                        print(f"DEBUG: Сводная таблица создана в режиме 'slices'")
                     
             except Exception as e:
                 print(f"Ошибка создания сводной таблицы: {e}")
@@ -1020,7 +1036,7 @@ def save_project():
             # Сохраняем все данные, а не только sample
             # Заменяем NaN на None для корректной JSON сериализации
             df_clean = forecast_app.df.fillna('')
-            data_info['full_data'] = df_clean.to_dict('records')
+            data_info['full_data'] = convert_to_json_serializable(df_clean.to_dict('records'))
         
         project = {
             'id': str(uuid.uuid4()),
@@ -1106,14 +1122,14 @@ def list_projects():
                 try:
                     with open(project_file, 'r', encoding='utf-8') as f:
                         project = json.load(f)
-                        # Возвращаем только основную информацию
-                        projects.append({
-                            'id': project['id'],
-                            'name': project['name'],
-                            'created_at': project['created_at'],
-                            'updated_at': project['updated_at'],
-                            'status': project.get('status', 'saved')
-                        })
+                    # Возвращаем только основную информацию
+                    projects.append({
+                        'id': project['id'],
+                    'name': project['name'],
+                    'created_at': project['created_at'],
+                    'updated_at': project['updated_at'],
+                    'status': project.get('status', 'saved')
+                    })
                 except:
                     continue
         
@@ -1497,13 +1513,13 @@ def old_interface():
                 <div class="mapping-group">
                     <h5>🗓️ Колонка с годом</h5>
                     <select id="yearColumn" onchange="updateMapping()">
-                        <option value="0">A (1-я колонка)</option>
+                    <option value="0">A (1-я колонка)</option>
                     </select>
                 </div>
                 <div class="mapping-group">
                     <h5>📅 Колонка с месяцем</h5>
                     <select id="monthColumn" onchange="updateMapping()">
-                        <option value="1">B (2-я колонка)</option>
+                    <option value="1">B (2-я колонка)</option>
                     </select>
                 </div>
             </div>
@@ -1513,15 +1529,15 @@ def old_interface():
                 <div class="setting-group">
                     <h3>⚙️ Параметры прогноза</h3>
                     <div class="form-group">
-                        <label for="periods">Количество периодов для прогноза:</label>
-                        <input type="number" id="periods" value="4" min="1" max="12" />
+                    <label for="periods">Количество периодов для прогноза:</label>
+                    <input type="number" id="periods" value="4" min="1" max="12" />
                     </div>
                     <div class="form-group">
-                        <label for="method">Метод прогнозирования:</label>
-                        <select id="method">
-                            <option value="random_forest">Random Forest (рекомендуется)</option>
-                            <option value="linear">Линейная регрессия</option>
-                        </select>
+                    <label for="method">Метод прогнозирования:</label>
+                    <select id="method">
+                    <option value="random_forest">Random Forest (рекомендуется)</option>
+                    <option value="linear">Линейная регрессия</option>
+                    </select>
                     </div>
                 </div>
             </div>
@@ -1905,5 +1921,6 @@ def download_results(session_id):
 if __name__ == '__main__':
     print("🚀 Запуск MARFOR веб-приложения...")
     print("📊 Каскадная модель с Random Forest")
+    print("🔧 ВЕРСИЯ КОДА: 2.2.2 - Исправлена логика разбивки в режиме срезов, восстановлена функциональность коллапсирования")
     print("🌐 Откройте http://localhost:5001 в браузере")
     app.run(debug=True, host='0.0.0.0', port=5001)

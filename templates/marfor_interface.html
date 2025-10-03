@@ -616,6 +616,11 @@
                 <strong>MARFOR</strong>
             </a>
             <span class="navbar-text">Маркетинговый инструмент прогнозирования</span>
+            <div class="ms-auto">
+                <span class="badge bg-success" style="font-size: 0.8em;">
+                    <i class="fas fa-code"></i> v2.2.2
+                </span>
+            </div>
         </div>
     </nav>
 
@@ -1168,7 +1173,7 @@
                 
                 const mode = splitValue ? 'split-columns' : 
                     (pivotState.currentPivotMode === 'time-series' ? 'time-series' : 'slices');
-                renderNewPivotTable(currentPivotData, mappingData, mode, splitValue);
+                renderNewPivotTable(currentPivotData, mappingData, mode, splitValue, pivotState.currentPivotMode);
             } else {
                 console.log('Нет данных для отображения');
             }
@@ -1562,6 +1567,7 @@
 
         // Проверяем наличие загруженного проекта при загрузке страницы
         window.addEventListener('DOMContentLoaded', function() {
+            console.log('🔧 ВЕРСИЯ КОДА: 2.2.2 - Исправлена логика разбивки в режиме срезов, восстановлена функциональность коллапсирования');
             console.log('DOMContentLoaded вызван');
             
             // Привязываем событие к кнопке построения графика
@@ -2416,7 +2422,7 @@
                 // Пересоздаем сводную таблицу с отфильтрованными данными
                 if (typeof renderNewPivotTable === 'function') {
                     console.log('Вызываем renderNewPivotTable с обновленными фильтрами');
-                    renderNewPivotTable(window.rawPivotData, mappingConfig, mode, splitValue);
+                    renderNewPivotTable(window.rawPivotData, mappingConfig, mode, splitValue, pivotState.currentPivotMode);
                         } else {
                     console.error('Функция renderNewPivotTable не найдена');
                 }
@@ -2610,11 +2616,15 @@
                     const filterHTML = createAutoFilterHTML(col);
                     filtersContainer.appendChild(filterHTML);
                     
+                    // Определяем тип фильтра: для временных рядов всегда number
+                    const isNumeric = col.type === 'numeric' || col.time_series || ['year', 'month', 'quarter', 'week', 'halfyear'].includes(col.name.toLowerCase());
+                    const filterType = isNumeric ? 'number' : 'text';
+                    
                     // Создаем объект фильтра для системы
-                    const filter = new PivotFilter(col.name, col.type, col.name);
+                    const filter = new PivotFilter(col.name, filterType, col.name);
                     
                     // Устанавливаем значения для фильтра на основе типа
-                    if (col.type === 'numeric') {
+                    if (isNumeric) {
                         // Для числовых полей создаем слайдер
                         const values = window.rawPivotData?.map(row => parseFloat(row[col.name])).filter(v => !isNaN(v)) || [];
                         if (values.length > 0) {
@@ -2622,7 +2632,7 @@
                             filter.maxValue = Math.max(...values);
                             filter.availableValues = values.sort((a, b) => a - b);
                         }
-                    } else if (col.type === 'text') {
+                    } else {
                         // Для текстовых полей создаем чекбоксы
                         const uniqueValues = [...new Set(window.rawPivotData?.map(row => row[col.name]).filter(v => v !== null && v !== undefined) || [])];
                         filter.values = [];
@@ -2717,7 +2727,10 @@
             body.id = `filter-body-${col.name}`;
             body.style.display = 'none';
             
-            if (col.type === 'numeric') {
+            // Определяем тип фильтра: для временных рядов всегда числовой
+            const isNumeric = col.type === 'numeric' || col.time_series || ['year', 'month', 'quarter', 'week', 'halfyear'].includes(col.name.toLowerCase());
+            
+            if (isNumeric) {
                 // Числовой фильтр со слайдерами
                 const values = window.rawPivotData?.map(row => parseFloat(row[col.name])).filter(v => !isNaN(v)) || [];
                 if (values.length > 0) {
@@ -2753,7 +2766,7 @@
                         </div>
                     `;
                 }
-            } else if (col.type === 'text') {
+            } else {
                 // Текстовый фильтр с чекбоксами
                 const uniqueValues = [...new Set(window.rawPivotData?.map(row => row[col.name]).filter(v => v !== null && v !== undefined) || [])].sort();
                 
@@ -3159,7 +3172,9 @@
             
             // Сохраняем выбранный временный ряд в глобальной переменной
             window.selectedTimeSeries = selectedTimeSeries;
+            selectedSliceForSplit = selectedTimeSeries; // Исправление: обновляем selectedSliceForSplit
             console.log('🔄 window.selectedTimeSeries установлен:', window.selectedTimeSeries);
+            console.log('🔄 selectedSliceForSplit установлен:', selectedSliceForSplit);
         }
 
         // Функция для получения срезов из dataInfo или mappingConfig
@@ -3286,6 +3301,7 @@
         }
 
         function loadTimeSeriesData() {
+            console.log('🔧 ВЕРСИЯ КОДА: 2.2.2 - Исправлена логика разбивки в режиме срезов, восстановлена функциональность коллапсирования');
             console.log('🔥 === ФУНКЦИЯ loadTimeSeriesData() ВЫЗВАНА ===');
             console.log('currentSessionId:', currentSessionId);
             console.log('window.selectedMetrics:', window.selectedMetrics);
@@ -3508,10 +3524,10 @@
                                         console.log(`🎯 Фильтрация данных: ${currentPivotData.length} -> ${filteredData.length} строк`);
                                         
                                         // Используем отфильтрованные данные
-                                        renderNewPivotTable(filteredData, mappingData, mode, splitValue);
+                                        renderNewPivotTable(filteredData, mappingData, mode, splitValue, pivotState.currentPivotMode);
                                     } else {
                                         console.log('⚠️ Нет активных фильтров, используем все данные');
-                                        renderNewPivotTable(currentPivotData, mappingData, mode, splitValue);
+                                        renderNewPivotTable(currentPivotData, mappingData, mode, splitValue, pivotState.currentPivotMode);
                                     }
                                 } else {
                                     console.log('⚠️ Нет фильтров, используем все данные');
@@ -3565,6 +3581,17 @@
                         } else {
                             console.log('Нет сводной таблицы в ответе сервера');
                             console.log('Данные от сервера:', data.data);
+                            
+                            // Проверяем наличие данных для графика
+                            if (data.data && (data.data.time_series || data.data.grouped_series)) {
+                                renderTimeSeriesChart(data.data);
+                            } else {
+                                console.log('Нет данных для отображения');
+                                const container = document.getElementById('timeSeriesChartContainer');
+                                if (container) {
+                                    container.innerHTML = '<div class="alert alert-info">Нет данных для отображения</div>';
+                                }
+                            }
                             
                             // Попробуем создать сводную таблицу из обычных данных
                             if (data.data && data.data.data) {
@@ -4046,13 +4073,8 @@
             }
         }
 
-        function renderTimeSeriesChart(data) {
-            console.log('renderTimeSeriesChart вызвана (упрощенная версия)');
-            const container = document.getElementById('timeSeriesChartContainer');
-            if (container) {
-                container.innerHTML = '<div class="text-center"><p>График временных рядов (функция упрощена)</p></div>';
-            }
-        }
+        // Удалена дублированная упрощенная версия renderTimeSeriesChart
+        // Используется полная версия функции выше
 
 
         function editMapping() {
@@ -4065,6 +4087,7 @@
         }
 
         function loadTimeSeriesData() {
+            console.log('🔧 ВЕРСИЯ КОДА: 2.2.2 - Исправлена логика разбивки в режиме срезов, восстановлена функциональность коллапсирования');
             // Проверяем, что сессия инициализирована
             if (!currentSessionId) {
                 console.error('Сессия не инициализирована');
@@ -4128,7 +4151,7 @@
             
             // Добавляем параметры для показа сводной таблицы
             params.append('show_pivot', 'true');
-            params.append('pivot_mode', 'time-series');
+            params.append('pivot_mode', pivotState.currentPivotMode);
             
             // Передаем данные маппинга
             const mappingData = JSON.parse(sessionStorage.getItem('dataMapping') || '{}');
@@ -4246,10 +4269,10 @@
                                             return activeFilters.every(filter => filter.matches(row));
                                         });
                                         console.log(`🎯 Фильтрация данных: ${currentPivotData.length} -> ${filteredData.length} строк`);
-                                        renderNewPivotTable(filteredData, mappingData, mode, splitValue);
+                                        renderNewPivotTable(filteredData, mappingData, mode, splitValue, pivotState.currentPivotMode);
                 } else {
                                         console.log('⚠️ Нет активных фильтров, используем все данные');
-                                        renderNewPivotTable(currentPivotData, mappingData, mode, splitValue);
+                                        renderNewPivotTable(currentPivotData, mappingData, mode, splitValue, pivotState.currentPivotMode);
                                     }
                                 } else {
                                     console.log('⚠️ Нет фильтров, используем все данные');
@@ -4264,7 +4287,15 @@
                             }
                     } else {
                             console.log('Нет сводной таблицы, показываем только график');
-                            renderTimeSeriesChart(data.data);
+                            if (data.data && (data.data.time_series || data.data.grouped_series)) {
+                                renderTimeSeriesChart(data.data);
+                            } else {
+                                console.log('Нет данных для отображения графика');
+                                const container = document.getElementById('timeSeriesChartContainer');
+                                if (container) {
+                                    container.innerHTML = '<div class="alert alert-info">Нет данных для отображения графика</div>';
+                                }
+                            }
                         }
                 } else {
                         console.error('Ошибка загрузки данных:', data);

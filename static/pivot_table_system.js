@@ -90,6 +90,7 @@ class PivotConfig {
         this.values = []; // Поля для значений
         this.filters = []; // Фильтры
         this.mode = 'normal'; // normal, time-series, slices, split-columns
+        this.originalMode = ''; // Исходный режим для split-columns
     }
     
     setRows(fields) {
@@ -106,6 +107,10 @@ class PivotConfig {
     
     setMode(mode) {
         this.mode = mode;
+    }
+    
+    setOriginalMode(originalMode) {
+        this.originalMode = originalMode;
     }
 }
 
@@ -139,8 +144,8 @@ class PivotData {
         
         // Получаем поля для группировки строк в зависимости от режима
         let visibleRowFields;
-        if (config.mode === 'slices') {
-            // В режиме срезов группируем по видимым полям срезов
+        if (config.mode === 'slices' || (config.mode === 'split-columns' && config.originalMode === 'slices')) {
+            // В режиме срезов или split-columns из срезов группируем по видимым полям срезов
             visibleRowFields = renderer ? renderer.getVisibleSliceFields(config) : config.rows;
         } else {
             // В других режимах используем видимые временные поля
@@ -197,8 +202,8 @@ class PivotData {
         
         // Получаем поля для создания ключей в зависимости от режима
         let visibleRowFields;
-        if (config.mode === 'slices') {
-            // В режиме срезов группируем по видимым полям срезов
+        if (config.mode === 'slices' || (config.mode === 'split-columns' && config.originalMode === 'slices')) {
+            // В режиме срезов или split-columns из срезов группируем по видимым полям срезов
             visibleRowFields = renderer ? renderer.getVisibleSliceFields(config) : config.rows;
         } else {
             // В других режимах используем видимые временные поля
@@ -408,17 +413,32 @@ class PivotRenderer {
             // Первый уровень заголовков - метрики
             html += '<tr>';
             
-            // Заголовки для временных полей (строки) с поддержкой коллапсирования
-            const visibleTimeFields = this.getVisibleTimeFields(config);
-            visibleTimeFields.forEach(rowField => {
-                const isCollapsible = this.hasChildTimeFields(config, rowField);
-                const isCollapsed = this.isTimeFieldCollapsed(rowField.name);
-                const collapseIcon = isCollapsible ? 
-                    `<span class="collapse-icon" onclick="toggleTimeFieldCollapse('${rowField.name}')" style="cursor: pointer; margin-right: 5px;">${isCollapsed ? '+' : '−'}</span>` : 
-                    '<span style="margin-right: 12px;"></span>';
-                
-                html += `<th class="pivot-header time-header" data-field="${rowField.name}" data-level="${rowField.level}" rowspan="2">${collapseIcon}${rowField.label}</th>`;
-            });
+            // Определяем, какие поля использовать в строках в зависимости от исходного режима
+            if (config.originalMode === 'slices') {
+                // Исходный режим "срезы" - используем срезы в строках с коллапсированием
+                const visibleSliceFields = this.getVisibleSliceFields(config);
+                visibleSliceFields.forEach(rowField => {
+                    const isCollapsible = this.hasChildSliceFields(config, rowField);
+                    const isCollapsed = this.isSliceFieldCollapsed(rowField.name);
+                    const collapseIcon = isCollapsible ? 
+                        `<span class="collapse-icon" onclick="toggleSliceFieldCollapse('${rowField.name}')" style="cursor: pointer; margin-right: 5px;">${isCollapsed ? '+' : '−'}</span>` : 
+                        '<span style="margin-right: 12px;"></span>';
+                    
+                    html += `<th class="pivot-header slice-header" data-field="${rowField.name}" data-level="${rowField.level}" rowspan="2">${collapseIcon}${rowField.label}</th>`;
+                });
+            } else {
+                // Исходный режим "временные ряды" - используем временные поля в строках с коллапсированием
+                const visibleTimeFields = this.getVisibleTimeFields(config);
+                visibleTimeFields.forEach(rowField => {
+                    const isCollapsible = this.hasChildTimeFields(config, rowField);
+                    const isCollapsed = this.isTimeFieldCollapsed(rowField.name);
+                    const collapseIcon = isCollapsible ? 
+                        `<span class="collapse-icon" onclick="toggleTimeFieldCollapse('${rowField.name}')" style="cursor: pointer; margin-right: 5px;">${isCollapsed ? '+' : '−'}</span>` : 
+                        '<span style="margin-right: 12px;"></span>';
+                    
+                    html += `<th class="pivot-header time-header" data-field="${rowField.name}" data-level="${rowField.level}" rowspan="2">${collapseIcon}${rowField.label}</th>`;
+                });
+            }
             
             config.values.forEach(valueField => {
                 const columnKeys = pivotData.getColumnKeys();
@@ -528,12 +548,22 @@ class PivotRenderer {
             rowKeys.forEach(rowKey => {
                 html += '<tr>';
                 
-                // Значения видимых временных полей (строки)
-                const visibleTimeFields = this.getVisibleTimeFields(config);
-                const rowFields = pivotData.getRowFields(rowKey, visibleTimeFields);
-                visibleTimeFields.forEach(rowField => {
-                    html += `<td class="pivot-cell">${rowFields[rowField.name] || ''}</td>`;
-                });
+                // Определяем, какие поля использовать в строках в зависимости от исходного режима
+                if (config.originalMode === 'slices') {
+                    // Исходный режим "срезы" - используем срезы в строках
+                    const visibleSliceFields = this.getVisibleSliceFields(config);
+                    const rowFields = pivotData.getRowFields(rowKey, visibleSliceFields);
+                    visibleSliceFields.forEach(rowField => {
+                        html += `<td class="pivot-cell">${rowFields[rowField.name] || ''}</td>`;
+                    });
+                } else {
+                    // Исходный режим "временные ряды" - используем временные поля в строках
+                    const visibleTimeFields = this.getVisibleTimeFields(config);
+                    const rowFields = pivotData.getRowFields(rowKey, visibleTimeFields);
+                    visibleTimeFields.forEach(rowField => {
+                        html += `<td class="pivot-cell">${rowFields[rowField.name] || ''}</td>`;
+                    });
+                }
                 
                 // Значения для каждой метрики и каждого столбца (среза)
                 config.values.forEach(valueField => {
@@ -693,15 +723,25 @@ class PivotRenderer {
         
         if (config.mode === 'split-columns') {
             // Режим разбивки по столбцам
-            const visibleTimeFields = this.getVisibleTimeFields(config);
             const columnKeys = pivotData.getColumnKeys();
             const totals = pivotData.calculateTotals(config);
             
-            // Ячейки для временных полей с "Total" в первой
-            visibleTimeFields.forEach((field, index) => {
-                const cellContent = index === 0 ? '<strong>Total</strong>' : '';
-                html += `<td class="pivot-cell pivot-total-cell">${cellContent}</td>`;
-            });
+            // Определяем, какие поля использовать в строках в зависимости от исходного режима
+            if (config.originalMode === 'slices') {
+                // Исходный режим "срезы" - используем срезы в строках
+                const visibleSliceFields = this.getVisibleSliceFields(config);
+                visibleSliceFields.forEach((field, index) => {
+                    const cellContent = index === 0 ? '<strong>Total</strong>' : '';
+                    html += `<td class="pivot-cell pivot-total-cell">${cellContent}</td>`;
+                });
+            } else {
+                // Исходный режим "временные ряды" - используем временные поля в строках
+                const visibleTimeFields = this.getVisibleTimeFields(config);
+                visibleTimeFields.forEach((field, index) => {
+                    const cellContent = index === 0 ? '<strong>Total</strong>' : '';
+                    html += `<td class="pivot-cell pivot-total-cell">${cellContent}</td>`;
+                });
+            }
             
             // Итоговые значения для каждой метрики и каждого столбца (среза)
             config.values.forEach(valueField => {
@@ -847,8 +887,8 @@ class PivotRenderer {
     }
     
     getVisibleSliceFields(config) {
-        // В режиме срезов возвращаем только видимые поля срезов (не свернутые)
-        if (config.mode === 'slices') {
+        // В режиме срезов или split-columns из срезов возвращаем только видимые поля срезов (не свернутые)
+        if (config.mode === 'slices' || (config.mode === 'split-columns' && config.originalMode === 'slices')) {
             return config.rows.filter(field => {
                 if (field.type !== 'slice') return true;
                 
@@ -895,11 +935,12 @@ function createFiltersFromMapping(mappingData) {
     return filters;
 }
 
-function createPivotConfigFromMapping(mappingData, mode = 'normal', splitBySlice = '') {
-    console.log('Создание конфигурации сводной таблицы из маппинга:', { mappingData, mode, splitBySlice });
+function createPivotConfigFromMapping(mappingData, mode = 'normal', splitBySlice = '', originalMode = '') {
+    console.log('Создание конфигурации сводной таблицы из маппинга:', { mappingData, mode, splitBySlice, originalMode });
     
     const config = new PivotConfig();
     config.setMode(mode);
+    config.setOriginalMode(originalMode);
     
     if (!mappingData || !mappingData.columns) {
         console.error('Нет данных маппинга');
@@ -956,11 +997,33 @@ function createPivotConfigFromMapping(mappingData, mode = 'normal', splitBySlice
     
     // Конфигурируем в зависимости от режима
     if (mode === 'split-columns' && splitBySlice) {
-        // Режим разбивки по столбцам
-        config.setRows(timeFields);
-        config.setColumns([new PivotField(splitBySlice, splitBySlice, 'slice')]);
-        config.setValues(metricFields);
-        console.log('Режим split-columns:', { timeFields: timeFields.length, columns: 1, values: metricFields.length });
+        // Режим разбивки по столбцам - определяем по исходному режиму
+        if (originalMode === 'slices') {
+            // Исходный режим "срезы" - срезы в строках, временной ряд в столбцах
+            const splitField = timeFields.find(field => field.name === splitBySlice);
+            console.log('DEBUG: splitField найден:', splitField);
+            console.log('DEBUG: sliceFields:', sliceFields.map(f => f.name));
+            console.log('DEBUG: timeFields:', timeFields.map(f => f.name));
+            if (splitField) {
+                config.setRows(sliceFields);
+                config.setColumns([splitField]);
+                config.setValues(metricFields);
+                console.log('Режим split-columns (из срезов):', { 
+                    sliceFields: sliceFields.length, 
+                    sliceFieldsNames: sliceFields.map(f => f.name),
+                    columns: 1, 
+                    values: metricFields.length 
+                });
+            } else {
+                console.error('ERROR: splitField не найден для', splitBySlice);
+            }
+        } else {
+            // Исходный режим "временные ряды" - временные ряды в строках, срез в столбцах
+            config.setRows(timeFields);
+            config.setColumns([new PivotField(splitBySlice, splitBySlice, 'slice')]);
+            config.setValues(metricFields);
+            console.log('Режим split-columns (из временных рядов):', { timeFields: timeFields.length, columns: 1, values: metricFields.length });
+        }
     } else if (mode === 'time-series') {
         // Режим временных рядов - временные поля в строках
         config.setRows(timeFields);
@@ -1015,7 +1078,7 @@ function createPivotConfigFromMapping(mappingData, mode = 'normal', splitBySlice
     return config;
 }
 
-function renderNewPivotTable(rawData, mappingData, mode = 'normal', splitBySlice = '') {
+function renderNewPivotTable(rawData, mappingData, mode = 'normal', splitBySlice = '', originalMode = '') {
     console.log('Рендеринг новой сводной таблицы:', { 
         rawDataLength: rawData.length, 
         mappingData, 
@@ -1034,7 +1097,7 @@ function renderNewPivotTable(rawData, mappingData, mode = 'normal', splitBySlice
     
     try {
         // Создаем конфигурацию
-        const config = createPivotConfigFromMapping(mappingData, mode, splitBySlice);
+        const config = createPivotConfigFromMapping(mappingData, mode, splitBySlice, originalMode);
         
         // Используем фильтры из глобальной переменной, если они есть
         if (window.currentFilters && window.currentFilters.length > 0) {
