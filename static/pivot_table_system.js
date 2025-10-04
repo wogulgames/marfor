@@ -91,6 +91,11 @@ class PivotConfig {
         this.filters = []; // Фильтры
         this.mode = 'normal'; // normal, time-series, slices, split-columns
         this.originalMode = ''; // Исходный режим для split-columns
+        this.sortConfig = {
+            field: null, // Поле для сортировки
+            direction: 'asc', // 'asc' или 'desc'
+            type: 'text' // 'text', 'number', 'date'
+        };
     }
     
     setRows(fields) {
@@ -111,6 +116,26 @@ class PivotConfig {
     
     setOriginalMode(originalMode) {
         this.originalMode = originalMode;
+    }
+    
+    setSortConfig(field, direction, type) {
+        this.sortConfig = {
+            field: field,
+            direction: direction,
+            type: type
+        };
+    }
+    
+    toggleSort(field, type) {
+        if (this.sortConfig.field === field) {
+            // Переключаем направление сортировки
+            this.sortConfig.direction = this.sortConfig.direction === 'asc' ? 'desc' : 'asc';
+        } else {
+            // Новое поле для сортировки
+            this.sortConfig.field = field;
+            this.sortConfig.direction = 'asc';
+            this.sortConfig.type = type;
+        }
     }
 }
 
@@ -285,11 +310,78 @@ class PivotData {
     }
     
     getRowKeys() {
-        return Array.from(this.rowGroups.keys()).sort();
+        // Возвращаем ключи в том порядке, в котором они находятся в Map
+        // (уже отсортированы методом sortData, если была применена сортировка)
+        return Array.from(this.rowGroups.keys());
     }
     
     getColumnKeys() {
         return Array.from(this.columnGroups.keys()).sort();
+    }
+    
+    // Сортировка данных по указанному полю
+    sortData(sortConfig) {
+        if (!sortConfig.field) return;
+        
+        console.log('Применяем сортировку:', sortConfig);
+        
+        const sortedRowKeys = Array.from(this.rowGroups.keys()).sort((a, b) => {
+            const rowA = this.rowGroups.get(a);
+            const rowB = this.rowGroups.get(b);
+            
+            let valueA, valueB;
+            
+            // Проверяем, является ли поле метрикой (есть ли оно в crossTable)
+            const isMetric = this.crossTable.has(a) && this.crossTable.get(a).size > 0;
+            
+            if (isMetric && sortConfig.type === 'number') {
+                // Сортировка по метрике - суммируем все значения по столбцам
+                let sumA = 0, sumB = 0;
+                
+                this.crossTable.get(a).forEach((colMap, colKey) => {
+                    sumA += colMap[sortConfig.field] || 0;
+                });
+                
+                this.crossTable.get(b).forEach((colMap, colKey) => {
+                    sumB += colMap[sortConfig.field] || 0;
+                });
+                
+                valueA = sumA;
+                valueB = sumB;
+            } else {
+                // Сортировка по полю строки
+                valueA = rowA.fields[sortConfig.field];
+                valueB = rowB.fields[sortConfig.field];
+                
+                // Обработка разных типов данных
+                if (sortConfig.type === 'number') {
+                    valueA = parseFloat(valueA) || 0;
+                    valueB = parseFloat(valueB) || 0;
+                } else if (sortConfig.type === 'date') {
+                    valueA = new Date(valueA) || new Date(0);
+                    valueB = new Date(valueB) || new Date(0);
+                } else {
+                    // Текстовый тип
+                    valueA = String(valueA || '').toLowerCase();
+                    valueB = String(valueB || '').toLowerCase();
+                }
+            }
+            
+            let comparison = 0;
+            if (valueA < valueB) comparison = -1;
+            else if (valueA > valueB) comparison = 1;
+            
+            return sortConfig.direction === 'desc' ? -comparison : comparison;
+        });
+        
+        // Создаем новую Map с отсортированными ключами
+        const sortedRowGroups = new Map();
+        sortedRowKeys.forEach(key => {
+            sortedRowGroups.set(key, this.rowGroups.get(key));
+        });
+        
+        this.rowGroups = sortedRowGroups;
+        console.log('Сортировка применена, новый порядок строк:', sortedRowKeys);
     }
     
     getValue(rowKey, colKey, valueFieldName) {
@@ -404,6 +496,45 @@ class PivotRenderer {
         return html;
     }
     
+    // Создание заголовка с кнопкой сортировки
+    createSortableHeader(field, label, type, config, additionalClasses = '', rowspan = '', collapseIcon = '') {
+        console.log('Создаем сортируемый заголовок:', { field, label, type, additionalClasses });
+        
+        const isActive = config.sortConfig.field === field;
+        const direction = isActive ? config.sortConfig.direction : 'asc';
+        const sortIcon = isActive ? 
+            (direction === 'asc' ? 'fa-sort-up' : 'fa-sort-down') : 
+            'fa-sort';
+        
+        const sortButton = `
+            <button class="btn btn-sm btn-link text-white p-0 ms-1" 
+                    onclick="togglePivotSort('${field}', '${type}')" 
+                    title="Сортировать по ${label}">
+                <i class="fas ${sortIcon}"></i>
+            </button>
+        `;
+        
+        const rowspanAttr = rowspan ? `rowspan="${rowspan}"` : '';
+        const headerHTML = `<th class="pivot-header ${additionalClasses}" data-field="${field}" ${rowspanAttr}>
+                    ${collapseIcon}${label}${sortButton}
+                </th>`;
+        
+        console.log('Создан заголовок с сортировкой:', headerHTML);
+        return headerHTML;
+    }
+    
+    // Определение типа поля для сортировки
+    getFieldType(fieldName) {
+        // Определяем тип на основе имени поля
+        if (['year', 'month'].includes(fieldName.toLowerCase())) {
+            return 'number';
+        } else if (['date', 'datetime'].includes(fieldName.toLowerCase())) {
+            return 'date';
+        } else {
+            return 'text';
+        }
+    }
+    
     createHeadersHTML(pivotData, config) {
         let html = '<thead class="table-dark">';
         
@@ -461,7 +592,7 @@ class PivotRenderer {
             // Режим временных рядов
             html += '<tr>';
             
-            // Заголовки для видимых временных полей (строки) с поддержкой коллапсирования
+            // Заголовки для видимых временных полей (строки) с поддержкой коллапсирования и сортировки
             const visibleTimeFields = this.getVisibleTimeFields(config);
             visibleTimeFields.forEach(rowField => {
                 const isCollapsible = this.hasChildTimeFields(config, rowField);
@@ -470,12 +601,31 @@ class PivotRenderer {
                     `<span class="collapse-icon" onclick="toggleTimeFieldCollapse('${rowField.name}')" style="cursor: pointer; margin-right: 5px;">${isCollapsed ? '+' : '−'}</span>` : 
                     '<span style="margin-right: 12px;"></span>';
                 
-                html += `<th class="pivot-header time-header" data-field="${rowField.name}" data-level="${rowField.level}">${collapseIcon}${rowField.label}</th>`;
+                // Определяем тип поля для сортировки
+                const fieldType = this.getFieldType(rowField.name);
+                const sortableHeader = this.createSortableHeader(
+                    rowField.name, 
+                    rowField.label, 
+                    fieldType, 
+                    config, 
+                    'time-header', 
+                    '',
+                    collapseIcon
+                );
+                html += sortableHeader;
             });
             
-            // Заголовки для метрик (значения)
+            // Заголовки для метрик (значения) с сортировкой
             config.values.forEach(valueField => {
-                html += `<th class="pivot-header">${valueField.label}</th>`;
+                const sortableHeader = this.createSortableHeader(
+                    valueField.name, 
+                    valueField.label, 
+                    'number', 
+                    config, 
+                    'metric-header', 
+                    ''
+                );
+                html += sortableHeader;
             });
             
             html += '</tr>';
@@ -483,7 +633,7 @@ class PivotRenderer {
             // Режим срезов
             html += '<tr>';
             
-            // Заголовки для видимых срезов (строки) с поддержкой коллапсирования
+            // Заголовки для видимых срезов (строки) с поддержкой коллапсирования и сортировки
             const visibleSliceFields = this.getVisibleSliceFields(config);
             visibleSliceFields.forEach(rowField => {
                 const isCollapsible = this.hasChildSliceFields(config, rowField);
@@ -492,7 +642,18 @@ class PivotRenderer {
                     `<span class="collapse-icon" onclick="toggleSliceFieldCollapse('${rowField.name}')" style="cursor: pointer; margin-right: 5px;">${isCollapsed ? '+' : '−'}</span>` : 
                     '<span style="margin-right: 12px;"></span>';
                 
-                html += `<th class="pivot-header slice-header" data-field="${rowField.name}" data-level="${rowField.level}">${collapseIcon}${rowField.label}</th>`;
+                // Определяем тип поля для сортировки
+                const fieldType = this.getFieldType(rowField.name);
+                const sortableHeader = this.createSortableHeader(
+                    rowField.name, 
+                    rowField.label, 
+                    fieldType, 
+                    config, 
+                    'slice-header', 
+                    '',
+                    collapseIcon
+                );
+                html += sortableHeader;
             });
             
             // Если есть разбивка по столбцам (временные поля)
@@ -502,9 +663,17 @@ class PivotRenderer {
                 });
             }
             
-            // Заголовки для метрик (значения)
+            // Заголовки для метрик (значения) с сортировкой
             config.values.forEach(valueField => {
-                html += `<th class="pivot-header">${valueField.label}</th>`;
+                const sortableHeader = this.createSortableHeader(
+                    valueField.name, 
+                    valueField.label, 
+                    'number', 
+                    config, 
+                    'metric-header', 
+                    ''
+                );
+                html += sortableHeader;
             });
             
             html += '</tr>';
@@ -1242,3 +1411,25 @@ if (typeof window !== 'undefined') {
         renderNewPivotTable: typeof renderNewPivotTable
     });
 }
+
+// Глобальная функция для переключения сортировки
+window.togglePivotSort = function(fieldName, fieldType) {
+    console.log('Переключение сортировки для поля:', fieldName, 'тип:', fieldType);
+    
+    if (window.currentPivotConfig && window.currentPivotRenderer) {
+        // Переключаем сортировку в конфигурации
+        window.currentPivotConfig.toggleSort(fieldName, fieldType);
+        
+        // Применяем сортировку к данным
+        if (window.currentPivotData) {
+            window.currentPivotData.sortData(window.currentPivotConfig.sortConfig);
+        }
+        
+        // Перерисовываем таблицу
+        window.currentPivotRenderer.render(window.currentPivotData, window.currentPivotConfig);
+        
+        console.log('Сортировка применена:', window.currentPivotConfig.sortConfig);
+    } else {
+        console.error('Нет активной конфигурации или рендерера для сортировки');
+    }
+};
