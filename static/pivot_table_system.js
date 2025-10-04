@@ -331,10 +331,35 @@ class PivotData {
             
             let valueA, valueB;
             
-            // Проверяем, является ли поле метрикой (есть ли оно в crossTable)
-            const isMetric = this.crossTable.has(a) && this.crossTable.get(a).size > 0;
+            // Проверяем, является ли поле метрикой (проверяем наличие в crossTable)
+            const isMetric = this.crossTable.has(a) && 
+                           this.crossTable.get(a).size > 0 && 
+                           this.crossTable.get(a).values().next().value.hasOwnProperty(sortConfig.field);
             
-            if (isMetric && sortConfig.type === 'number') {
+            // Проверяем, является ли это сортировкой по конкретному столбцу метрики
+            const isSpecificColumnMetric = sortConfig.field.includes('_') && 
+                                         this.crossTable.has(a) && 
+                                         this.crossTable.get(a).size > 0;
+            
+            if (isSpecificColumnMetric && sortConfig.type === 'number') {
+                // Сортировка по конкретному столбцу метрики (например, revenue_first_transactions_2024)
+                // Находим последний разделитель _ чтобы отделить метрику от ключа столбца
+                const lastUnderscoreIndex = sortConfig.field.lastIndexOf('_');
+                const metricName = sortConfig.field.substring(0, lastUnderscoreIndex);
+                const colKey = sortConfig.field.substring(lastUnderscoreIndex + 1);
+                
+                valueA = this.crossTable.get(a).get(colKey)?.[metricName] || 0;
+                valueB = this.crossTable.get(b).get(colKey)?.[metricName] || 0;
+                
+                console.log('Сортировка по конкретному столбцу метрики:', { 
+                    field: sortConfig.field, 
+                    metricName, 
+                    colKey, 
+                    valueA, 
+                    valueB,
+                    availableColKeys: Array.from(this.crossTable.get(a).keys())
+                });
+            } else if (isMetric && sortConfig.type === 'number') {
                 // Сортировка по метрике - суммируем все значения по столбцам
                 let sumA = 0, sumB = 0;
                 
@@ -348,10 +373,18 @@ class PivotData {
                 
                 valueA = sumA;
                 valueB = sumB;
+                console.log('Сортировка по метрике (сумма):', { field: sortConfig.field, sumA, sumB });
             } else {
                 // Сортировка по полю строки
                 valueA = rowA.fields[sortConfig.field];
                 valueB = rowB.fields[sortConfig.field];
+                
+                console.log('Сортировка по полю строки:', { 
+                    field: sortConfig.field, 
+                    valueA, 
+                    valueB, 
+                    type: sortConfig.type 
+                });
                 
                 // Обработка разных типов данных
                 if (sortConfig.type === 'number') {
@@ -530,6 +563,8 @@ class PivotRenderer {
             return 'number';
         } else if (['date', 'datetime'].includes(fieldName.toLowerCase())) {
             return 'date';
+        } else if (['revenue_first_transactions', 'revenue_repeat_transactions', 'ads_cost', 'bonus_company', 'promo_cost', 'mar_cost', 'traffic_total', 'first_transactions', 'repeat_transactions', 'transacitons_total'].includes(fieldName)) {
+            return 'number';
         } else {
             return 'text';
         }
@@ -546,7 +581,7 @@ class PivotRenderer {
             
             // Определяем, какие поля использовать в строках в зависимости от исходного режима
             if (config.originalMode === 'slices') {
-                // Исходный режим "срезы" - используем срезы в строках с коллапсированием
+                // Исходный режим "срезы" - используем срезы в строках с коллапсированием и сортировкой
                 const visibleSliceFields = this.getVisibleSliceFields(config);
                 visibleSliceFields.forEach(rowField => {
                     const isCollapsible = this.hasChildSliceFields(config, rowField);
@@ -555,10 +590,21 @@ class PivotRenderer {
                         `<span class="collapse-icon" onclick="toggleSliceFieldCollapse('${rowField.name}')" style="cursor: pointer; margin-right: 5px;">${isCollapsed ? '+' : '−'}</span>` : 
                         '<span style="margin-right: 12px;"></span>';
                     
-                    html += `<th class="pivot-header slice-header" data-field="${rowField.name}" data-level="${rowField.level}" rowspan="2">${collapseIcon}${rowField.label}</th>`;
+                    // Определяем тип поля для сортировки
+                    const fieldType = this.getFieldType(rowField.name);
+                    const sortableHeader = this.createSortableHeader(
+                        rowField.name, 
+                        rowField.label, 
+                        fieldType, 
+                        config, 
+                        'slice-header', 
+                        '2',
+                        collapseIcon
+                    );
+                    html += sortableHeader;
                 });
             } else {
-                // Исходный режим "временные ряды" - используем временные поля в строках с коллапсированием
+                // Исходный режим "временные ряды" - используем временные поля в строках с коллапсированием и сортировкой
                 const visibleTimeFields = this.getVisibleTimeFields(config);
                 visibleTimeFields.forEach(rowField => {
                     const isCollapsible = this.hasChildTimeFields(config, rowField);
@@ -567,13 +613,38 @@ class PivotRenderer {
                         `<span class="collapse-icon" onclick="toggleTimeFieldCollapse('${rowField.name}')" style="cursor: pointer; margin-right: 5px;">${isCollapsed ? '+' : '−'}</span>` : 
                         '<span style="margin-right: 12px;"></span>';
                     
-                    html += `<th class="pivot-header time-header" data-field="${rowField.name}" data-level="${rowField.level}" rowspan="2">${collapseIcon}${rowField.label}</th>`;
+                    // Определяем тип поля для сортировки
+                    const fieldType = this.getFieldType(rowField.name);
+                    const sortableHeader = this.createSortableHeader(
+                        rowField.name, 
+                        rowField.label, 
+                        fieldType, 
+                        config, 
+                        'time-header', 
+                        '2',
+                        collapseIcon
+                    );
+                    html += sortableHeader;
                 });
             }
             
             config.values.forEach(valueField => {
                 const columnKeys = pivotData.getColumnKeys();
-                html += `<th class="pivot-header metric-header" colspan="${columnKeys.length}">${valueField.label}</th>`;
+                const sortableHeader = this.createSortableHeader(
+                    valueField.name, 
+                    valueField.label, 
+                    'number', 
+                    config, 
+                    'metric-header', 
+                    '',
+                    ''
+                );
+                // Заменяем обычный th на сортируемый и добавляем colspan
+                const sortableHeaderWithColspan = sortableHeader.replace(
+                    '<th class="pivot-header metric-header"', 
+                    `<th class="pivot-header metric-header" colspan="${columnKeys.length}"`
+                );
+                html += sortableHeaderWithColspan;
             });
             html += '</tr>';
             
@@ -584,7 +655,19 @@ class PivotRenderer {
                 columnKeys.forEach(colKey => {
                     const colFields = pivotData.getColumnFields(colKey);
                     const colLabel = config.columns.map(colField => colFields[colField.name]).join(' - ');
-                    html += `<th class="pivot-header slice-header">${colLabel || colKey}</th>`;
+                    
+                    // Создаем уникальный ключ для сортировки по конкретному столбцу метрики
+                    const sortKey = `${valueField.name}_${colKey}`;
+                    const sortableHeader = this.createSortableHeader(
+                        sortKey, 
+                        colLabel || colKey, 
+                        'number', 
+                        config, 
+                        'slice-header', 
+                        '',
+                        ''
+                    );
+                    html += sortableHeader;
                 });
             });
             html += '</tr>';
