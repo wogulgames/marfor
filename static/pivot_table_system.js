@@ -435,9 +435,17 @@ class PivotData {
     
     // Сортировка данных по указанному полю
     sortData(sortConfig) {
-        if (!sortConfig.field) return;
+        console.log('🔍 sortData вызван с конфигурацией:', sortConfig);
         
+        if (!sortConfig.field) {
+            console.log('❌ sortData: нет поля для сортировки, выходим');
+            return;
+        }
+        
+        console.log('=== НАЧАЛО СОРТИРОВКИ ДАННЫХ ===');
         console.log('Применяем сортировку:', sortConfig);
+        console.log('Количество rowGroups:', this.rowGroups.size);
+        console.log('Примеры ключей rowGroups ДО сортировки:', Array.from(this.rowGroups.keys()).slice(0, 10));
         
         const sortedRowKeys = Array.from(this.rowGroups.keys()).sort((a, b) => {
             const rowA = this.rowGroups.get(a);
@@ -528,7 +536,9 @@ class PivotData {
         });
         
         this.rowGroups = sortedRowGroups;
-        console.log('Сортировка применена, новый порядок строк:', sortedRowKeys);
+        console.log('Сортировка применена, новый порядок строк:', sortedRowKeys.slice(0, 10));
+        console.log('Примеры ключей rowGroups ПОСЛЕ сортировки:', Array.from(this.rowGroups.keys()).slice(0, 10));
+        console.log('=== КОНЕЦ СОРТИРОВКИ ДАННЫХ ===');
     }
     
     getValue(rowKey, colKey, valueFieldName) {
@@ -607,7 +617,14 @@ class PivotRenderer {
     }
     
     render(pivotData, config) {
+        console.log('=== НАЧАЛО РЕНДЕРИНГА ===');
         console.log('Рендеринг сводной таблицы:', { config, pivotData });
+        console.log('Количество строк для рендеринга:', pivotData.rowGroups.size);
+        console.log('Примеры ключей строк для рендеринга:', Array.from(pivotData.rowGroups.keys()).slice(0, 10));
+        
+        // Получаем стек вызовов для отладки
+        const stack = new Error().stack;
+        console.log('Стек вызовов render:', stack.split('\n').slice(1, 4));
         
         const container = document.getElementById(this.containerId);
         if (!container) {
@@ -620,6 +637,7 @@ class PivotRenderer {
         container.innerHTML = html;
         
         console.log('Сводная таблица отрендерена');
+        console.log('=== КОНЕЦ РЕНДЕРИНГА ===');
     }
     
     createPivotTableHTML(pivotData, config) {
@@ -652,6 +670,7 @@ class PivotRenderer {
     
     // Создание заголовка с кнопкой сортировки
     createSortableHeader(field, label, type, config, additionalClasses = '', rowspan = '', collapseIcon = '') {
+        console.log(`🔍 Создаем сортируемый заголовок: ${field} (${type})`);
         console.log('Создаем сортируемый заголовок:', { field, label, type, additionalClasses });
         
         const isActive = config.sortConfig.field === field;
@@ -918,6 +937,10 @@ class PivotRenderer {
             const rowKeys = pivotData.getRowKeys();
             const columnKeys = pivotData.getColumnKeys();
             
+            console.log('=== СОЗДАНИЕ СТРОК HTML (split-columns) ===');
+            console.log('Количество строк для отображения:', rowKeys.length);
+            console.log('Примеры ключей строк для отображения:', rowKeys.slice(0, 10));
+            
             rowKeys.forEach(rowKey => {
                 html += '<tr>';
                 
@@ -953,11 +976,15 @@ class PivotRenderer {
             const rowKeys = pivotData.getRowKeys();
             const visibleTimeFields = this.getVisibleTimeFields(config);
             
+            console.log('=== СОЗДАНИЕ СТРОК HTML (time-series) ===');
+            console.log('Количество строк для отображения:', rowKeys.length);
+            console.log('Примеры ключей строк для отображения:', rowKeys.slice(0, 10));
+            
             // Создаем правильную иерархическую структуру
             const hierarchicalRows = this.createHierarchicalStructure(rowKeys, visibleTimeFields);
             
             // Создаем правильную иерархическую сортировку
-            const sortedRows = this.createHierarchicalSorting(hierarchicalRows);
+            const sortedRows = this.createHierarchicalSorting(hierarchicalRows, pivotData.rowGroups);
             
             console.log('Отладка sortedRows:', {
                 totalRows: sortedRows.length,
@@ -1420,27 +1447,32 @@ class PivotRenderer {
     }
     
     // Создаем правильную иерархическую сортировку - дочерние элементы идут сразу после родителя
-    createHierarchicalSorting(hierarchicalRows) {
+    createHierarchicalSorting(hierarchicalRows, rowGroups) {
         const sortedRows = [];
         const processedKeys = new Set();
         
-        // Получаем все строки уровня 0 (корневые)
+        console.log('=== НАЧАЛО ИЕРАРХИЧЕСКОЙ СОРТИРОВКИ ===');
+        console.log('Количество hierarchicalRows:', hierarchicalRows.size);
+        console.log('Примеры hierarchicalRows:', Array.from(hierarchicalRows.keys()).slice(0, 5));
+        
+        // Получаем все строки уровня 0 (корневые) в том же порядке, что и в rowGroups после сортировки
         const rootRows = Array.from(hierarchicalRows.entries())
-            .filter(([key, rowData]) => rowData.level === 0)
-            .sort(([keyA, rowA], [keyB, rowB]) => {
-                const keyPartsA = keyA.split('|');
-                const keyPartsB = keyB.split('|');
-                
-                // Сравниваем первые элементы (годы)
-                if (keyPartsA[0] !== keyPartsB[0]) {
-                    if (!isNaN(keyPartsA[0]) && !isNaN(keyPartsB[0])) {
-                        return parseInt(keyPartsA[0]) - parseInt(keyPartsB[0]);
-                    }
-                    return keyPartsA[0].localeCompare(keyPartsB[0]);
-                }
-                
-                return keyA.localeCompare(keyB);
-            });
+            .filter(([key, rowData]) => rowData.level === 0);
+        
+        // Сортируем корневые строки в том же порядке, что и rowGroups
+        // Получаем порядок из rowGroups (уже отсортированных)
+        const rowGroupsOrder = Array.from(rowGroups.keys());
+        const sortedRootRows = rootRows.sort(([keyA, rowA], [keyB, rowB]) => {
+            // Находим позиции в отсортированном rowGroups
+            const indexA = rowGroupsOrder.findIndex(rowKey => rowKey.startsWith(keyA));
+            const indexB = rowGroupsOrder.findIndex(rowKey => rowKey.startsWith(keyB));
+            
+            console.log(`Сравниваем корневые строки: ${keyA} (позиция ${indexA}) vs ${keyB} (позиция ${indexB})`);
+            
+            return indexA - indexB;
+        });
+        
+        console.log('Отсортированные корневые строки:', sortedRootRows.map(([key, data]) => key));
         
         // Рекурсивно добавляем строки в правильном порядке
         const addRowsRecursively = (currentKey, level) => {
@@ -1487,17 +1519,13 @@ class PivotRenderer {
                     return !isCurrentCollapsed; // Показываем детей если родитель НЕ свернут
                 })
                 .sort(([keyA, rowA], [keyB, rowB]) => {
-                    const keyPartsA = keyA.split('|');
-                    const keyPartsB = keyB.split('|');
+                    // Используем порядок из rowGroups (уже отсортированных)
+                    const indexA = rowGroupsOrder.findIndex(rowKey => rowKey === keyA);
+                    const indexB = rowGroupsOrder.findIndex(rowKey => rowKey === keyB);
                     
-                    // Сравниваем по последнему элементу
-                    const lastPartA = keyPartsA[keyPartsA.length - 1];
-                    const lastPartB = keyPartsB[keyPartsB.length - 1];
+                    console.log(`Сравниваем дочерние элементы: ${keyA} (позиция ${indexA}) vs ${keyB} (позиция ${indexB})`);
                     
-                    if (!isNaN(lastPartA) && !isNaN(lastPartB)) {
-                        return parseInt(lastPartA) - parseInt(lastPartB);
-                    }
-                    return lastPartA.localeCompare(lastPartB);
+                    return indexA - indexB;
                 });
             
             // Добавляем дочерние элементы с кнопками для всех уровней родителей
@@ -1543,8 +1571,8 @@ class PivotRenderer {
             });
         };
         
-        // Начинаем с корневых строк
-        rootRows.forEach(([rootKey, rootData]) => {
+        // Начинаем с корневых строк (в порядке сортировки)
+        sortedRootRows.forEach(([rootKey, rootData]) => {
             addRowsRecursively(rootKey, 0);
         });
         
@@ -1552,6 +1580,8 @@ class PivotRenderer {
             totalRows: sortedRows.length,
             processedKeys: processedKeys.size
         });
+        console.log('Порядок строк в иерархической сортировке:', sortedRows.map(([key, data]) => key));
+        console.log('=== КОНЕЦ ИЕРАРХИЧЕСКОЙ СОРТИРОВКИ ===');
         
         return sortedRows;
     }
@@ -1896,23 +1926,47 @@ if (typeof window !== 'undefined') {
 
 // Глобальная функция для переключения сортировки
 window.togglePivotSort = function(fieldName, fieldType) {
+    console.log('🎯🎯🎯 ФУНКЦИЯ togglePivotSort ВЫЗВАНА! 🎯🎯🎯');
+    console.log('=== НАЧАЛО СОРТИРОВКИ ===');
     console.log('Переключение сортировки для поля:', fieldName, 'тип:', fieldType);
+    console.log('currentPivotConfig:', !!window.currentPivotConfig);
+    console.log('currentPivotRenderer:', !!window.currentPivotRenderer);
+    console.log('currentPivotData:', !!window.currentPivotData);
     
     if (window.currentPivotConfig && window.currentPivotRenderer) {
+        console.log('Старая конфигурация сортировки:', window.currentPivotConfig.sortConfig);
+        
         // Переключаем сортировку в конфигурации
         window.currentPivotConfig.toggleSort(fieldName, fieldType);
         
+        console.log('Новая конфигурация сортировки:', window.currentPivotConfig.sortConfig);
+        
         // Применяем сортировку к данным
         if (window.currentPivotData) {
+            console.log('🔍 Вызываем sortData...');
+            console.log('Количество строк до сортировки:', window.currentPivotData.rowGroups.size);
+            console.log('Примеры ключей ДО сортировки:', Array.from(window.currentPivotData.rowGroups.keys()).slice(0, 5));
+            
             window.currentPivotData.sortData(window.currentPivotConfig.sortConfig);
+            
+            console.log('✅ sortData завершен');
+            console.log('Количество строк после сортировки:', window.currentPivotData.rowGroups.size);
+            console.log('Примеры ключей ПОСЛЕ сортировки:', Array.from(window.currentPivotData.rowGroups.keys()).slice(0, 5));
+        } else {
+            console.log('❌ window.currentPivotData отсутствует');
         }
         
+        console.log('Перерисовываем таблицу...');
         // Перерисовываем таблицу
         window.currentPivotRenderer.render(window.currentPivotData, window.currentPivotConfig);
         
         console.log('Сортировка применена:', window.currentPivotConfig.sortConfig);
+        console.log('=== КОНЕЦ СОРТИРОВКИ ===');
     } else {
         console.error('Нет активной конфигурации или рендерера для сортировки');
+        console.log('currentPivotConfig:', window.currentPivotConfig);
+        console.log('currentPivotRenderer:', window.currentPivotRenderer);
+        console.log('currentPivotData:', window.currentPivotData);
     }
 };
 
@@ -1981,3 +2035,8 @@ function triggerColumnButtons(fieldName, fieldType) {
     
     console.log(`Триггер завершен. Нажато кнопок: ${triggeredCount}`);
 }
+
+// Проверяем, что функции доступны глобально
+console.log('🔍 Проверка доступности функций:');
+console.log('- window.togglePivotSort:', typeof window.togglePivotSort);
+console.log('- togglePivotSort:', typeof togglePivotSort);
