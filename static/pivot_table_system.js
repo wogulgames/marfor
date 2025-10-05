@@ -1,6 +1,7 @@
 // ========================================
 // НОВАЯ СИСТЕМА СВОДНОЙ ТАБЛИЦЫ
 // ========================================
+// 🔧 ВЕРСИЯ КОДА: 2.5.2 - Улучшены кнопки коллапсирования и добавлено выделение раскрытых полей
 
 console.log('Загружается новая система сводной таблицы...');
 
@@ -179,28 +180,8 @@ class PivotData {
         
         console.log('Группировка строк по полям:', visibleRowFields.map(f => f.name));
         
-        // Группировка по строкам
-        this.rawData.forEach((row, index) => {
-            const rowKey = this.createRowKey(row, visibleRowFields);
-            
-            // Отладочная информация для первых нескольких строк
-            if (index < 3) {
-                console.log(`Строка ${index}:`, {
-                    rowKey,
-                    visibleRowFields: visibleRowFields.map(f => f.name),
-                    fieldValues: visibleRowFields.map(f => ({ name: f.name, value: row[f.name] }))
-                });
-            }
-            
-            if (!this.rowGroups.has(rowKey)) {
-                this.rowGroups.set(rowKey, {
-                    key: rowKey,
-                    fields: this.extractFieldValues(row, visibleRowFields),
-                    rows: []
-                });
-            }
-            this.rowGroups.get(rowKey).rows.push(row);
-        });
+        // Создаем иерархическую структуру строк (детализированные + агрегированные)
+        this.createHierarchicalRows(config, visibleRowFields);
         
         // Группировка по столбцам
         this.rawData.forEach(row => {
@@ -287,11 +268,74 @@ class PivotData {
             });
         });
         
+        // Агрегированные значения не нужны - работаем только с детализированными строками
+        
         console.log('Перекрестная таблица создана:', {
             rows: this.crossTable.size,
             totalCells: Array.from(this.crossTable.values()).reduce((sum, colMap) => sum + colMap.size, 0)
         });
     }
+    
+    createAggregatedValues(config, visibleRowFields) {
+        console.log('Создание агрегированных значений...');
+        
+        // Создаем агрегированные значения для всех уровней
+        this.rowGroups.forEach((group, rowKey) => {
+            if (!group.isAggregated) return; // Пропускаем детализированные строки
+            
+            const keyParts = rowKey.split('|');
+            const level = keyParts.length - 1;
+            
+            // Находим все дочерние строки для этого уровня
+            const childRows = [];
+            this.rowGroups.forEach((childGroup, childKey) => {
+                const childParts = childKey.split('|');
+                
+                // Проверяем, является ли это дочерней строкой
+                if (childParts.length === level + 2 && 
+                    keyParts.every((part, index) => part === childParts[index])) {
+                    childRows.push(childKey);
+                }
+            });
+            
+            // Создаем агрегированные значения для всех колонок
+            config.columns.forEach(colField => {
+                if (colField.role !== 'metric') return;
+                
+                const colKey = colField.name;
+                
+                // Инициализируем колонку для этой строки, если её нет
+                if (!this.crossTable.has(rowKey)) {
+                    this.crossTable.set(rowKey, new Map());
+                }
+                if (!this.crossTable.get(rowKey).has(colKey)) {
+                    this.crossTable.get(rowKey).set(colKey, {});
+                }
+                
+                // Суммируем значения из дочерних строк
+                let aggregatedValue = 0;
+                childRows.forEach(childKey => {
+                    if (this.crossTable.has(childKey) && this.crossTable.get(childKey).has(colKey)) {
+                        const childValue = this.crossTable.get(childKey).get(colKey)[colField.name] || 0;
+                        aggregatedValue += childValue;
+                    }
+                });
+                
+                // Если нет дочерних строк, суммируем из детализированных данных
+                if (childRows.length === 0) {
+                    group.rows.forEach(row => {
+                        const value = parseFloat(row[colField.name]) || 0;
+                        aggregatedValue += value;
+                    });
+                }
+                
+                this.crossTable.get(rowKey).get(colKey)[colField.name] = aggregatedValue;
+            });
+        });
+        
+        console.log('Агрегированные значения созданы');
+    }
+    
     
     createRowKey(row, rowFields) {
         return rowFields.map(field => row[field.name] || '').join('|');
@@ -307,6 +351,76 @@ class PivotData {
             result[field.name] = row[field.name] || '';
         });
         return result;
+    }
+    
+    createHierarchicalRows(config, visibleRowFields) {
+        console.log('Создание иерархической структуры строк...');
+        
+        // Сначала создаем детализированные строки
+        this.rawData.forEach((row, index) => {
+            const rowKey = this.createRowKey(row, visibleRowFields);
+            if (!this.rowGroups.has(rowKey)) {
+                this.rowGroups.set(rowKey, {
+                    key: rowKey,
+                    fields: this.extractFieldValues(row, visibleRowFields),
+                    rows: [],
+                    isAggregated: false // Детализированная строка
+                });
+            }
+            this.rowGroups.get(rowKey).rows.push(row);
+        });
+        
+        // Создаем агрегированные строки для всех уровней
+        const aggregatedRows = new Map();
+        
+        this.rowGroups.forEach((group, detailedKey) => {
+            const keyParts = detailedKey.split('|');
+            
+            // Создаем агрегированные ключи для всех уровней
+            for (let level = 0; level < keyParts.length; level++) {
+                const aggregatedKey = keyParts.slice(0, level + 1).join('|');
+                
+                if (!aggregatedRows.has(aggregatedKey)) {
+                    aggregatedRows.set(aggregatedKey, {
+                        key: aggregatedKey,
+                        fields: keyParts.slice(0, level + 1),
+                        rows: [],
+                        isAggregated: true,
+                        level: level
+                    });
+                }
+                
+                // Добавляем детализированные строки к агрегированной
+                aggregatedRows.get(aggregatedKey).rows.push(...group.rows);
+            }
+        });
+        
+        // Добавляем агрегированные строки к rowGroups
+        aggregatedRows.forEach((group, key) => {
+            // Создаем правильные поля для агрегированной строки
+            const fields = {};
+            const keyParts = key.split('|');
+            visibleRowFields.forEach((field, index) => {
+                if (index < keyParts.length) {
+                    fields[field.name] = keyParts[index];
+                } else {
+                    fields[field.name] = '';
+                }
+            });
+            
+            this.rowGroups.set(key, {
+                ...group,
+                fields: fields
+            });
+        });
+        
+        console.log('Иерархическая структура создана:', {
+            totalRows: this.rowGroups.size,
+            detailedRows: this.rowGroups.size
+        });
+        
+        // Выводим все ключи для отладки
+        console.log('Все ключи строк:', Array.from(this.rowGroups.keys()));
     }
     
     getRowKeys() {
@@ -489,6 +603,7 @@ class PivotRenderer {
         this.containerId = containerId;
         this.collapsedTimeFields = new Set(); // Отслеживаем свернутые временные поля
         this.collapsedSliceFields = new Set(); // Отслеживаем свернутые поля срезов
+        this.collapsedRows = new Set(); // Отслеживаем свернутые строки
     }
     
     render(pivotData, config) {
@@ -509,6 +624,12 @@ class PivotRenderer {
     
     createPivotTableHTML(pivotData, config) {
         let html = '<div class="pivot-table-container">';
+        html += '<style>';
+        html += '.collapse-btn { border: 1px solid #007bff !important; color: #007bff !important; background: white !important; }';
+        html += '.collapse-btn:hover { background: #007bff !important; color: white !important; }';
+        html += '.pivot-cell.expanded { background-color: #e3f2fd !important; border-left: 3px solid #2196f3 !important; }';
+        html += '.pivot-cell.collapsed { background-color: #f5f5f5 !important; border-left: 3px solid #9e9e9e !important; }';
+        html += '</style>';
         html += '<div class="d-flex justify-content-between align-items-center mb-3">';
         html += '<h6 class="mb-0"><i class="fas fa-table me-2"></i>Сводная таблица (новая система)</h6>';
         html += '</div>';
@@ -830,39 +951,116 @@ class PivotRenderer {
         } else if (config.mode === 'time-series') {
             // Режим временных рядов
             const rowKeys = pivotData.getRowKeys();
+            const visibleTimeFields = this.getVisibleTimeFields(config);
             
-            rowKeys.forEach(rowKey => {
+            // Создаем правильную иерархическую структуру
+            const hierarchicalRows = this.createHierarchicalStructure(rowKeys, visibleTimeFields);
+            
+            // Создаем правильную иерархическую сортировку
+            const sortedRows = this.createHierarchicalSorting(hierarchicalRows);
+            
+            console.log('Отладка sortedRows:', {
+                totalRows: sortedRows.length,
+                collapsedRows: this.collapsedRows || new Set(),
+                collapsedRowsSize: (this.collapsedRows || new Set()).size,
+                firstFewRows: sortedRows.slice(0, 5).map(([key, data]) => ({ key, isAggregated: data.isAggregated, level: data.level }))
+            });
+            
+            sortedRows.forEach(([rowKey, rowData], index) => {
+                // Проверяем видимость строки
+                if (!this.isRowVisible(rowKey, this.collapsedRows || new Set())) {
+                    return; // Пропускаем невидимые строки
+                }
+                
+                // Проверяем, нужно ли добавить кнопку коллапсирования
+                let shouldShowCollapseButton = false;
+                let collapseKey = '';
+                let isCollapsed = false;
+                
+                // Проверяем, есть ли кнопки в данных строки
+                if (rowData.collapseButtons && rowData.collapseButtons.length > 0) {
+                    shouldShowCollapseButton = true;
+                    console.log(`✅ Найдены кнопки для строки ${rowKey}: ${rowData.collapseButtons.length} кнопок`);
+                }
+                
+                const rowFields = rowData.fields;
+                
                 html += '<tr>';
                 
-                // Значения видимых временных полей (строки)
-                const rowFields = pivotData.getRowFields(rowKey);
-                const visibleTimeFields = this.getVisibleTimeFields(config);
-                visibleTimeFields.forEach(rowField => {
-                    html += `<td class="pivot-cell">${rowFields[rowField.name] || ''}</td>`;
-                });
+                    // Временные поля (строки)
+                visibleTimeFields.forEach((rowField, index) => {
+                        let cellContent = rowFields[rowField.name] || '';
+                        
+                        let cellClass = 'pivot-cell';
+                        
+                        // Кнопка для агрегированных строк (свернутое состояние)
+                        if (rowData.isAggregated && index === rowData.level) {
+                            const collapseKey = rowKey;
+                            const isCollapsed = (this.collapsedRows || new Set()).has(collapseKey);
+                            const collapseIcon = '+'; // Всегда плюс для агрегированных строк
+                            
+                            cellContent = `<button class="btn btn-sm btn-outline-primary collapse-btn" onclick="toggleRowCollapse('${collapseKey}')" style="margin-right: 8px; padding: 2px 6px; font-size: 12px; border-radius: 3px; min-width: 20px;">${collapseIcon}</button>${cellContent}`;
+                            
+                            console.log(`Добавлена кнопка ${collapseIcon} для строки ${rowKey} (агрегированная строка)`);
+                            
+                            // Добавляем класс для выделения свернутого состояния
+                            cellClass += ' collapsed';
+                        }
+                        // Кнопки для первой дочерней строки (развернутое состояние)
+                        else if (shouldShowCollapseButton && rowData.collapseButtons) {
+                            // Ищем кнопку для текущего уровня
+                            const buttonForLevel = rowData.collapseButtons.find(btn => btn.level === index);
+                            
+                            if (buttonForLevel) {
+                                const collapseIcon = buttonForLevel.collapseIcon;
+                                const collapseKey = buttonForLevel.collapseKey;
+                                
+                                cellContent = `<button class="btn btn-sm btn-outline-primary collapse-btn" onclick="toggleRowCollapse('${collapseKey}')" style="margin-right: 8px; padding: 2px 6px; font-size: 12px; border-radius: 3px; min-width: 20px;">${collapseIcon}</button>${cellContent}`;
+                                
+                                console.log(`Добавлена кнопка ${collapseIcon} для строки ${rowKey} в столбце уровня ${index} (коллапс до ${collapseKey})`);
+                                
+                                // Добавляем класс для выделения развернутого состояния
+                                cellClass += ' expanded';
+                            }
+                        }
+                            
+                        html += `<td class="${cellClass}">${cellContent}</td>`;
+                    });
                 
-                // Значения метрик - агрегируем по всем строкам в группе
+                // Значения метрик
                 config.values.forEach(valueField => {
-                    const rowGroup = pivotData.rowGroups.get(rowKey);
                     let aggregatedValue = 0;
                     
-                    // Суммируем все значения метрики в группе строк
-                    if (rowGroup && rowGroup.rows) {
-                        console.log(`Агрегация для ${rowKey}, метрика ${valueField.name}:`, {
-                            rowCount: rowGroup.rows.length,
-                            rows: rowGroup.rows.slice(0, 3) // Показываем первые 3 строки
-                        });
-                        
-                        rowGroup.rows.forEach((row, index) => {
+                    if (rowData.isAggregated) {
+                        // Для агрегированных строк суммируем все дочерние значения
+                        // Но только те, которые являются непосредственными дочерними элементами
+                        rowKeys.forEach(childKey => {
+                            if (childKey.startsWith(rowKey + '|')) {
+                                // Проверяем, что это непосредственный дочерний элемент
+                                const childKeyParts = childKey.split('|');
+                                const parentKeyParts = rowKey.split('|');
+                                
+                                // Если дочерний ключ на один уровень глубже родительского
+                                if (childKeyParts.length === parentKeyParts.length + 1) {
+                                    const childGroup = pivotData.rowGroups.get(childKey);
+                                    if (childGroup && childGroup.rows) {
+                                        childGroup.rows.forEach(row => {
                             const value = parseFloat(row[valueField.name]) || 0;
                             aggregatedValue += value;
-                            
-                            if (index < 3) { // Логируем первые 3 значения
-                                console.log(`  Строка ${index}: ${row[valueField.name]} -> ${value}`);
+                                        });
+                                    }
+                                }
                             }
                         });
-                        
-                        console.log(`Итого для ${rowKey}: ${aggregatedValue}`);
+                    } else {
+                        // Для детализированных строк используем значения из группы
+                        const rowGroup = pivotData.rowGroups.get(rowKey);
+                        if (rowGroup && rowGroup.rows) {
+                            rowGroup.rows.forEach(row => {
+                                const value = parseFloat(row[valueField.name]) || 0;
+                                aggregatedValue += value;
+                            });
+                        }
                     }
                     
                     html += `<td class="pivot-cell" style="text-align: right;">${this.formatValue(aggregatedValue)}</td>`;
@@ -1136,6 +1334,269 @@ class PivotRenderer {
             
             return !parentField;
         });
+    }
+    
+    hasChildrenForField(rowKeys, fieldName, fieldValue, fieldIndex, visibleTimeFields) {
+        // Проверяем, есть ли дочерние элементы для конкретного поля
+        // Например, для Year=2024 ищем строки с разными Halfyear (H1, H2)
+        
+        // Если это последний уровень (например, month), то дочерних элементов нет
+        if (fieldIndex >= visibleTimeFields.length - 1) {
+            return false;
+        }
+        
+        const currentFieldParts = fieldValue.split('|');
+        const uniqueValues = new Set();
+        
+        rowKeys.forEach(key => {
+            const keyParts = key.split('|');
+            
+            // Проверяем, что у нас есть данные для этого уровня
+            if (keyParts.length <= fieldIndex) return;
+            
+            // Проверяем, что все предыдущие поля совпадают
+            let isChild = true;
+            for (let i = 0; i < fieldIndex; i++) {
+                if (keyParts[i] !== currentFieldParts[i]) {
+                    isChild = false;
+                    break;
+                }
+            }
+            
+            // Если это дочерняя строка, добавляем значение текущего поля
+            if (isChild && keyParts.length > fieldIndex) {
+                uniqueValues.add(keyParts[fieldIndex]);
+            }
+        });
+        
+        const hasChildren = uniqueValues.size > 0;
+        console.log(`hasChildrenForField: ${fieldName}=${fieldValue} -> ${hasChildren} (${uniqueValues.size} уникальных значений: ${Array.from(uniqueValues).join(', ')})`);
+        return hasChildren;
+    }
+    
+    // Создаем правильную структуру строк как в Google Sheets
+    createHierarchicalStructure(rowKeys, visibleTimeFields) {
+        const allRows = new Map();
+        
+        // Собираем все уникальные комбинации для каждого уровня
+        const levelCombinations = new Map();
+        
+        rowKeys.forEach(key => {
+            const keyParts = key.split('|');
+            
+            // Создаем комбинации для всех уровней
+            for (let level = 0; level < keyParts.length; level++) {
+                const levelKey = keyParts.slice(0, level + 1).join('|');
+                
+                if (!levelCombinations.has(level)) {
+                    levelCombinations.set(level, new Set());
+                }
+                levelCombinations.get(level).add(levelKey);
+            }
+        });
+        
+        // Создаем строки для каждого уровня
+        levelCombinations.forEach((combinations, level) => {
+            combinations.forEach(combination => {
+                const keyParts = combination.split('|');
+                
+                // Создаем поля для строки
+                const fields = {};
+                visibleTimeFields.forEach((field, index) => {
+                    if (index < keyParts.length) {
+                        fields[field.name] = keyParts[index];
+                    } else {
+                        fields[field.name] = '';
+                    }
+                });
+                
+                // Определяем, является ли это агрегированной строкой
+                const isAggregated = level < visibleTimeFields.length - 1;
+                
+                allRows.set(combination, {
+                    key: combination,
+                    fields: fields,
+                    level: level,
+                    isAggregated: isAggregated,
+                    rows: [] // Будет заполнено позже
+                });
+            });
+        });
+        
+        console.log('Создана иерархическая структура:', {
+            totalRows: allRows.size,
+            levels: levelCombinations.size,
+            collapsedRows: this.collapsedRows || new Set(),
+            collapsedRowsSize: (this.collapsedRows || new Set()).size
+        });
+        
+        return allRows;
+    }
+    
+    // Создаем правильную иерархическую сортировку - дочерние элементы идут сразу после родителя
+    createHierarchicalSorting(hierarchicalRows) {
+        const sortedRows = [];
+        const processedKeys = new Set();
+        
+        // Получаем все строки уровня 0 (корневые)
+        const rootRows = Array.from(hierarchicalRows.entries())
+            .filter(([key, rowData]) => rowData.level === 0)
+            .sort(([keyA, rowA], [keyB, rowB]) => {
+                const keyPartsA = keyA.split('|');
+                const keyPartsB = keyB.split('|');
+                
+                // Сравниваем первые элементы (годы)
+                if (keyPartsA[0] !== keyPartsB[0]) {
+                    if (!isNaN(keyPartsA[0]) && !isNaN(keyPartsB[0])) {
+                        return parseInt(keyPartsA[0]) - parseInt(keyPartsB[0]);
+                    }
+                    return keyPartsA[0].localeCompare(keyPartsB[0]);
+                }
+                
+                return keyA.localeCompare(keyB);
+            });
+        
+        // Рекурсивно добавляем строки в правильном порядке
+        const addRowsRecursively = (currentKey, level) => {
+            // Проверяем, свернута ли текущая строка
+            // Строка свернута если она НЕ в collapsedRows
+            const isCurrentCollapsed = !(this.collapsedRows || new Set()).has(currentKey);
+            
+            console.log(`Отладка addRowsRecursively: currentKey=${currentKey}, isCurrentCollapsed=${isCurrentCollapsed}, level=${level}`);
+            
+            // Добавляем текущую строку только если она свернута
+            if (hierarchicalRows.has(currentKey) && !processedKeys.has(currentKey)) {
+                const rowData = hierarchicalRows.get(currentKey);
+                
+                // Если строка свернута - показываем её
+                if (isCurrentCollapsed) {
+                    sortedRows.push([currentKey, rowData]);
+                    processedKeys.add(currentKey);
+                    console.log(`Добавлена свернутая строка: ${currentKey}`);
+                } else {
+                    console.log(`Пропущена раскрытая строка: ${currentKey}`);
+                }
+                // Отмечаем как обработанную
+                processedKeys.add(currentKey);
+            }
+            
+            // Находим все дочерние строки этого уровня
+            const childRows = Array.from(hierarchicalRows.entries())
+                .filter(([key, rowData]) => {
+                    if (processedKeys.has(key)) return false;
+                    
+                    // Проверяем, что это дочерний элемент
+                    if (!key.startsWith(currentKey + '|')) return false;
+                    
+                    // Проверяем, что это непосредственный дочерний элемент
+                    const keyParts = key.split('|');
+                    const currentKeyParts = currentKey.split('|');
+                    
+                    return keyParts.length === currentKeyParts.length + 1;
+                })
+                // Добавляем дочерние элементы только если родитель раскрыт (НЕ свернут)
+                .filter(([key, rowData]) => {
+                    const isCurrentCollapsed = !(this.collapsedRows || new Set()).has(currentKey);
+                    console.log(`Проверка дочернего элемента: ${key}, currentKey=${currentKey}, isCurrentCollapsed=${isCurrentCollapsed}`);
+                    return !isCurrentCollapsed; // Показываем детей если родитель НЕ свернут
+                })
+                .sort(([keyA, rowA], [keyB, rowB]) => {
+                    const keyPartsA = keyA.split('|');
+                    const keyPartsB = keyB.split('|');
+                    
+                    // Сравниваем по последнему элементу
+                    const lastPartA = keyPartsA[keyPartsA.length - 1];
+                    const lastPartB = keyPartsB[keyPartsB.length - 1];
+                    
+                    if (!isNaN(lastPartA) && !isNaN(lastPartB)) {
+                        return parseInt(lastPartA) - parseInt(lastPartB);
+                    }
+                    return lastPartA.localeCompare(lastPartB);
+                });
+            
+            // Добавляем дочерние элементы с кнопками для всех уровней родителей
+            console.log(`Найдено дочерних элементов для ${currentKey}: ${childRows.length}`);
+            childRows.forEach(([childKey, childData], index) => {
+                // На первой дочерней строке добавляем кнопки - для всех раскрытых уровней родителей
+                if (index === 0) {
+                    // Создаем массив кнопок для всех уровней (если еще не создан)
+                    if (!childData.collapseButtons) {
+                        childData.collapseButtons = [];
+                    }
+                    
+                    // Добавляем кнопку для текущего уровня (самого глубокого раскрытого)
+                    childData.collapseButtons.push({
+                        collapseKey: currentKey,
+                        collapseIcon: '-',
+                        level: level
+                    });
+                    
+                    console.log(`Добавлена кнопка - для первой дочерней строки: ${childKey} на уровне ${level} (коллапс до ${currentKey})`);
+                    
+                    // ВАЖНО: Добавляем кнопки для всех родительских уровней
+                    const childKeyParts = childKey.split('|');
+                    for (let parentLevel = 0; parentLevel < level; parentLevel++) {
+                        const parentKey = childKeyParts.slice(0, parentLevel + 1).join('|');
+                        
+                        // Проверяем, что родитель существует и раскрыт
+                        if (hierarchicalRows.has(parentKey) && (this.collapsedRows || new Set()).has(parentKey)) {
+                            // Добавляем кнопку для этого родительского уровня
+                            childData.collapseButtons.push({
+                                collapseKey: parentKey,
+                                collapseIcon: '-',
+                                level: parentLevel
+                            });
+                            
+                            console.log(`Добавлена кнопка - для родительского уровня ${parentLevel}: ${parentKey} (коллапс до ${parentKey})`);
+                        }
+                    }
+                }
+                
+                console.log(`Рекурсивно добавляем дочерний элемент: ${childKey}`);
+                addRowsRecursively(childKey, level + 1);
+            });
+        };
+        
+        // Начинаем с корневых строк
+        rootRows.forEach(([rootKey, rootData]) => {
+            addRowsRecursively(rootKey, 0);
+        });
+        
+        console.log('Создана иерархическая сортировка:', {
+            totalRows: sortedRows.length,
+            processedKeys: processedKeys.size
+        });
+        
+        return sortedRows;
+    }
+    
+    isRowVisible(rowKey, collapsedRows) {
+        const rowFields = rowKey.split('|');
+        
+        // Проверяем каждый уровень родительских элементов
+        for (let level = 0; level < rowFields.length - 1; level++) {
+            const parentKey = rowFields.slice(0, level + 1).join('|');
+            // Если родитель НЕ в collapsedRows, значит он свернут - скрываем дочерние элементы
+            if (!collapsedRows.has(parentKey)) {
+                console.log(`Строка ${rowKey} скрыта из-за свернутого родителя ${parentKey}`);
+                return false; // Родительский элемент свернут
+            }
+        }
+        
+        return true; // Все родительские элементы развернуты
+    }
+    
+    toggleRowCollapse(rowKey) {
+        if (this.collapsedRows.has(rowKey)) {
+            this.collapsedRows.delete(rowKey);
+        } else {
+            this.collapsedRows.add(rowKey);
+        }
+        
+        // Перерендериваем таблицу
+        if (window.currentPivotData && window.currentPivotConfig) {
+            this.render(window.currentPivotData, window.currentPivotConfig);
+        }
     }
     
     getVisibleSliceFields(config) {
@@ -1516,3 +1977,14 @@ window.togglePivotSort = function(fieldName, fieldType) {
         console.error('Нет активной конфигурации или рендерера для сортировки');
     }
 };
+
+// Глобальная функция для переключения коллапсирования строк
+function toggleRowCollapse(rowKey) {
+    console.log('Переключение коллапсирования для строки:', rowKey);
+    
+    if (window.currentPivotRenderer) {
+        window.currentPivotRenderer.toggleRowCollapse(rowKey);
+    } else {
+        console.error('Нет активного рендерера для коллапсирования строк');
+    }
+}
