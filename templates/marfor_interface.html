@@ -3936,11 +3936,22 @@
             console.log('renderPivotTableAndChart вызвана с данными (новая система):', {pivotData, chartData, selectedSlice});
             
             // Проверяем, что новая система загружена
+            console.log('Проверка доступности функций:');
+            console.log('- renderNewPivotTable:', typeof renderNewPivotTable);
+            console.log('- PivotFilter:', typeof PivotFilter);
+            console.log('- PivotData:', typeof PivotData);
+            console.log('- window.renderNewPivotTable:', typeof window.renderNewPivotTable);
+            
             if (typeof renderNewPivotTable === 'undefined') {
                 console.error('Функция renderNewPivotTable не определена! Проверьте загрузку static/pivot_table_system.js');
+                console.error('Возможные причины:');
+                console.error('1. Синтаксическая ошибка в JavaScript файле');
+                console.error('2. Файл не загрузился полностью');
+                console.error('3. Ошибка в экспорте функций');
+                
                 const container = document.getElementById('timeSeriesChartContainer');
                 if (container) {
-                    container.innerHTML = '<div class="alert alert-danger">Ошибка: новая система сводной таблицы не загружена</div>';
+                    container.innerHTML = '<div class="alert alert-danger">Ошибка: новая система сводной таблицы не загружена. Проверьте консоль браузера.</div>';
                 }
                 return;
             }

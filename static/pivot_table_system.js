@@ -729,9 +729,9 @@ class PivotRenderer {
                 const visibleTimeFields = this.getVisibleTimeFields(config);
                 visibleTimeFields.forEach(rowField => {
                     const isCollapsible = this.hasChildTimeFields(config, rowField);
-                    const isCollapsed = this.isTimeFieldCollapsed(rowField.name);
+                    // Кнопка-триггер для всех кнопок в этом столбце
                     const collapseIcon = isCollapsible ? 
-                        `<span class="collapse-icon" onclick="toggleTimeFieldCollapse('${rowField.name}')" style="cursor: pointer; margin-right: 5px;">${isCollapsed ? '+' : '−'}</span>` : 
+                        `<span class="collapse-icon" onclick="triggerColumnButtons('${rowField.name}', 'time')" style="cursor: pointer; margin-right: 5px;" title="Нажать все кнопки в столбце ${rowField.label}">⚡</span>` : 
                         '<span style="margin-right: 12px;"></span>';
                     
                     // Определяем тип поля для сортировки
@@ -800,9 +800,9 @@ class PivotRenderer {
             const visibleTimeFields = this.getVisibleTimeFields(config);
             visibleTimeFields.forEach(rowField => {
                 const isCollapsible = this.hasChildTimeFields(config, rowField);
-                const isCollapsed = this.isTimeFieldCollapsed(rowField.name);
+                // Кнопка-триггер для всех кнопок в этом столбце
                 const collapseIcon = isCollapsible ? 
-                    `<span class="collapse-icon" onclick="toggleTimeFieldCollapse('${rowField.name}')" style="cursor: pointer; margin-right: 5px;">${isCollapsed ? '+' : '−'}</span>` : 
+                    `<span class="collapse-icon" onclick="triggerColumnButtons('${rowField.name}', 'time')" style="cursor: pointer; margin-right: 5px;" title="Нажать все кнопки в столбце ${rowField.label}">⚡</span>` : 
                     '<span style="margin-right: 12px;"></span>';
                 
                 // Определяем тип поля для сортировки
@@ -1291,30 +1291,16 @@ class PivotRenderer {
     }
     
     isTimeFieldCollapsed(fieldName) {
-        return this.collapsedTimeFields.has(fieldName);
+        // Поле считается свернутым если НЕ в collapsedTimeFields
+        return !this.collapsedTimeFields.has(fieldName);
     }
     
     isSliceFieldCollapsed(fieldName) {
         return this.collapsedSliceFields.has(fieldName);
     }
     
-    toggleTimeFieldCollapse(fieldName) {
-        if (this.collapsedTimeFields.has(fieldName)) {
-            this.collapsedTimeFields.delete(fieldName);
-        } else {
-            this.collapsedTimeFields.add(fieldName);
-        }
-        console.log('Переключено состояние коллапсирования для временного поля:', fieldName, 'Свернуто:', this.collapsedTimeFields.has(fieldName));
-    }
-    
-    toggleSliceFieldCollapse(fieldName) {
-        if (this.collapsedSliceFields.has(fieldName)) {
-            this.collapsedSliceFields.delete(fieldName);
-        } else {
-            this.collapsedSliceFields.add(fieldName);
-        }
-        console.log('Переключено состояние коллапсирования для поля среза:', fieldName, 'Свернуто:', this.collapsedSliceFields.has(fieldName));
-    }
+    // Методы toggleTimeFieldCollapse и toggleSliceFieldCollapse удалены
+    // Теперь используется triggerColumnButtons для триггера всех кнопок в столбце
     
     getVisibleTimeFields(config) {
         // В режиме срезов нет временных полей в строках
@@ -1894,56 +1880,8 @@ if (typeof window !== 'undefined') {
     window.createPivotConfigFromMapping = createPivotConfigFromMapping;
     window.renderNewPivotTable = renderNewPivotTable;
     
-    // Глобальная функция для переключения состояния коллапсирования
-    window.toggleTimeFieldCollapse = function(fieldName) {
-        console.log('Переключение коллапсирования для временного поля:', fieldName);
-        
-        // Находим активный рендерер (если есть)
-        if (window.currentPivotRenderer) {
-            window.currentPivotRenderer.toggleTimeFieldCollapse(fieldName);
-            
-            // Переобрабатываем данные с учетом нового состояния коллапсирования
-            if (window.currentPivotData && window.currentPivotConfig) {
-                // Получаем исходные данные
-                const rawData = window.currentPivotData.rawData;
-                
-                // Создаем новые данные с обновленной группировкой
-                const newPivotData = new PivotData(rawData);
-                newPivotData.process(window.currentPivotConfig, window.currentPivotRenderer);
-                
-                // Обновляем ссылку на данные
-                window.currentPivotData = newPivotData;
-                
-                // Перерисовываем таблицу
-                window.currentPivotRenderer.render(newPivotData, window.currentPivotConfig);
-            }
-        }
-    };
-    
-    window.toggleSliceFieldCollapse = function(fieldName) {
-        console.log('Переключение коллапсирования для поля среза:', fieldName);
-        
-        // Находим активный рендерер (если есть)
-        if (window.currentPivotRenderer) {
-            window.currentPivotRenderer.toggleSliceFieldCollapse(fieldName);
-            
-            // Переобрабатываем данные с учетом нового состояния коллапсирования
-            if (window.currentPivotData && window.currentPivotConfig) {
-                // Получаем исходные данные
-                const rawData = window.currentPivotData.rawData;
-                
-                // Создаем новые данные с обновленной группировкой
-                const newPivotData = new PivotData(rawData);
-                newPivotData.process(window.currentPivotConfig, window.currentPivotRenderer);
-                
-                // Обновляем ссылку на данные
-                window.currentPivotData = newPivotData;
-                
-                // Перерисовываем таблицу
-                window.currentPivotRenderer.render(newPivotData, window.currentPivotConfig);
-            }
-        }
-    };
+    // Старые функции toggleTimeFieldCollapse и toggleSliceFieldCollapse удалены
+    // Теперь используется triggerColumnButtons для триггера всех кнопок в столбце
     
     console.log('Новая система сводной таблицы загружена и доступна в глобальной области видимости');
     console.log('Доступные функции:', {
@@ -1987,4 +1925,59 @@ function toggleRowCollapse(rowKey) {
     } else {
         console.error('Нет активного рендерера для коллапсирования строк');
     }
+}
+
+// Глобальная функция для триггера всех кнопок в столбце
+function triggerColumnButtons(fieldName, fieldType) {
+    console.log(`Триггер всех кнопок в столбце ${fieldName} (тип: ${fieldType})`);
+    
+    if (!window.currentPivotRenderer || !window.currentPivotConfig || !window.currentPivotData) {
+        console.error('Нет активного рендерера или данных для триггера кнопок');
+        return;
+    }
+    
+    const renderer = window.currentPivotRenderer;
+    const config = window.currentPivotConfig;
+    const pivotData = window.currentPivotData;
+    
+    // Определяем уровень поля
+    let visibleFields, fieldIndex;
+    if (fieldType === 'time') {
+        visibleFields = renderer.getVisibleTimeFields(config);
+    } else if (fieldType === 'slice') {
+        visibleFields = renderer.getVisibleSliceFields(config);
+    } else {
+        console.error('Неизвестный тип поля:', fieldType);
+        return;
+    }
+    
+    fieldIndex = visibleFields.findIndex(field => field.name === fieldName);
+    if (fieldIndex === -1) {
+        console.error('Поле не найдено в видимых полях');
+        return;
+    }
+    
+    console.log(`Находим все кнопки в столбце ${fieldName} (уровень ${fieldIndex})`);
+    
+    // Находим все кнопки в этом столбце
+    const buttons = document.querySelectorAll(`.collapse-btn`);
+    let triggeredCount = 0;
+    
+    buttons.forEach(button => {
+        // Проверяем, находится ли кнопка в нужном столбце
+        const row = button.closest('tr');
+        if (!row) return;
+        
+        const cells = row.querySelectorAll('td');
+        if (cells.length <= fieldIndex) return;
+        
+        const targetCell = cells[fieldIndex];
+        if (targetCell.contains(button)) {
+            console.log(`Нажатие кнопки в столбце ${fieldName}:`, button.textContent.trim());
+            button.click();
+            triggeredCount++;
+        }
+    });
+    
+    console.log(`Триггер завершен. Нажато кнопок: ${triggeredCount}`);
 }
