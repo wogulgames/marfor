@@ -453,10 +453,32 @@ class PivotData {
             
             let valueA, valueB;
             
+            // Проверяем, является ли это сортировкой по конкретному столбцу метрики (например, revenue_first_transactions_2024)
+            const isColumnMetric = sortConfig.field.includes('_') && !rowA.fields.hasOwnProperty(sortConfig.field);
+            
             // Проверяем, является ли поле полем строки (dimension)
             const isDimensionField = rowA.fields.hasOwnProperty(sortConfig.field);
             
-            if (!isDimensionField && sortConfig.type === 'number') {
+            if (isColumnMetric && sortConfig.type === 'number') {
+                // Сортировка по конкретному столбцу метрики (например, revenue_first_transactions_2024)
+                // Разделяем на имя метрики и ключ столбца
+                const parts = sortConfig.field.split('_');
+                const colKey = parts[parts.length - 1]; // Последняя часть - ключ столбца (например, "2024")
+                const metricName = parts.slice(0, -1).join('_'); // Все остальное - имя метрики
+                
+                valueA = this.crossTable.get(a)?.get(colKey)?.[metricName] || 0;
+                valueB = this.crossTable.get(b)?.get(colKey)?.[metricName] || 0;
+                
+                console.log('Сортировка по столбцу метрики:', {
+                    field: sortConfig.field,
+                    metricName,
+                    colKey,
+                    rowKeyA: a,
+                    rowKeyB: b,
+                    valueA,
+                    valueB
+                });
+            } else if (!isDimensionField && sortConfig.type === 'number') {
                 // Это метрика - суммируем значения из всех строк в группе
                 let sumA = 0, sumB = 0;
                 let valuesA = [];
@@ -958,7 +980,7 @@ class PivotRenderer {
         html += this.createTotalRowHTML(pivotData, config);
         
         if (config.mode === 'split-columns') {
-            // Режим разбивки по столбцам
+            // Режим разбивки по столбцам с иерархической структурой
             const rowKeys = pivotData.getRowKeys();
             const columnKeys = pivotData.getColumnKeys();
             
@@ -966,23 +988,110 @@ class PivotRenderer {
             console.log('Количество строк для отображения:', rowKeys.length);
             console.log('Примеры ключей строк для отображения:', rowKeys.slice(0, 10));
             
-            rowKeys.forEach(rowKey => {
+            // Определяем, какие поля использовать для иерархии
+            let visibleFields;
+            if (config.originalMode === 'slices') {
+                visibleFields = this.getVisibleSliceFields(config);
+            } else {
+                visibleFields = this.getVisibleTimeFields(config);
+            }
+            
+            // Создаем правильную иерархическую структуру
+            const hierarchicalRows = this.createHierarchicalStructure(rowKeys, visibleFields);
+            
+            // Создаем правильную иерархическую сортировку
+            const sortedRows = this.createHierarchicalSorting(hierarchicalRows, pivotData.rowGroups);
+            
+            console.log('Отладка sortedRows (split-columns):', {
+                totalRows: sortedRows.length,
+                collapsedRows: this.collapsedRows || new Set(),
+                collapsedRowsSize: (this.collapsedRows || new Set()).size,
+                firstFewRows: sortedRows.slice(0, 5).map(([key, data]) => ({ key, isAggregated: data.isAggregated, level: data.level }))
+            });
+            
+            sortedRows.forEach(([rowKey, rowData], index) => {
+                // Проверяем видимость строки
+                if (!this.isRowVisible(rowKey, this.collapsedRows || new Set())) {
+                    return; // Пропускаем невидимые строки
+                }
+                
+                // Проверяем, нужно ли добавить кнопку коллапсирования
+                let shouldShowCollapseButton = false;
+                
+                // Проверяем, есть ли кнопки в данных строки
+                if (rowData.collapseButtons && rowData.collapseButtons.length > 0) {
+                    shouldShowCollapseButton = true;
+                    console.log(`✅ Найдены кнопки для строки ${rowKey}: ${rowData.collapseButtons.length} кнопок`);
+                }
+                
+                const rowFields = rowData.fields;
+                
                 html += '<tr>';
                 
                 // Определяем, какие поля использовать в строках в зависимости от исходного режима
                 if (config.originalMode === 'slices') {
                     // Исходный режим "срезы" - используем срезы в строках
-                    const visibleSliceFields = this.getVisibleSliceFields(config);
-                    const rowFields = pivotData.getRowFields(rowKey, visibleSliceFields);
-                    visibleSliceFields.forEach(rowField => {
-                        html += `<td class="pivot-cell">${rowFields[rowField.name] || ''}</td>`;
+                    visibleFields.forEach((rowField, index) => {
+                        let cellContent = rowFields[rowField.name] || '';
+                        
+                        let cellClass = 'pivot-cell';
+                        
+                        // Кнопка для агрегированных строк (свернутое состояние)
+                        if (rowData.isAggregated && index === rowData.level) {
+                            const collapseKey = rowKey;
+                            const collapseIcon = '+';
+                            
+                            cellContent = `<button class="btn btn-sm btn-outline-primary collapse-btn" onclick="toggleRowCollapse('${collapseKey}')" style="margin-right: 8px; padding: 2px 6px; font-size: 12px; border-radius: 3px; min-width: 20px;">${collapseIcon}</button>${cellContent}`;
+                            
+                            cellClass += ' collapsed';
+                        }
+                        // Кнопки для первой дочерней строки (развернутое состояние)
+                        else if (shouldShowCollapseButton && rowData.collapseButtons) {
+                            const buttonForLevel = rowData.collapseButtons.find(btn => btn.level === index);
+                            
+                            if (buttonForLevel) {
+                                const collapseIcon = buttonForLevel.collapseIcon;
+                                const collapseKey = buttonForLevel.collapseKey;
+                                
+                                cellContent = `<button class="btn btn-sm btn-outline-primary collapse-btn" onclick="toggleRowCollapse('${collapseKey}')" style="margin-right: 8px; padding: 2px 6px; font-size: 12px; border-radius: 3px; min-width: 20px;">${collapseIcon}</button>${cellContent}`;
+                                
+                                cellClass += ' expanded';
+                            }
+                        }
+                            
+                        html += `<td class="${cellClass}">${cellContent}</td>`;
                     });
                 } else {
                     // Исходный режим "временные ряды" - используем временные поля в строках
-                    const visibleTimeFields = this.getVisibleTimeFields(config);
-                    const rowFields = pivotData.getRowFields(rowKey, visibleTimeFields);
-                    visibleTimeFields.forEach(rowField => {
-                        html += `<td class="pivot-cell">${rowFields[rowField.name] || ''}</td>`;
+                    visibleFields.forEach((rowField, index) => {
+                        let cellContent = rowFields[rowField.name] || '';
+                        
+                        let cellClass = 'pivot-cell';
+                        
+                        // Кнопка для агрегированных строк (свернутое состояние)
+                        if (rowData.isAggregated && index === rowData.level) {
+                            const collapseKey = rowKey;
+                            const collapseIcon = '+';
+                            
+                            cellContent = `<button class="btn btn-sm btn-outline-primary collapse-btn" onclick="toggleRowCollapse('${collapseKey}')" style="margin-right: 8px; padding: 2px 6px; font-size: 12px; border-radius: 3px; min-width: 20px;">${collapseIcon}</button>${cellContent}`;
+                            
+                            cellClass += ' collapsed';
+                        }
+                        // Кнопки для первой дочерней строки (развернутое состояние)
+                        else if (shouldShowCollapseButton && rowData.collapseButtons) {
+                            const buttonForLevel = rowData.collapseButtons.find(btn => btn.level === index);
+                            
+                            if (buttonForLevel) {
+                                const collapseIcon = buttonForLevel.collapseIcon;
+                                const collapseKey = buttonForLevel.collapseKey;
+                                
+                                cellContent = `<button class="btn btn-sm btn-outline-primary collapse-btn" onclick="toggleRowCollapse('${collapseKey}')" style="margin-right: 8px; padding: 2px 6px; font-size: 12px; border-radius: 3px; min-width: 20px;">${collapseIcon}</button>${cellContent}`;
+                                
+                                cellClass += ' expanded';
+                            }
+                        }
+                            
+                        html += `<td class="${cellClass}">${cellContent}</td>`;
                     });
                 }
                 
