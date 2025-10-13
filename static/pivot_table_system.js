@@ -2640,26 +2640,31 @@ function renderPivotChart(chartData, config) {
     const maxValue = Math.max(...allValues);
     const range = maxValue - minValue;
     
-    // Более агрессивные отступы для лучшей визуализации (25% от диапазона)
-    const padding = Math.max(range * 0.25, (maxValue * 0.1)); // Минимум 10% от максимального значения
+    // Подход Google Sheets: более агрессивные отступы (30% от диапазона)
+    const padding = Math.max(range * 0.3, (maxValue * 0.15)); // Минимум 15% от максимального значения
     
-    // Если минимум близок к нулю (меньше 5% от максимума), начинаем с нуля
-    const shouldStartFromZero = minValue < (maxValue * 0.05);
+    // Google всегда показывает значительную часть нулевой области
+    const shouldStartFromZero = minValue < (maxValue * 0.1); // Увеличили порог до 10%
     const yMin = shouldStartFromZero ? 0 : Math.max(0, minValue - padding);
     const yMax = maxValue + padding;
     
-    // Вычисляем оптимальный шаг для оси Y (стремимся к 8-10 делениям)
-    const targetSteps = 8;
-    const rawStepSize = range / targetSteps;
+    // Подход Google Sheets: вычисляем оптимальный шаг для оси Y (стремимся к 6-8 делениям)
+    const targetSteps = 6; // Меньше делений для лучшей читаемости
+    const actualRange = yMax - yMin; // Используем полный диапазон с отступами
+    const rawStepSize = actualRange / targetSteps;
     
-    // Округляем шаг до красивого числа
+    // Более агрессивное округление шага до красивого числа (как в Google Sheets)
     const magnitude = Math.pow(10, Math.floor(Math.log10(rawStepSize)));
     const residual = rawStepSize / magnitude;
     let stepSize;
-    if (residual > 5) {
+    if (residual > 7) {
         stepSize = 10 * magnitude;
-    } else if (residual > 2) {
+    } else if (residual > 5) {
+        stepSize = 7.5 * magnitude;
+    } else if (residual > 3) {
         stepSize = 5 * magnitude;
+    } else if (residual > 2) {
+        stepSize = 2.5 * magnitude;
     } else if (residual > 1) {
         stepSize = 2 * magnitude;
     } else {
@@ -2746,15 +2751,17 @@ function renderPivotChart(chartData, config) {
                     max: yMax,
                     ticks: {
                         stepSize: stepSize,
-                        maxTicksLimit: 12,
+                        maxTicksLimit: 8, // Меньше делений для читаемости
                         callback: function(value) {
                             return formatLargeNumber(value);
                         },
-                        font: { size: 12 }
+                        font: { size: 12 },
+                        padding: 8 // Больше отступы между метками и осью
                     },
                     grid: {
-                        color: 'rgba(0, 0, 0, 0.1)',
-                        lineWidth: 1
+                        color: 'rgba(0, 0, 0, 0.08)', // Более тонкие линии сетки
+                        lineWidth: 1,
+                        drawBorder: false // Убираем границу оси
                     }
                 }
             },
