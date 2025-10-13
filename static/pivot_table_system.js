@@ -1111,7 +1111,28 @@ class PivotRenderer {
                 // Значения для каждой метрики и каждого столбца (среза)
                 config.values.forEach(valueField => {
                     columnKeys.forEach(colKey => {
-                        const value = pivotData.getValue(rowKey, colKey, valueField.name);
+                        let value = 0;
+                        
+                        if (rowData.isAggregated) {
+                            // Для агрегированных строк суммируем значения из всех дочерних элементов
+                            rowKeys.forEach(childKey => {
+                                if (childKey.startsWith(rowKey + '|')) {
+                                    // Проверяем, что это непосредственный дочерний элемент
+                                    const childKeyParts = childKey.split('|');
+                                    const parentKeyParts = rowKey.split('|');
+                                    
+                                    // Если дочерний ключ на один уровень глубже родительского
+                                    if (childKeyParts.length === parentKeyParts.length + 1) {
+                                        const childValue = pivotData.getValue(childKey, colKey, valueField.name);
+                                        value += childValue;
+                                    }
+                                }
+                            });
+                        } else {
+                            // Для обычных строк берем значение из crossTable
+                            value = pivotData.getValue(rowKey, colKey, valueField.name);
+                        }
+                        
                         html += `<td class="pivot-cell" style="text-align: right;">${this.formatValue(value)}</td>`;
                     });
                 });
