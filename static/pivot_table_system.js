@@ -1782,12 +1782,6 @@ class PivotRenderer {
                     
                     return keyParts.length === currentKeyParts.length + 1;
                 })
-                // Добавляем дочерние элементы только если родитель раскрыт (НЕ свернут)
-                .filter(([key, rowData]) => {
-                    const isCurrentCollapsed = !(this.collapsedRows || new Set()).has(currentKey);
-                    console.log(`Проверка дочернего элемента: ${key}, currentKey=${currentKey}, isCurrentCollapsed=${isCurrentCollapsed}`);
-                    return !isCurrentCollapsed; // Показываем детей если родитель НЕ свернут
-                })
                 .sort(([keyA, rowA], [keyB, rowB]) => {
                     // Используем порядок из rowGroups (уже отсортированных)
                     const indexA = rowGroupsOrder.findIndex(rowKey => rowKey === keyA);
