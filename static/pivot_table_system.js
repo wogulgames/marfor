@@ -483,12 +483,12 @@ class PivotData {
                 valueB = this.crossTable.get(b)?.get(colKey)?.[metricName] || 0;
                 
                 console.log('Сортировка по столбцу метрики:', {
-                    field: sortConfig.field,
-                    metricName,
-                    colKey,
+                    field: sortConfig.field, 
+                    metricName, 
+                    colKey, 
                     rowKeyA: a,
                     rowKeyB: b,
-                    valueA,
+                    valueA, 
                     valueB
                 });
             } else if (!isDimensionField && sortConfig.type === 'number') {
@@ -1115,7 +1115,10 @@ class PivotRenderer {
                         
                         if (rowData.isAggregated) {
                             // Для агрегированных строк суммируем значения из всех дочерних элементов
-                            rowKeys.forEach(childKey => {
+                            let childCount = 0;
+                            
+                            // Ищем все дочерние элементы в pivotData.rowGroups (не в rowKeys!)
+                            pivotData.rowGroups.forEach((rowGroup, childKey) => {
                                 if (childKey.startsWith(rowKey + '|')) {
                                     // Проверяем, что это непосредственный дочерний элемент
                                     const childKeyParts = childKey.split('|');
@@ -1125,9 +1128,20 @@ class PivotRenderer {
                                     if (childKeyParts.length === parentKeyParts.length + 1) {
                                         const childValue = pivotData.getValue(childKey, colKey, valueField.name);
                                         value += childValue;
+                                        childCount++;
+                                        
+                                        // Отладочный лог для первых нескольких случаев
+                                        if (Math.random() < 0.01) {
+                                            console.log(`Агрегация для ${rowKey}/${colKey}: дочерний элемент ${childKey} = ${childValue}, общая сумма = ${value}`);
+                                        }
                                     }
                                 }
                             });
+                            
+                            // Отладочный лог для агрегированных строк
+                            if (Math.random() < 0.01) {
+                                console.log(`Агрегированная строка ${rowKey}, столбец ${colKey}: найдено ${childCount} дочерних элементов, итоговая сумма = ${value}`);
+                            }
                         } else {
                             // Для обычных строк берем значение из crossTable
                             value = pivotData.getValue(rowKey, colKey, valueField.name);
