@@ -478,9 +478,38 @@ class PivotData {
             }
             
             if (isColumnMetric && sortConfig.type === 'number') {
-                // Сортировка по конкретному столбцу метрики (например, revenue_first_transactions_2024)
-                valueA = this.crossTable.get(a)?.get(colKey)?.[metricName] || 0;
-                valueB = this.crossTable.get(b)?.get(colKey)?.[metricName] || 0;
+                // Сортировка по конкретному столбцу метрики (например, revenue_first_transactions_belarus)
+                // Для агрегированных строк нужно суммировать значения из всех дочерних элементов
+                
+                // Проверяем, является ли строка агрегированной
+                const isAggregatedA = !this.crossTable.has(a);
+                const isAggregatedB = !this.crossTable.has(b);
+                
+                if (isAggregatedA) {
+                    // Суммируем значения из всех дочерних элементов
+                    valueA = 0;
+                    const allRowKeys = Array.from(this.rowGroups.keys());
+                    allRowKeys.forEach(childKey => {
+                        if (childKey.startsWith(a + '|')) {
+                            valueA += this.crossTable.get(childKey)?.get(colKey)?.[metricName] || 0;
+                        }
+                    });
+                } else {
+                    valueA = this.crossTable.get(a)?.get(colKey)?.[metricName] || 0;
+                }
+                
+                if (isAggregatedB) {
+                    // Суммируем значения из всех дочерних элементов
+                    valueB = 0;
+                    const allRowKeys = Array.from(this.rowGroups.keys());
+                    allRowKeys.forEach(childKey => {
+                        if (childKey.startsWith(b + '|')) {
+                            valueB += this.crossTable.get(childKey)?.get(colKey)?.[metricName] || 0;
+                        }
+                    });
+                } else {
+                    valueB = this.crossTable.get(b)?.get(colKey)?.[metricName] || 0;
+                }
                 
                 console.log('Сортировка по столбцу метрики:', {
                     field: sortConfig.field, 
@@ -488,55 +517,120 @@ class PivotData {
                     colKey, 
                     rowKeyA: a,
                     rowKeyB: b,
+                    isAggregatedA,
+                    isAggregatedB,
                     valueA, 
                     valueB
                 });
             } else if (!isDimensionField && sortConfig.type === 'number') {
-                // Это метрика - суммируем значения из всех строк в группе
-                let sumA = 0, sumB = 0;
-                let valuesA = [];
-                let valuesB = [];
+                // Это метрика - суммируем значения
+                // В режиме split-columns используем crossTable, в обычном режиме - rowA.rows
                 
-                if (rowA.rows && rowA.rows.length > 0) {
-                    rowA.rows.forEach(row => {
-                        const rawValue = row[sortConfig.field];
-                        const value = (rawValue === null || rawValue === undefined || rawValue === '') ? 0 : parseFloat(rawValue);
-                        if (!isNaN(value)) {
-                            sumA += value;
-                            valuesA.push(value);
-                        }
-                    });
-                }
-                
-                if (rowB.rows && rowB.rows.length > 0) {
-                    rowB.rows.forEach(row => {
-                        const rawValue = row[sortConfig.field];
-                        const value = (rawValue === null || rawValue === undefined || rawValue === '') ? 0 : parseFloat(rawValue);
-                        if (!isNaN(value)) {
-                            sumB += value;
-                            valuesB.push(value);
-                        }
-                    });
-                }
-                
-                valueA = sumA;
-                valueB = sumB;
-                
-                // Логируем только первые 5 сравнений для отладки
-                if (Math.random() < 0.05) {
-                    console.log('Сортировка по метрике (пример):', { 
-                        field: sortConfig.field, 
-                        rowKeyA: a,
-                        rowKeyB: b,
-                        sumA, 
-                        sumB,
-                        rowsCountA: rowA.rows?.length || 0,
-                        rowsCountB: rowB.rows?.length || 0,
-                        valueA,
-                        valueB,
-                        sampleValuesA: valuesA.slice(0, 3),
-                        sampleValuesB: valuesB.slice(0, 3)
-                    });
+                if (this.crossTable.size > 0) {
+                    // Режим split-columns: суммируем значения из crossTable по всем столбцам
+                    const columnKeys = Array.from(this.columnGroups.keys());
+                    
+                    // Для агрегированных строк суммируем значения из всех дочерних элементов
+                    const isAggregatedA = !this.crossTable.has(a);
+                    const isAggregatedB = !this.crossTable.has(b);
+                    
+                    valueA = 0;
+                    valueB = 0;
+                    
+                    if (isAggregatedA) {
+                        // Суммируем значения из всех дочерних элементов по всем столбцам
+                        const allRowKeys = Array.from(this.rowGroups.keys());
+                        allRowKeys.forEach(childKey => {
+                            if (childKey.startsWith(a + '|')) {
+                                columnKeys.forEach(colKey => {
+                                    valueA += this.crossTable.get(childKey)?.get(colKey)?.[sortConfig.field] || 0;
+                                });
+                            }
+                        });
+                    } else {
+                        // Обычная строка - суммируем по всем столбцам
+                        columnKeys.forEach(colKey => {
+                            valueA += this.crossTable.get(a)?.get(colKey)?.[sortConfig.field] || 0;
+                        });
+                    }
+                    
+                    if (isAggregatedB) {
+                        // Суммируем значения из всех дочерних элементов по всем столбцам
+                        const allRowKeys = Array.from(this.rowGroups.keys());
+                        allRowKeys.forEach(childKey => {
+                            if (childKey.startsWith(b + '|')) {
+                                columnKeys.forEach(colKey => {
+                                    valueB += this.crossTable.get(childKey)?.get(colKey)?.[sortConfig.field] || 0;
+                                });
+                            }
+                        });
+                    } else {
+                        // Обычная строка - суммируем по всем столбцам
+                        columnKeys.forEach(colKey => {
+                            valueB += this.crossTable.get(b)?.get(colKey)?.[sortConfig.field] || 0;
+                        });
+                    }
+                    
+                    // Логируем для отладки
+                    if (Math.random() < 0.05) {
+                        console.log('Сортировка по метрике в split-columns (пример):', { 
+                            field: sortConfig.field, 
+                            rowKeyA: a,
+                            rowKeyB: b,
+                            isAggregatedA,
+                            isAggregatedB,
+                            valueA,
+                            valueB,
+                            columnsCount: columnKeys.length
+                        });
+                    }
+                } else {
+                    // Обычный режим: суммируем значения из rowA.rows
+                    let sumA = 0, sumB = 0;
+                    let valuesA = [];
+                    let valuesB = [];
+                    
+                    if (rowA.rows && rowA.rows.length > 0) {
+                        rowA.rows.forEach(row => {
+                            const rawValue = row[sortConfig.field];
+                            const value = (rawValue === null || rawValue === undefined || rawValue === '') ? 0 : parseFloat(rawValue);
+                            if (!isNaN(value)) {
+                                sumA += value;
+                                valuesA.push(value);
+                            }
+                        });
+                    }
+                    
+                    if (rowB.rows && rowB.rows.length > 0) {
+                        rowB.rows.forEach(row => {
+                            const rawValue = row[sortConfig.field];
+                            const value = (rawValue === null || rawValue === undefined || rawValue === '') ? 0 : parseFloat(rawValue);
+                            if (!isNaN(value)) {
+                                sumB += value;
+                                valuesB.push(value);
+                            }
+                        });
+                    }
+                    
+                    valueA = sumA;
+                    valueB = sumB;
+                    
+                    // Логируем только первые 5 сравнений для отладки
+                    if (Math.random() < 0.05) {
+                        console.log('Сортировка по метрике (пример):', { 
+                            field: sortConfig.field, 
+                            rowKeyA: a,
+                            rowKeyB: b,
+                            sumA, 
+                            sumB,
+                            rowsCountA: rowA.rows?.length || 0,
+                            rowsCountB: rowB.rows?.length || 0,
+                            valueA,
+                            valueB,
+                            sampleValuesA: valuesA.slice(0, 3),
+                            sampleValuesB: valuesB.slice(0, 3)
+                        });
+                    }
                 }
             } else {
                 // Сортировка по полю строки (dimension)
