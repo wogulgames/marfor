@@ -462,15 +462,21 @@ class PivotData {
                 
                 if (rowA.rows && rowA.rows.length > 0) {
                     rowA.rows.forEach(row => {
-                        const value = parseFloat(row[sortConfig.field]) || 0;
-                        sumA += value;
+                        const rawValue = row[sortConfig.field];
+                        const value = (rawValue === null || rawValue === undefined || rawValue === '') ? 0 : parseFloat(rawValue);
+                        if (!isNaN(value)) {
+                            sumA += value;
+                        }
                     });
                 }
                 
                 if (rowB.rows && rowB.rows.length > 0) {
                     rowB.rows.forEach(row => {
-                        const value = parseFloat(row[sortConfig.field]) || 0;
-                        sumB += value;
+                        const rawValue = row[sortConfig.field];
+                        const value = (rawValue === null || rawValue === undefined || rawValue === '') ? 0 : parseFloat(rawValue);
+                        if (!isNaN(value)) {
+                            sumB += value;
+                        }
                     });
                 }
                 
@@ -484,7 +490,9 @@ class PivotData {
                     sumA, 
                     sumB,
                     rowsCountA: rowA.rows?.length || 0,
-                    rowsCountB: rowB.rows?.length || 0
+                    rowsCountB: rowB.rows?.length || 0,
+                    valueA,
+                    valueB
                 });
             } else {
                 // Сортировка по полю строки (dimension)
