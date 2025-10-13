@@ -453,19 +453,32 @@ class PivotData {
             
             let valueA, valueB;
             
-            // Проверяем, является ли это сортировкой по конкретному столбцу метрики (например, revenue_first_transactions_2024)
-            const isColumnMetric = sortConfig.field.includes('_') && !rowA.fields.hasOwnProperty(sortConfig.field);
-            
             // Проверяем, является ли поле полем строки (dimension)
             const isDimensionField = rowA.fields.hasOwnProperty(sortConfig.field);
             
+            // Проверяем, является ли это сортировкой по конкретному столбцу метрики (например, revenue_first_transactions_2024)
+            // Это возможно только в режиме split-columns, где crossTable содержит данные
+            let isColumnMetric = false;
+            let colKey = null;
+            let metricName = null;
+            
+            if (!isDimensionField && sortConfig.field.includes('_') && this.crossTable.size > 0) {
+                // Пробуем разделить на метрику и ключ столбца
+                const parts = sortConfig.field.split('_');
+                const potentialColKey = parts[parts.length - 1];
+                const potentialMetricName = parts.slice(0, -1).join('_');
+                
+                // Проверяем, существует ли такой столбец в crossTable
+                const firstRowKey = this.crossTable.keys().next().value;
+                if (firstRowKey && this.crossTable.get(firstRowKey)?.has(potentialColKey)) {
+                    isColumnMetric = true;
+                    colKey = potentialColKey;
+                    metricName = potentialMetricName;
+                }
+            }
+            
             if (isColumnMetric && sortConfig.type === 'number') {
                 // Сортировка по конкретному столбцу метрики (например, revenue_first_transactions_2024)
-                // Разделяем на имя метрики и ключ столбца
-                const parts = sortConfig.field.split('_');
-                const colKey = parts[parts.length - 1]; // Последняя часть - ключ столбца (например, "2024")
-                const metricName = parts.slice(0, -1).join('_'); // Все остальное - имя метрики
-                
                 valueA = this.crossTable.get(a)?.get(colKey)?.[metricName] || 0;
                 valueB = this.crossTable.get(b)?.get(colKey)?.[metricName] || 0;
                 
