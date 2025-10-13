@@ -1568,12 +1568,19 @@ class PivotRenderer {
         const rowGroupsOrder = Array.from(rowGroups.keys());
         const sortedRootRows = rootRows.sort(([keyA, rowA], [keyB, rowB]) => {
             // Находим позиции в отсортированном rowGroups
-            const indexA = rowGroupsOrder.findIndex(rowKey => rowKey.startsWith(keyA));
-            const indexB = rowGroupsOrder.findIndex(rowKey => rowKey.startsWith(keyB));
+            // Ищем ТОЧНОЕ совпадение для агрегированных строк
+            const indexA = rowGroupsOrder.indexOf(keyA);
+            const indexB = rowGroupsOrder.indexOf(keyB);
             
             console.log(`Сравниваем корневые строки: ${keyA} (позиция ${indexA}) vs ${keyB} (позиция ${indexB})`);
             
-            return indexA - indexB;
+            // Если не найдено точное совпадение, ищем первую дочернюю строку
+            const finalIndexA = indexA !== -1 ? indexA : rowGroupsOrder.findIndex(rowKey => rowKey.startsWith(keyA + '|'));
+            const finalIndexB = indexB !== -1 ? indexB : rowGroupsOrder.findIndex(rowKey => rowKey.startsWith(keyB + '|'));
+            
+            console.log(`Финальные позиции: ${keyA} (${finalIndexA}) vs ${keyB} (${finalIndexB})`);
+            
+            return finalIndexA - finalIndexB;
         });
         
         console.log('Отсортированные корневые строки:', sortedRootRows.map(([key, data]) => key));
