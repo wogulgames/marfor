@@ -1114,28 +1114,23 @@ class PivotRenderer {
                         let value = 0;
                         
                         if (rowData.isAggregated) {
-                            // Для агрегированных строк суммируем значения из всех дочерних элементов
+                            // Для агрегированных строк суммируем значения из ВСЕХ дочерних элементов (рекурсивно)
                             let childCount = 0;
                             
                             // В режиме split-columns ищем все строки, которые начинаются с текущего ключа
-                            // и являются непосредственными дочерними элементами
+                            // Берем ВСЕ дочерние элементы, не только непосредственных детей
                             const allRowKeys = pivotData.getRowKeys();
-                            const parentKeyParts = rowKey.split('|');
                             
                             allRowKeys.forEach(childKey => {
+                                // Проверяем, что это дочерний элемент (любого уровня вложенности)
                                 if (childKey.startsWith(rowKey + '|')) {
-                                    const childKeyParts = childKey.split('|');
+                                    const childValue = pivotData.getValue(childKey, colKey, valueField.name);
+                                    value += childValue;
+                                    childCount++;
                                     
-                                    // Проверяем, что это непосредственный дочерний элемент
-                                    if (childKeyParts.length === parentKeyParts.length + 1) {
-                                        const childValue = pivotData.getValue(childKey, colKey, valueField.name);
-                                        value += childValue;
-                                        childCount++;
-                                        
-                                        // Отладочный лог для первых нескольких случаев
-                                        if (Math.random() < 0.01) {
-                                            console.log(`Агрегация для ${rowKey}/${colKey}: дочерний элемент ${childKey} = ${childValue}, общая сумма = ${value}`);
-                                        }
+                                    // Отладочный лог для первых нескольких случаев
+                                    if (Math.random() < 0.01) {
+                                        console.log(`Агрегация для ${rowKey}/${colKey}: дочерний элемент ${childKey} = ${childValue}, общая сумма = ${value}`);
                                     }
                                 }
                             });
