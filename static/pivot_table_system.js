@@ -2421,7 +2421,8 @@ let pivotChartInstance = null;
 
 // Функция для построения графика из данных сводной таблицы
 function updatePivotChart(chartDepthLevel = null) {
-    console.log('=== ПОСТРОЕНИЕ ГРАФИКА СВОДНОЙ ТАБЛИЦЫ ===');
+    console.log('🚀 === ПОСТРОЕНИЕ ГРАФИКА СВОДНОЙ ТАБЛИЦЫ ===');
+    console.log('📊 chartDepthLevel:', chartDepthLevel);
     
     if (!window.currentPivotData || !window.currentPivotConfig) {
         console.error('Нет данных для построения графика');
@@ -2603,7 +2604,9 @@ function sortRowKeysChronologically(rowKeys, config) {
 
 // Рендеринг графика
 function renderPivotChart(chartData, config) {
-    console.log('Рендеринг графика:', chartData);
+    console.log('🎯 === НАЧАЛО РЕНДЕРИНГА ГРАФИКА ===');
+    console.log('📊 Данные графика:', chartData);
+    console.log('⚙️ Конфигурация:', config);
     
     const canvas = document.getElementById('pivotChart');
     if (!canvas) {
@@ -2671,7 +2674,8 @@ function renderPivotChart(chartData, config) {
         stepSize = magnitude;
     }
     
-    console.log('Диапазон значений:', { 
+    console.log('📈 === НАСТРОЙКИ ОСИ Y ===');
+    console.log('🔢 Диапазон значений:', { 
         minValue, 
         maxValue, 
         range, 
@@ -2682,6 +2686,12 @@ function renderPivotChart(chartData, config) {
         stepSize,
         expectedSteps: Math.ceil(range / stepSize),
         actualRange: yMax - yMin
+    });
+    console.log('🎛️ Параметры Chart.js для оси Y:', {
+        beginAtZero: shouldStartFromZero,
+        min: shouldStartFromZero ? undefined : yMin,
+        max: yMax,
+        stepSize: stepSize
     });
     
     // Функция для форматирования больших чисел
