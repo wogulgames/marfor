@@ -2623,6 +2623,35 @@ function renderPivotChart(chartData, config) {
         dataset.backgroundColor = colors[index] + '33'; // Добавляем прозрачность
     });
     
+    // Находим минимальное и максимальное значения для настройки оси Y
+    let allValues = [];
+    chartData.datasets.forEach(dataset => {
+        allValues = allValues.concat(dataset.data);
+    });
+    
+    const minValue = Math.min(...allValues);
+    const maxValue = Math.max(...allValues);
+    const range = maxValue - minValue;
+    
+    // Добавляем отступы для лучшей визуализации (10% от диапазона)
+    const padding = range * 0.1;
+    const suggestedMin = Math.max(0, minValue - padding);
+    const suggestedMax = maxValue + padding;
+    
+    console.log('Диапазон значений:', { minValue, maxValue, range, suggestedMin, suggestedMax });
+    
+    // Функция для форматирования больших чисел
+    function formatLargeNumber(value) {
+        if (value >= 1000000000) {
+            return (value / 1000000000).toFixed(1) + ' млрд';
+        } else if (value >= 1000000) {
+            return (value / 1000000).toFixed(1) + ' млн';
+        } else if (value >= 1000) {
+            return (value / 1000).toFixed(1) + ' тыс';
+        }
+        return value.toFixed(0);
+    }
+    
     // Создаем новый график
     const ctx = canvas.getContext('2d');
     pivotChartInstance = new Chart(ctx, {
@@ -2643,7 +2672,19 @@ function renderPivotChart(chartData, config) {
                 },
                 tooltip: {
                     mode: 'index',
-                    intersect: false
+                    intersect: false,
+                    callbacks: {
+                        label: function(context) {
+                            let label = context.dataset.label || '';
+                            if (label) {
+                                label += ': ';
+                            }
+                            if (context.parsed.y !== null) {
+                                label += context.parsed.y.toLocaleString('ru-RU');
+                            }
+                            return label;
+                        }
+                    }
                 }
             },
             scales: {
@@ -2660,9 +2701,12 @@ function renderPivotChart(chartData, config) {
                         display: true,
                         text: 'Значение'
                     },
+                    beginAtZero: false,
+                    suggestedMin: suggestedMin,
+                    suggestedMax: suggestedMax,
                     ticks: {
                         callback: function(value) {
-                            return value.toLocaleString('ru-RU');
+                            return formatLargeNumber(value);
                         }
                     }
                 }
