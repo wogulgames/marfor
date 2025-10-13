@@ -2621,24 +2621,57 @@ function renderPivotChart(chartData, config) {
     chartData.datasets.forEach((dataset, index) => {
         dataset.borderColor = colors[index];
         dataset.backgroundColor = colors[index] + '33'; // Добавляем прозрачность
+        dataset.borderWidth = 3; // Увеличиваем толщину линии
+        dataset.pointRadius = 4; // Размер точек
+        dataset.pointHoverRadius = 6; // Размер точек при наведении
+        dataset.pointBackgroundColor = colors[index];
+        dataset.pointBorderColor = '#fff';
+        dataset.pointBorderWidth = 2;
+        dataset.tension = 0.1; // Небольшое скругление линий
     });
     
     // Находим минимальное и максимальное значения для настройки оси Y
     let allValues = [];
     chartData.datasets.forEach(dataset => {
-        allValues = allValues.concat(dataset.data);
+        allValues = allValues.concat(dataset.data.filter(v => v > 0)); // Игнорируем нули
     });
     
     const minValue = Math.min(...allValues);
     const maxValue = Math.max(...allValues);
     const range = maxValue - minValue;
     
-    // Добавляем отступы для лучшей визуализации (10% от диапазона)
-    const padding = range * 0.1;
-    const suggestedMin = Math.max(0, minValue - padding);
-    const suggestedMax = maxValue + padding;
+    // Добавляем отступы для лучшей визуализации (15% от диапазона)
+    const padding = range * 0.15;
+    const yMin = Math.max(0, minValue - padding);
+    const yMax = maxValue + padding;
     
-    console.log('Диапазон значений:', { minValue, maxValue, range, suggestedMin, suggestedMax });
+    // Вычисляем оптимальный шаг для оси Y (стремимся к 8-10 делениям)
+    const targetSteps = 8;
+    const rawStepSize = range / targetSteps;
+    
+    // Округляем шаг до красивого числа
+    const magnitude = Math.pow(10, Math.floor(Math.log10(rawStepSize)));
+    const residual = rawStepSize / magnitude;
+    let stepSize;
+    if (residual > 5) {
+        stepSize = 10 * magnitude;
+    } else if (residual > 2) {
+        stepSize = 5 * magnitude;
+    } else if (residual > 1) {
+        stepSize = 2 * magnitude;
+    } else {
+        stepSize = magnitude;
+    }
+    
+    console.log('Диапазон значений:', { 
+        minValue, 
+        maxValue, 
+        range, 
+        yMin, 
+        yMax, 
+        stepSize,
+        expectedSteps: Math.ceil(range / stepSize)
+    });
     
     // Функция для форматирования больших чисел
     function formatLargeNumber(value) {
@@ -2699,15 +2732,23 @@ function renderPivotChart(chartData, config) {
                     display: true,
                     title: {
                         display: true,
-                        text: 'Значение'
+                        text: 'Значение',
+                        font: { size: 14, weight: 'bold' }
                     },
                     beginAtZero: false,
-                    suggestedMin: suggestedMin,
-                    suggestedMax: suggestedMax,
+                    min: yMin,
+                    max: yMax,
                     ticks: {
+                        stepSize: stepSize,
+                        maxTicksLimit: 10,
                         callback: function(value) {
                             return formatLargeNumber(value);
-                        }
+                        },
+                        font: { size: 12 }
+                    },
+                    grid: {
+                        color: 'rgba(0, 0, 0, 0.1)',
+                        lineWidth: 1
                     }
                 }
             },
