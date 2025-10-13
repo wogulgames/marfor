@@ -459,6 +459,8 @@ class PivotData {
             if (!isDimensionField && sortConfig.type === 'number') {
                 // Это метрика - суммируем значения из всех строк в группе
                 let sumA = 0, sumB = 0;
+                let valuesA = [];
+                let valuesB = [];
                 
                 if (rowA.rows && rowA.rows.length > 0) {
                     rowA.rows.forEach(row => {
@@ -466,6 +468,7 @@ class PivotData {
                         const value = (rawValue === null || rawValue === undefined || rawValue === '') ? 0 : parseFloat(rawValue);
                         if (!isNaN(value)) {
                             sumA += value;
+                            valuesA.push(value);
                         }
                     });
                 }
@@ -476,6 +479,7 @@ class PivotData {
                         const value = (rawValue === null || rawValue === undefined || rawValue === '') ? 0 : parseFloat(rawValue);
                         if (!isNaN(value)) {
                             sumB += value;
+                            valuesB.push(value);
                         }
                     });
                 }
@@ -483,17 +487,22 @@ class PivotData {
                 valueA = sumA;
                 valueB = sumB;
                 
-                console.log('Сортировка по метрике:', { 
-                    field: sortConfig.field, 
-                    rowKeyA: a,
-                    rowKeyB: b,
-                    sumA, 
-                    sumB,
-                    rowsCountA: rowA.rows?.length || 0,
-                    rowsCountB: rowB.rows?.length || 0,
-                    valueA,
-                    valueB
-                });
+                // Логируем только первые 5 сравнений для отладки
+                if (Math.random() < 0.05) {
+                    console.log('Сортировка по метрике (пример):', { 
+                        field: sortConfig.field, 
+                        rowKeyA: a,
+                        rowKeyB: b,
+                        sumA, 
+                        sumB,
+                        rowsCountA: rowA.rows?.length || 0,
+                        rowsCountB: rowB.rows?.length || 0,
+                        valueA,
+                        valueB,
+                        sampleValuesA: valuesA.slice(0, 3),
+                        sampleValuesB: valuesB.slice(0, 3)
+                    });
+                }
             } else {
                 // Сортировка по полю строки (dimension)
                 valueA = rowA.fields[sortConfig.field];
@@ -536,6 +545,24 @@ class PivotData {
         this.rowGroups = sortedRowGroups;
         console.log('Сортировка применена, новый порядок строк:', sortedRowKeys.slice(0, 10));
         console.log('Примеры ключей rowGroups ПОСЛЕ сортировки:', Array.from(this.rowGroups.keys()).slice(0, 10));
+        
+        // Логируем первые 10 строк с их значениями метрики для проверки
+        console.log('Первые 10 строк после сортировки с значениями:');
+        sortedRowKeys.slice(0, 10).forEach(key => {
+            const rowGroup = sortedRowGroups.get(key);
+            if (rowGroup && rowGroup.rows) {
+                let sum = 0;
+                rowGroup.rows.forEach(row => {
+                    const rawValue = row[sortConfig.field];
+                    const value = (rawValue === null || rawValue === undefined || rawValue === '') ? 0 : parseFloat(rawValue);
+                    if (!isNaN(value)) {
+                        sum += value;
+                    }
+                });
+                console.log(`  ${key}: ${sum.toFixed(2)}`);
+            }
+        });
+        
         console.log('=== КОНЕЦ СОРТИРОВКИ ДАННЫХ ===');
     }
     
