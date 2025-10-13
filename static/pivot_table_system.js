@@ -1117,14 +1117,16 @@ class PivotRenderer {
                             // Для агрегированных строк суммируем значения из всех дочерних элементов
                             let childCount = 0;
                             
-                            // Ищем все дочерние элементы в pivotData.rowGroups (не в rowKeys!)
-                            pivotData.rowGroups.forEach((rowGroup, childKey) => {
+                            // В режиме split-columns ищем все строки, которые начинаются с текущего ключа
+                            // и являются непосредственными дочерними элементами
+                            const allRowKeys = pivotData.getRowKeys();
+                            const parentKeyParts = rowKey.split('|');
+                            
+                            allRowKeys.forEach(childKey => {
                                 if (childKey.startsWith(rowKey + '|')) {
-                                    // Проверяем, что это непосредственный дочерний элемент
                                     const childKeyParts = childKey.split('|');
-                                    const parentKeyParts = rowKey.split('|');
                                     
-                                    // Если дочерний ключ на один уровень глубже родительского
+                                    // Проверяем, что это непосредственный дочерний элемент
                                     if (childKeyParts.length === parentKeyParts.length + 1) {
                                         const childValue = pivotData.getValue(childKey, colKey, valueField.name);
                                         value += childValue;
