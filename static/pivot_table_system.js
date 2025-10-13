@@ -453,51 +453,41 @@ class PivotData {
             
             let valueA, valueB;
             
-            // Проверяем, является ли поле метрикой (проверяем наличие в crossTable)
-            const isMetric = this.crossTable.has(a) && 
-                           this.crossTable.get(a).size > 0 && 
-                           this.crossTable.get(a).values().next().value.hasOwnProperty(sortConfig.field);
+            // Проверяем, является ли поле полем строки (dimension)
+            const isDimensionField = rowA.fields.hasOwnProperty(sortConfig.field);
             
-            // Проверяем, является ли это сортировкой по конкретному столбцу метрики
-            const isSpecificColumnMetric = sortConfig.field.includes('_') && 
-                                         this.crossTable.has(a) && 
-                                         this.crossTable.get(a).size > 0;
-            
-            if (isSpecificColumnMetric && sortConfig.type === 'number') {
-                // Сортировка по конкретному столбцу метрики (например, revenue_first_transactions_2024)
-                // Находим последний разделитель _ чтобы отделить метрику от ключа столбца
-                const lastUnderscoreIndex = sortConfig.field.lastIndexOf('_');
-                const metricName = sortConfig.field.substring(0, lastUnderscoreIndex);
-                const colKey = sortConfig.field.substring(lastUnderscoreIndex + 1);
-                
-                valueA = this.crossTable.get(a).get(colKey)?.[metricName] || 0;
-                valueB = this.crossTable.get(b).get(colKey)?.[metricName] || 0;
-                
-                console.log('Сортировка по конкретному столбцу метрики:', { 
-                    field: sortConfig.field, 
-                    metricName, 
-                    colKey, 
-                    valueA, 
-                    valueB,
-                    availableColKeys: Array.from(this.crossTable.get(a).keys())
-                });
-            } else if (isMetric && sortConfig.type === 'number') {
-                // Сортировка по метрике - суммируем все значения по столбцам
+            if (!isDimensionField && sortConfig.type === 'number') {
+                // Это метрика - суммируем значения из всех строк в группе
                 let sumA = 0, sumB = 0;
                 
-                this.crossTable.get(a).forEach((colMap, colKey) => {
-                    sumA += colMap[sortConfig.field] || 0;
-                });
+                if (rowA.rows && rowA.rows.length > 0) {
+                    rowA.rows.forEach(row => {
+                        const value = parseFloat(row[sortConfig.field]) || 0;
+                        sumA += value;
+                    });
+                }
                 
-                this.crossTable.get(b).forEach((colMap, colKey) => {
-                    sumB += colMap[sortConfig.field] || 0;
-                });
+                if (rowB.rows && rowB.rows.length > 0) {
+                    rowB.rows.forEach(row => {
+                        const value = parseFloat(row[sortConfig.field]) || 0;
+                        sumB += value;
+                    });
+                }
                 
                 valueA = sumA;
                 valueB = sumB;
-                console.log('Сортировка по метрике (сумма):', { field: sortConfig.field, sumA, sumB });
+                
+                console.log('Сортировка по метрике:', { 
+                    field: sortConfig.field, 
+                    rowKeyA: a,
+                    rowKeyB: b,
+                    sumA, 
+                    sumB,
+                    rowsCountA: rowA.rows?.length || 0,
+                    rowsCountB: rowB.rows?.length || 0
+                });
             } else {
-                // Сортировка по полю строки
+                // Сортировка по полю строки (dimension)
                 valueA = rowA.fields[sortConfig.field];
                 valueB = rowB.fields[sortConfig.field];
                 
