@@ -2640,9 +2640,12 @@ function renderPivotChart(chartData, config) {
     const maxValue = Math.max(...allValues);
     const range = maxValue - minValue;
     
-    // Добавляем отступы для лучшей визуализации (15% от диапазона)
-    const padding = range * 0.15;
-    const yMin = Math.max(0, minValue - padding);
+    // Более агрессивные отступы для лучшей визуализации (25% от диапазона)
+    const padding = Math.max(range * 0.25, (maxValue * 0.1)); // Минимум 10% от максимального значения
+    
+    // Если минимум близок к нулю (меньше 5% от максимума), начинаем с нуля
+    const shouldStartFromZero = minValue < (maxValue * 0.05);
+    const yMin = shouldStartFromZero ? 0 : Math.max(0, minValue - padding);
     const yMax = maxValue + padding;
     
     // Вычисляем оптимальный шаг для оси Y (стремимся к 8-10 делениям)
@@ -2667,10 +2670,13 @@ function renderPivotChart(chartData, config) {
         minValue, 
         maxValue, 
         range, 
+        padding,
+        shouldStartFromZero,
         yMin, 
         yMax, 
         stepSize,
-        expectedSteps: Math.ceil(range / stepSize)
+        expectedSteps: Math.ceil(range / stepSize),
+        actualRange: yMax - yMin
     });
     
     // Функция для форматирования больших чисел
@@ -2735,12 +2741,12 @@ function renderPivotChart(chartData, config) {
                         text: 'Значение',
                         font: { size: 14, weight: 'bold' }
                     },
-                    beginAtZero: false,
-                    min: yMin,
+                    beginAtZero: shouldStartFromZero,
+                    min: shouldStartFromZero ? undefined : yMin, // Если начинаем с нуля, не задаем min
                     max: yMax,
                     ticks: {
                         stepSize: stepSize,
-                        maxTicksLimit: 10,
+                        maxTicksLimit: 12,
                         callback: function(value) {
                             return formatLargeNumber(value);
                         },
