@@ -579,14 +579,14 @@ class PivotData {
                             rowKeyB: b,
                             isAggregatedA,
                             isAggregatedB,
-                            valueA,
-                            valueB,
+                    valueA, 
+                    valueB,
                             columnsCount: columnKeys.length
-                        });
+                });
                     }
                 } else {
                     // Обычный режим: суммируем значения из rowA.rows
-                    let sumA = 0, sumB = 0;
+                let sumA = 0, sumB = 0;
                     let valuesA = [];
                     let valuesB = [];
                     
@@ -611,9 +611,9 @@ class PivotData {
                             }
                         });
                     }
-                    
-                    valueA = sumA;
-                    valueB = sumB;
+                
+                valueA = sumA;
+                valueB = sumB;
                     
                     // Логируем только первые 5 сравнений для отладки
                     if (Math.random() < 0.05) {
@@ -791,6 +791,15 @@ class PivotRenderer {
         container.innerHTML = html;
         
         console.log('Сводная таблица отрендерена');
+        
+        // Автоматически строим график после рендеринга таблицы
+        setTimeout(() => {
+            if (typeof updatePivotChart === 'function') {
+                console.log('Автоматическое построение графика...');
+                updatePivotChart();
+            }
+        }, 100);
+        
         console.log('=== КОНЕЦ РЕНДЕРИНГА ===');
     }
     
@@ -802,6 +811,24 @@ class PivotRenderer {
         html += '.pivot-cell.expanded { background-color: #e3f2fd !important; border-left: 3px solid #2196f3 !important; }';
         html += '.pivot-cell.collapsed { background-color: #f5f5f5 !important; border-left: 3px solid #9e9e9e !important; }';
         html += '</style>';
+        
+        // Контейнер для графика
+        html += '<div class="card mb-3">';
+        html += '<div class="card-header bg-primary text-white">';
+        html += '<div class="d-flex justify-content-between align-items-center">';
+        html += '<h6 class="mb-0"><i class="fas fa-chart-line me-2"></i>График</h6>';
+        html += '<div class="btn-group btn-group-sm" role="group">';
+        html += '<button type="button" class="btn btn-light btn-sm" onclick="updatePivotChart()" title="Обновить график">';
+        html += '<i class="fas fa-sync-alt"></i>';
+        html += '</button>';
+        html += '</div>';
+        html += '</div>';
+        html += '</div>';
+        html += '<div class="card-body">';
+        html += '<canvas id="pivotChart" style="max-height: 400px;"></canvas>';
+        html += '</div>';
+        html += '</div>';
+        
         html += '<div class="d-flex justify-content-between align-items-center mb-3">';
         html += '<h6 class="mb-0"><i class="fas fa-table me-2"></i>Сводная таблица (новая система)</h6>';
         html += '</div>';
@@ -2389,7 +2416,294 @@ function triggerColumnButtons(fieldName, fieldType) {
     console.log(`Триггер завершен. Нажато кнопок: ${triggeredCount}`);
 }
 
+// Глобальная переменная для хранения экземпляра графика
+let pivotChartInstance = null;
+
+// Функция для построения графика из данных сводной таблицы
+function updatePivotChart(chartDepthLevel = null) {
+    console.log('=== ПОСТРОЕНИЕ ГРАФИКА СВОДНОЙ ТАБЛИЦЫ ===');
+    
+    if (!window.currentPivotData || !window.currentPivotConfig) {
+        console.error('Нет данных для построения графика');
+        return;
+    }
+    
+    const pivotData = window.currentPivotData;
+    const config = window.currentPivotConfig;
+    
+    console.log('Данные для графика:', { 
+        rowGroups: pivotData.rowGroups.size, 
+        columnGroups: pivotData.columnGroups.size,
+        mode: config.mode
+    });
+    
+    // Определяем уровень вложенности для графика
+    // Если не указан, используем максимальный уровень (самый детальный)
+    const maxLevel = config.rows.length - 1;
+    const targetLevel = chartDepthLevel !== null ? chartDepthLevel : maxLevel;
+    
+    console.log(`Уровень вложенности для графика: ${targetLevel} (макс: ${maxLevel})`);
+    
+    // Получаем данные для графика с учетом уровня вложенности
+    const chartData = prepareChartData(pivotData, config, targetLevel);
+    
+    // Строим график
+    renderPivotChart(chartData, config);
+}
+
+// Подготовка данных для графика
+function prepareChartData(pivotData, config, targetLevel) {
+    console.log('Подготовка данных для графика, уровень:', targetLevel);
+    
+    const labels = [];
+    const datasets = [];
+    
+    // Получаем все ключи строк
+    const allRowKeys = Array.from(pivotData.rowGroups.keys());
+    
+    // Фильтруем строки по уровню вложенности
+    // Уровень = количество разделителей '|' в ключе
+    const filteredRowKeys = allRowKeys.filter(key => {
+        const level = key.split('|').length - 1;
+        return level === targetLevel;
+    });
+    
+    console.log(`Отфильтровано строк: ${filteredRowKeys.length} из ${allRowKeys.length}`);
+    
+    // Сортируем строки в хронологическом порядке (игнорируем сортировку таблицы)
+    const sortedRowKeys = sortRowKeysChronologically(filteredRowKeys, config);
+    
+    console.log('Отсортированные ключи строк:', sortedRowKeys.slice(0, 10));
+    
+    // Создаем метки (labels) из ключей строк
+    sortedRowKeys.forEach(rowKey => {
+        const rowGroup = pivotData.rowGroups.get(rowKey);
+        if (rowGroup) {
+            // Формируем метку из полей строки
+            const labelParts = [];
+            config.rows.forEach(field => {
+                if (rowGroup.fields[field.name] !== undefined) {
+                    labelParts.push(rowGroup.fields[field.name]);
+                }
+            });
+            labels.push(labelParts.join(' | '));
+        }
+    });
+    
+    // Создаем datasets для каждой метрики и столбца
+    if (config.mode === 'split-columns') {
+        // Режим разбивки по столбцам: создаем dataset для каждого столбца
+        const columnKeys = Array.from(pivotData.columnGroups.keys());
+        
+        config.values.forEach(valueField => {
+            columnKeys.forEach(colKey => {
+                const dataValues = [];
+                
+                sortedRowKeys.forEach(rowKey => {
+                    // Получаем значение для этой строки и столбца
+                    let value = 0;
+                    
+                    // Проверяем, есть ли эта строка в crossTable (детализированная строка)
+                    if (pivotData.crossTable.has(rowKey)) {
+                        value = pivotData.getValue(rowKey, colKey, valueField.name);
+                    } else {
+                        // Агрегированная строка - суммируем значения из всех дочерних элементов
+                        const allKeys = Array.from(pivotData.rowGroups.keys());
+                        allKeys.forEach(childKey => {
+                            if (childKey.startsWith(rowKey + '|')) {
+                                value += pivotData.getValue(childKey, colKey, valueField.name);
+                            }
+                        });
+                    }
+                    
+                    dataValues.push(value);
+                });
+                
+                // Получаем информацию о столбце для метки
+                const columnGroup = pivotData.columnGroups.get(colKey);
+                const columnLabel = columnGroup ? columnGroup.fields[config.columns[0].name] : colKey;
+                
+                datasets.push({
+                    label: `${valueField.label} - ${columnLabel}`,
+                    data: dataValues,
+                    borderWidth: 2,
+                    fill: false
+                });
+            });
+        });
+    } else {
+        // Обычный режим: создаем dataset для каждой метрики
+        config.values.forEach(valueField => {
+            const dataValues = [];
+            
+            sortedRowKeys.forEach(rowKey => {
+                const rowGroup = pivotData.rowGroups.get(rowKey);
+                if (rowGroup && rowGroup.rows && rowGroup.rows.length > 0) {
+                    // Суммируем значения из всех строк в группе
+                    let sum = 0;
+                    rowGroup.rows.forEach(row => {
+                        const value = parseFloat(row[valueField.name]) || 0;
+                        sum += value;
+                    });
+                    dataValues.push(sum);
+                } else {
+                    dataValues.push(0);
+                }
+            });
+            
+            datasets.push({
+                label: valueField.label,
+                data: dataValues,
+                borderWidth: 2,
+                fill: false
+            });
+        });
+    }
+    
+    return { labels, datasets };
+}
+
+// Сортировка ключей строк в хронологическом порядке
+function sortRowKeysChronologically(rowKeys, config) {
+    console.log('Сортировка строк в хронологическом порядке');
+    
+    // Если это временные ряды, сортируем по временным полям
+    const timeFields = config.rows.filter(field => field.type === 'time');
+    
+    if (timeFields.length > 0) {
+        return rowKeys.sort((a, b) => {
+            const fieldsA = a.split('|');
+            const fieldsB = b.split('|');
+            
+            // Сравниваем по каждому временному полю
+            for (let i = 0; i < Math.min(fieldsA.length, fieldsB.length); i++) {
+                const valueA = fieldsA[i];
+                const valueB = fieldsB[i];
+                
+                // Пробуем преобразовать в число для сравнения
+                const numA = parseFloat(valueA);
+                const numB = parseFloat(valueB);
+                
+                if (!isNaN(numA) && !isNaN(numB)) {
+                    if (numA !== numB) return numA - numB;
+                } else {
+                    // Текстовое сравнение
+                    if (valueA < valueB) return -1;
+                    if (valueA > valueB) return 1;
+                }
+            }
+            
+            return 0;
+        });
+    }
+    
+    // Для срезов используем существующий порядок
+    return rowKeys;
+}
+
+// Рендеринг графика
+function renderPivotChart(chartData, config) {
+    console.log('Рендеринг графика:', chartData);
+    
+    const canvas = document.getElementById('pivotChart');
+    if (!canvas) {
+        console.error('Canvas для графика не найден');
+        return;
+    }
+    
+    // Уничтожаем предыдущий экземпляр графика
+    if (pivotChartInstance) {
+        pivotChartInstance.destroy();
+    }
+    
+    // Генерируем цвета для datasets
+    const colors = generateChartColors(chartData.datasets.length);
+    chartData.datasets.forEach((dataset, index) => {
+        dataset.borderColor = colors[index];
+        dataset.backgroundColor = colors[index] + '33'; // Добавляем прозрачность
+    });
+    
+    // Создаем новый график
+    const ctx = canvas.getContext('2d');
+    pivotChartInstance = new Chart(ctx, {
+        type: 'line',
+        data: chartData,
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                title: {
+                    display: true,
+                    text: config.mode === 'split-columns' ? 'Временные ряды с разбивкой' : 'Временные ряды',
+                    font: { size: 16, weight: 'bold' }
+                },
+                legend: {
+                    display: true,
+                    position: 'top'
+                },
+                tooltip: {
+                    mode: 'index',
+                    intersect: false
+                }
+            },
+            scales: {
+                x: {
+                    display: true,
+                    title: {
+                        display: true,
+                        text: 'Период'
+                    }
+                },
+                y: {
+                    display: true,
+                    title: {
+                        display: true,
+                        text: 'Значение'
+                    },
+                    ticks: {
+                        callback: function(value) {
+                            return value.toLocaleString('ru-RU');
+                        }
+                    }
+                }
+            },
+            interaction: {
+                mode: 'nearest',
+                axis: 'x',
+                intersect: false
+            }
+        }
+    });
+    
+    console.log('График успешно создан');
+}
+
+// Генерация цветов для графика
+function generateChartColors(count) {
+    const baseColors = [
+        '#007bff', // Синий
+        '#28a745', // Зеленый
+        '#dc3545', // Красный
+        '#ffc107', // Желтый
+        '#17a2b8', // Голубой
+        '#6f42c1', // Фиолетовый
+        '#fd7e14', // Оранжевый
+        '#20c997', // Бирюзовый
+        '#e83e8c', // Розовый
+        '#6c757d'  // Серый
+    ];
+    
+    const colors = [];
+    for (let i = 0; i < count; i++) {
+        colors.push(baseColors[i % baseColors.length]);
+    }
+    
+    return colors;
+}
+
 // Проверяем, что функции доступны глобально
 console.log('🔍 Проверка доступности функций:');
 console.log('- window.togglePivotSort:', typeof window.togglePivotSort);
 console.log('- togglePivotSort:', typeof togglePivotSort);
+console.log('- window.updatePivotChart:', typeof window.updatePivotChart);
+console.log('- updatePivotChart:', typeof updatePivotChart);
