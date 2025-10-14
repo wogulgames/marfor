@@ -2643,20 +2643,38 @@ function renderPivotChart(chartData, config) {
     const maxValue = Math.max(...allValues);
     const range = maxValue - minValue;
     
-    // Более агрессивное масштабирование для лучшей визуализации
-    const padding = range * 0.1; // Только 10% отступов вместо 30%
+    // BI-подход (Tableau/Looker): фокус на диапазоне изменения
+    // Вычисляем коэффициент вариации для определения оптимального масштабирования
+    const mean = allValues.reduce((a, b) => a + b, 0) / allValues.length;
+    const coefficientOfVariation = (range / mean) * 100; // В процентах
     
-    // НИКОГДА не начинаем с нуля для больших чисел
-    const shouldStartFromZero = false;
-    const yMin = minValue - padding; // Начинаем чуть ниже минимума
-    const yMax = maxValue + padding; // Заканчиваем чуть выше максимума
+    console.log('📊 Коэффициент вариации:', coefficientOfVariation.toFixed(2) + '%');
     
-    // Подход Google Sheets: вычисляем оптимальный шаг для оси Y (стремимся к 6-8 делениям)
-    const targetSteps = 6; // Меньше делений для лучшей читаемости
-    const actualRange = yMax - yMin; // Используем полный диапазон с отступами
+    // Определяем отступы на основе коэффициента вариации
+    let paddingPercent;
+    if (coefficientOfVariation < 10) {
+        // Низкая вариативность - минимальные отступы для видимости изменений
+        paddingPercent = 0.05; // 5%
+    } else if (coefficientOfVariation < 30) {
+        // Средняя вариативность
+        paddingPercent = 0.08; // 8%
+    } else {
+        // Высокая вариативность
+        paddingPercent = 0.12; // 12%
+    }
+    
+    const padding = range * paddingPercent;
+    
+    // ВСЕГДА фокусируемся на диапазоне данных (как Tableau)
+    const yMin = Math.max(0, minValue - padding);
+    const yMax = maxValue + padding;
+    
+    // Вычисляем оптимальный шаг для 5-7 делений
+    const targetSteps = 6;
+    const actualRange = yMax - yMin;
     const rawStepSize = actualRange / targetSteps;
     
-    // Более агрессивное округление шага до красивого числа (как в Google Sheets)
+    // Округляем до "красивого" числа
     const magnitude = Math.pow(10, Math.floor(Math.log10(rawStepSize)));
     const residual = rawStepSize / magnitude;
     let stepSize;
