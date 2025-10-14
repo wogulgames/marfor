@@ -1135,9 +1135,9 @@ def list_projects():
                         project_id = filename.replace('.json', '')
                         project_name = project.get('data_info', {}).get('filename', 'Проект без имени')
                         # Получаем время модификации файла
-                        import os.path, time
+                        from time import strftime, localtime
                         mtime = os.path.getmtime(project_file)
-                        timestamp = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(mtime))
+                        timestamp = strftime('%Y-%m-%d %H:%M:%S', localtime(mtime))
                         
                         projects.append({
                             'id': project_id,
