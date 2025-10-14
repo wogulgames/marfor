@@ -298,6 +298,19 @@
                     existingTimeSeries = result.time_series;
                     console.log('Загружено временных рядов:', existingTimeSeries.length);
                     console.log('Первые 5 записей:', existingTimeSeries.slice(0, 5));
+                    
+                    // Детальный вывод первой записи
+                    if (existingTimeSeries.length > 0) {
+                        const first = existingTimeSeries[0];
+                        console.log('Детали первой записи:', {
+                            year: first.year,
+                            yearType: typeof first.year,
+                            halfyear: first.halfyear,
+                            quarter: first.quarter,
+                            month: first.month,
+                            allKeys: Object.keys(first)
+                        });
+                    }
                 } else {
                     console.error('Ошибка:', result.message);
                 }
@@ -345,6 +358,13 @@
             
             existingTimeSeries.forEach(item => {
                 const year = item.year;
+                
+                // Проверка наличия года
+                if (!year || year === '' || year === null || year === undefined) {
+                    console.warn('Запись без года:', item);
+                    return; // Пропускаем записи без года
+                }
+                
                 if (!hierarchy[year]) {
                     hierarchy[year] = {};
                 }
