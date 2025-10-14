@@ -647,7 +647,7 @@ def get_processed_data(session_id):
 def get_time_series_data(session_id):
     """Получение данных временных рядов для визуализации"""
     try:
-        print(f"🔧 ВЕРСИЯ КОДА: 2.14.1 - Исправлено чтение настройки обработки пропусков")
+        print(f"🔧 ВЕРСИЯ КОДА: 2.15.0 - Добавлена кнопка перезагрузки данных")
         if not session_id or forecast_app.session_id != session_id:
             return jsonify({'success': False, 'message': 'Сессия не найдена'})
         
@@ -1874,6 +1874,41 @@ def upload_file():
     
     return jsonify({'success': False, 'message': 'Недопустимый тип файла'})
 
+@app.route('/api/reload_data/<session_id>', methods=['POST'])
+def reload_data(session_id):
+    """Перезагрузка данных из исходного файла"""
+    try:
+        if not session_id or forecast_app.session_id != session_id:
+            return jsonify({'success': False, 'message': 'Сессия не найдена'})
+        
+        # Ищем исходный файл в папке uploads
+        upload_folder = app.config['UPLOAD_FOLDER']
+        matching_files = [f for f in os.listdir(upload_folder) if f.startswith(session_id)]
+        
+        if not matching_files:
+            return jsonify({'success': False, 'message': 'Исходный файл не найден'})
+        
+        # Берем первый найденный файл
+        original_file = os.path.join(upload_folder, matching_files[0])
+        
+        # Перезагружаем данные
+        success, message = forecast_app.load_data_from_file(original_file)
+        
+        if success:
+            data_info = forecast_app.get_data_info()
+            return jsonify({
+                'success': True,
+                'message': 'Данные успешно перезагружены',
+                'rows': data_info['shape'][0],
+                'columns': data_info['shape'][1],
+                'filename': matching_files[0].replace(f'{session_id}_', '')
+            })
+        else:
+            return jsonify({'success': False, 'message': message})
+            
+    except Exception as e:
+        return jsonify({'success': False, 'message': f'Ошибка при перезагрузке: {str(e)}'})
+
 @app.route('/forecast_api', methods=['POST'])
 def forecast_api():
     """Создание прогноза"""
@@ -1949,6 +1984,6 @@ def download_results(session_id):
 if __name__ == '__main__':
     print("🚀 Запуск MARFOR веб-приложения...")
     print("📊 Каскадная модель с Random Forest")
-    print("🔧 ВЕРСИЯ КОДА: 2.14.1 - Исправлено чтение настройки обработки пропусков")
+    print("🔧 ВЕРСИЯ КОДА: 2.15.0 - Добавлена кнопка перезагрузки данных")
     print("🌐 Откройте http://localhost:5001 в браузере")
     app.run(debug=True, host='0.0.0.0', port=5001)

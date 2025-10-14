@@ -314,6 +314,9 @@
                 <button class="btn btn-secondary me-3" onclick="goBack()">
                     <i class="fas fa-arrow-left me-2"></i>Назад
                 </button>
+                <button class="btn btn-info me-3" onclick="reloadDataFile()" title="Перезагрузить исходный файл с сохранением настроек маппинга">
+                    <i class="fas fa-sync-alt me-2"></i>Перезагрузить данные
+                </button>
                 <button class="btn btn-primary me-3" onclick="previewData()">
                     <i class="fas fa-eye me-2"></i>Предпросмотр
                 </button>
@@ -570,6 +573,40 @@
         function previewData() {
             // Показываем предпросмотр обработанных данных
             alert('Функция предпросмотра будет реализована');
+        }
+
+        async function reloadDataFile() {
+            if (!confirm('Перезагрузить исходный файл данных? Текущие настройки маппинга сохранятся.')) {
+                return;
+            }
+
+            try {
+                // Сохраняем текущие настройки маппинга
+                const currentMapping = collectMappingData();
+                console.log('Сохранены настройки маппинга:', currentMapping);
+
+                // Отправляем запрос на перезагрузку данных
+                const response = await fetch(`/api/reload_data/${sessionStorage.getItem('currentSessionId')}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    alert(`✅ Данные успешно перезагружены!\n\nЗагружено: ${result.rows} строк, ${result.columns} колонок`);
+                    
+                    // Перезагружаем страницу маппинга с сохраненными настройками
+                    location.reload();
+                } else {
+                    alert('❌ Ошибка при перезагрузке данных: ' + result.message);
+                }
+            } catch (error) {
+                console.error('Ошибка при перезагрузке данных:', error);
+                alert('❌ Ошибка при перезагрузке данных: ' + error.message);
+            }
         }
 
         function applyMapping() {
