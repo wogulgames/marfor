@@ -825,7 +825,7 @@ class PivotRenderer {
         html += '</div>';
         html += '</div>';
         html += '<div class="card-body">';
-        html += '<canvas id="pivotChart" style="max-height: 400px;"></canvas>';
+        html += '<canvas id="pivotChart" style="height: 500px; width: 100%;"></canvas>';
         html += '</div>';
         html += '</div>';
         
@@ -2624,13 +2624,14 @@ function renderPivotChart(chartData, config) {
     chartData.datasets.forEach((dataset, index) => {
         dataset.borderColor = colors[index];
         dataset.backgroundColor = colors[index] + '33'; // Добавляем прозрачность
-        dataset.borderWidth = 3; // Увеличиваем толщину линии
-        dataset.pointRadius = 4; // Размер точек
-        dataset.pointHoverRadius = 6; // Размер точек при наведении
+        dataset.borderWidth = 4; // Увеличенная толщина линии для лучшей видимости
+        dataset.pointRadius = 6; // Увеличенный размер точек
+        dataset.pointHoverRadius = 8; // Размер точек при наведении
         dataset.pointBackgroundColor = colors[index];
         dataset.pointBorderColor = '#fff';
         dataset.pointBorderWidth = 2;
-        dataset.tension = 0.1; // Небольшое скругление линий
+        dataset.tension = 0.2; // Небольшое сглаживание для плавности
+        dataset.fill = false; // Не заливаем область под линией
     });
     
     // Находим минимальное и максимальное значения для настройки оси Y
@@ -2762,12 +2763,11 @@ function renderPivotChart(chartData, config) {
                     display: true,
                     title: {
                         display: true,
-                        text: 'Значение',
-                        font: { size: 14, weight: 'bold' }
+                        text: 'Значение'
                     },
-                    beginAtZero: false, // Принудительно отключаем beginAtZero
-                    min: yMin, // Всегда задаем min
-                    max: yMax, // Всегда задаем max
+                    beginAtZero: false,
+                    min: yMin,
+                    max: yMax,
                     ticks: {
                         stepSize: stepSize,
                         maxTicksLimit: 8,
@@ -2775,9 +2775,7 @@ function renderPivotChart(chartData, config) {
                         max: yMax,
                         callback: function(value) {
                             return formatLargeNumber(value);
-                        },
-                        font: { size: 12 },
-                        padding: 8
+                        }
                     },
                     afterBuildTicks: function(axis) {
                         // Принудительно создаем деления оси Y
@@ -2799,9 +2797,8 @@ function renderPivotChart(chartData, config) {
                         return ticks;
                     },
                     grid: {
-                        color: 'rgba(0, 0, 0, 0.08)',
-                        lineWidth: 1,
-                        drawBorder: false
+                        color: 'rgba(0, 0, 0, 0.1)',
+                        lineWidth: 1
                     }
                 }
             },
