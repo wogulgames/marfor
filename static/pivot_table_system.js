@@ -817,8 +817,11 @@ class PivotRenderer {
         html += '<div class="card-header bg-primary text-white">';
         html += '<div class="d-flex justify-content-between align-items-center">';
         html += '<h6 class="mb-0"><i class="fas fa-chart-line me-2"></i>График</h6>';
-        html += '<div class="btn-group btn-group-sm" role="group">';
-        html += '<button type="button" class="btn btn-light btn-sm" onclick="updatePivotChart()" title="Обновить график">';
+        html += '<div class="d-flex align-items-center gap-2">';
+        html += '<label class="mb-0 me-2 text-white" style="font-size: 0.9em;">Детализация:</label>';
+        html += '<select id="chartDepthLevel" class="form-select form-select-sm" style="width: auto; min-width: 150px;" onchange="updatePivotChart()">';
+        html += '</select>';
+        html += '<button type="button" class="btn btn-light btn-sm ms-2" onclick="updatePivotChart()" title="Обновить график">';
         html += '<i class="fas fa-sync-alt"></i>';
         html += '</button>';
         html += '</div>';
@@ -2422,7 +2425,6 @@ let pivotChartInstance = null;
 // Функция для построения графика из данных сводной таблицы
 function updatePivotChart(chartDepthLevel = null) {
     console.log('🚀 === ПОСТРОЕНИЕ ГРАФИКА СВОДНОЙ ТАБЛИЦЫ ===');
-    console.log('📊 chartDepthLevel:', chartDepthLevel);
     
     if (!window.currentPivotData || !window.currentPivotConfig) {
         console.error('Нет данных для построения графика');
@@ -2432,24 +2434,89 @@ function updatePivotChart(chartDepthLevel = null) {
     const pivotData = window.currentPivotData;
     const config = window.currentPivotConfig;
     
+    // Заполняем select с уровнями детализации, если он пуст
+    populateChartDepthSelect(config);
+    
+    // Получаем уровень из select, если не указан явно
+    let targetLevel;
+    if (chartDepthLevel !== null) {
+        targetLevel = chartDepthLevel;
+    } else {
+        const select = document.getElementById('chartDepthLevel');
+        if (select && select.value !== '') {
+            targetLevel = parseInt(select.value);
+        } else {
+            // По умолчанию - максимальный уровень
+            targetLevel = config.rows.length - 1;
+        }
+    }
+    
     console.log('Данные для графика:', { 
         rowGroups: pivotData.rowGroups.size, 
         columnGroups: pivotData.columnGroups.size,
-        mode: config.mode
+        mode: config.mode,
+        targetLevel: targetLevel,
+        maxLevel: config.rows.length - 1
     });
-    
-    // Определяем уровень вложенности для графика
-    // Если не указан, используем максимальный уровень (самый детальный)
-    const maxLevel = config.rows.length - 1;
-    const targetLevel = chartDepthLevel !== null ? chartDepthLevel : maxLevel;
-    
-    console.log(`Уровень вложенности для графика: ${targetLevel} (макс: ${maxLevel})`);
     
     // Получаем данные для графика с учетом уровня вложенности
     const chartData = prepareChartData(pivotData, config, targetLevel);
     
     // Строим график
     renderPivotChart(chartData, config);
+}
+
+// Функция для заполнения select с уровнями детализации графика
+function populateChartDepthSelect(config) {
+    const select = document.getElementById('chartDepthLevel');
+    if (!select) return;
+    
+    // Проверяем, нужно ли обновить опции
+    const currentMode = select.getAttribute('data-mode');
+    if (currentMode === config.mode && select.options.length > 0) {
+        return; // Уже заполнен для этого режима
+    }
+    
+    // Очищаем select
+    select.innerHTML = '';
+    select.setAttribute('data-mode', config.mode);
+    
+    // Добавляем опции в зависимости от режима
+    if (config.mode === 'time-series') {
+        // Для временных рядов - используем уровни вложенности временных полей
+        config.rows.forEach((field, index) => {
+            const option = document.createElement('option');
+            option.value = index;
+            
+            // Красивые названия для временных уровней
+            const levelNames = {
+                'year': 'По годам',
+                'halfyear': 'По полугодиям', 
+                'quarter': 'По кварталам',
+                'month': 'По месяцам',
+                'week': 'По неделям',
+                'date': 'По дням'
+            };
+            
+            option.text = levelNames[field.timeSeriesType] || field.name;
+            select.appendChild(option);
+        });
+    } else {
+        // Для срезов - используем уровни вложенности измерений
+        config.rows.forEach((field, index) => {
+            const option = document.createElement('option');
+            option.value = index;
+            option.text = `Уровень ${index + 1}: ${field.name}`;
+            select.appendChild(option);
+        });
+    }
+    
+    // Выбираем максимальный уровень по умолчанию (самый детальный)
+    if (select.options.length > 0) {
+        select.selectedIndex = select.options.length - 1;
+    }
+    
+    console.log('📋 Заполнен select детализации графика:', select.options.length, 'опций для режима', config.mode);
 }
 
 // Подготовка данных для графика
