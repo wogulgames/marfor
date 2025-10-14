@@ -2605,8 +2605,8 @@ function sortRowKeysChronologically(rowKeys, config) {
 // Рендеринг графика
 function renderPivotChart(chartData, config) {
     console.log('🎯 === НАЧАЛО РЕНДЕРИНГА ГРАФИКА ===');
-    console.log('📊 Данные графика:', chartData);
-    console.log('⚙️ Конфигурация:', config);
+    console.log('📊 Данные графика:', JSON.stringify(chartData, null, 2));
+    console.log('⚙️ Конфигурация:', JSON.stringify(config, null, 2));
     
     const canvas = document.getElementById('pivotChart');
     if (!canvas) {
@@ -2643,13 +2643,13 @@ function renderPivotChart(chartData, config) {
     const maxValue = Math.max(...allValues);
     const range = maxValue - minValue;
     
-    // Подход Google Sheets: более агрессивные отступы (30% от диапазона)
-    const padding = Math.max(range * 0.3, (maxValue * 0.15)); // Минимум 15% от максимального значения
+    // Более агрессивное масштабирование для лучшей визуализации
+    const padding = range * 0.1; // Только 10% отступов вместо 30%
     
-    // Google всегда показывает значительную часть нулевой области
-    const shouldStartFromZero = minValue < (maxValue * 0.1); // Увеличили порог до 10%
-    const yMin = shouldStartFromZero ? 0 : Math.max(0, minValue - padding);
-    const yMax = maxValue + padding;
+    // НИКОГДА не начинаем с нуля для больших чисел
+    const shouldStartFromZero = false;
+    const yMin = minValue - padding; // Начинаем чуть ниже минимума
+    const yMax = maxValue + padding; // Заканчиваем чуть выше максимума
     
     // Подход Google Sheets: вычисляем оптимальный шаг для оси Y (стремимся к 6-8 делениям)
     const targetSteps = 6; // Меньше делений для лучшей читаемости
@@ -2693,6 +2693,8 @@ function renderPivotChart(chartData, config) {
         max: yMax,
         stepSize: stepSize
     });
+    console.log('📋 Все значения данных:', allValues);
+    console.log('🎯 Количество точек данных:', allValues.length);
     
     // Функция для форматирования больших чисел
     function formatLargeNumber(value) {
@@ -2756,22 +2758,43 @@ function renderPivotChart(chartData, config) {
                         text: 'Значение',
                         font: { size: 14, weight: 'bold' }
                     },
-                    beginAtZero: shouldStartFromZero,
-                    min: shouldStartFromZero ? undefined : yMin, // Если начинаем с нуля, не задаем min
-                    max: yMax,
+                    beginAtZero: false, // Принудительно отключаем beginAtZero
+                    min: yMin, // Всегда задаем min
+                    max: yMax, // Всегда задаем max
                     ticks: {
                         stepSize: stepSize,
-                        maxTicksLimit: 8, // Меньше делений для читаемости
+                        maxTicksLimit: 8,
+                        min: yMin,
+                        max: yMax,
                         callback: function(value) {
                             return formatLargeNumber(value);
                         },
                         font: { size: 12 },
-                        padding: 8 // Больше отступы между метками и осью
+                        padding: 8
+                    },
+                    afterBuildTicks: function(axis) {
+                        // Принудительно создаем деления оси Y
+                        console.log('🔧 afterBuildTicks вызван! yMin:', yMin, 'yMax:', yMax);
+                        const ticks = [];
+                        const range = yMax - yMin;
+                        const numTicks = 6;
+                        const step = range / (numTicks - 1);
+                        
+                        for (let i = 0; i < numTicks; i++) {
+                            const value = yMin + (step * i);
+                            ticks.push({
+                                value: value
+                            });
+                        }
+                        
+                        console.log('🎯 Созданные деления:', ticks.map(t => t.value));
+                        axis.ticks = ticks;
+                        return ticks;
                     },
                     grid: {
-                        color: 'rgba(0, 0, 0, 0.08)', // Более тонкие линии сетки
+                        color: 'rgba(0, 0, 0, 0.08)',
                         lineWidth: 1,
-                        drawBorder: false // Убираем границу оси
+                        drawBorder: false
                     }
                 }
             },
@@ -2783,7 +2806,12 @@ function renderPivotChart(chartData, config) {
         }
     });
     
-    console.log('График успешно создан');
+    console.log('✅ График успешно создан');
+    console.log('🔍 Проверяем настройки оси Y в созданном графике:');
+    console.log('- beginAtZero:', pivotChartInstance.options.scales.y.beginAtZero);
+    console.log('- min:', pivotChartInstance.options.scales.y.min);
+    console.log('- max:', pivotChartInstance.options.scales.y.max);
+    console.log('- stepSize:', pivotChartInstance.options.scales.y.ticks.stepSize);
 }
 
 // Генерация цветов для графика
