@@ -655,6 +655,22 @@
             }
         }
 
+        function initForecastHorizon() {
+            // Скрываем кнопку "Задать горизонт"
+            document.getElementById('forecastInitButton').style.display = 'none';
+            
+            // Показываем календарь прогноза
+            document.getElementById('forecastCalendar').style.display = 'block';
+            document.getElementById('addYearSection').style.display = 'block';
+            document.getElementById('selectedPeriodsSummary').style.display = 'block';
+            
+            // Инициализируем с годами из фактических данных
+            initializeForecastYears();
+            
+            renderForecastCalendar();
+            updateSummary();
+        }
+
         function initializeForecastYears() {
             // Получаем все уникальные годы из фактических данных
             const existingYears = [...new Set(existingTimeSeries.map(d => d.year).filter(y => y))].sort((a, b) => a - b);
