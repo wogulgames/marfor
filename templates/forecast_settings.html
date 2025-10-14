@@ -297,6 +297,7 @@
                 if (result.success) {
                     existingTimeSeries = result.time_series;
                     console.log('Загружено временных рядов:', existingTimeSeries.length);
+                    console.log('Первые 5 записей:', existingTimeSeries.slice(0, 5));
                 } else {
                     console.error('Ошибка:', result.message);
                 }
@@ -352,7 +353,8 @@
                 let currentLevel = hierarchy[year];
                 
                 if (item.halfyear) {
-                    const hy = `H${item.halfyear}`;
+                    // halfyear может быть "H1" или просто "1"
+                    const hy = item.halfyear.toString().startsWith('H') ? item.halfyear : `H${item.halfyear}`;
                     if (!currentLevel[hy]) {
                         currentLevel[hy] = {};
                     }
@@ -360,7 +362,13 @@
                 }
                 
                 if (item.quarter) {
-                    const q = `Q${item.quarter}`;
+                    // quarter может быть "Q1", "QQ1" или просто "1"
+                    let q = item.quarter.toString();
+                    if (q.startsWith('QQ')) {
+                        q = q.substring(1); // Убираем один Q из QQ1
+                    } else if (!q.startsWith('Q')) {
+                        q = `Q${q}`;
+                    }
                     if (!currentLevel[q]) {
                         currentLevel[q] = {};
                     }
