@@ -2619,19 +2619,31 @@ function renderPivotChart(chartData, config) {
         pivotChartInstance.destroy();
     }
     
+    // Определяем тип графика на основе режима
+    const chartType = config.mode === 'time-series' ? 'line' : 'bar';
+    console.log('📊 Тип графика:', chartType, '(режим:', config.mode + ')');
+    
     // Генерируем цвета для datasets
     const colors = generateChartColors(chartData.datasets.length);
     chartData.datasets.forEach((dataset, index) => {
         dataset.borderColor = colors[index];
-        dataset.backgroundColor = colors[index] + '33'; // Добавляем прозрачность
-        dataset.borderWidth = 4; // Увеличенная толщина линии для лучшей видимости
-        dataset.pointRadius = 6; // Увеличенный размер точек
-        dataset.pointHoverRadius = 8; // Размер точек при наведении
-        dataset.pointBackgroundColor = colors[index];
-        dataset.pointBorderColor = '#fff';
-        dataset.pointBorderWidth = 2;
-        dataset.tension = 0.2; // Небольшое сглаживание для плавности
-        dataset.fill = false; // Не заливаем область под линией
+        dataset.backgroundColor = chartType === 'bar' ? colors[index] + 'CC' : colors[index] + '33'; // Больше непрозрачности для столбиков
+        
+        if (chartType === 'line') {
+            // Настройки для линейного графика
+            dataset.borderWidth = 4;
+            dataset.pointRadius = 6;
+            dataset.pointHoverRadius = 8;
+            dataset.pointBackgroundColor = colors[index];
+            dataset.pointBorderColor = '#fff';
+            dataset.pointBorderWidth = 2;
+            dataset.tension = 0.2;
+            dataset.fill = false;
+        } else {
+            // Настройки для столбчатого графика
+            dataset.borderWidth = 2;
+            dataset.borderRadius = 4; // Скругленные углы столбиков
+        }
     });
     
     // Находим минимальное и максимальное значения для настройки оси Y
@@ -2719,7 +2731,7 @@ function renderPivotChart(chartData, config) {
     // Создаем новый график
     const ctx = canvas.getContext('2d');
     pivotChartInstance = new Chart(ctx, {
-        type: 'line',
+        type: chartType,
         data: chartData,
         options: {
             responsive: true,
