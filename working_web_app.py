@@ -647,7 +647,7 @@ def get_processed_data(session_id):
 def get_time_series_data(session_id):
     """Получение данных временных рядов для визуализации"""
     try:
-        print(f"🔧 ВЕРСИЯ КОДА: 2.15.0 - Добавлена кнопка перезагрузки данных")
+        print(f"🔧 ВЕРСИЯ КОДА: 2.16.0 - Автозагрузка CSV при открытии проекта + кнопка обновления файла")
         if not session_id or forecast_app.session_id != session_id:
             return jsonify({'success': False, 'message': 'Сессия не найдена'})
         
@@ -1079,7 +1079,36 @@ def load_project(project_id):
         with open(project_file, 'r', encoding='utf-8') as f:
             project = json.load(f)
         
-        # Очищаем NaN значения в проекте
+        # Пытаемся загрузить данные из исходного CSV файла вместо JSON
+        session_id = project.get('session_id')
+        csv_loaded = False
+        
+        if session_id:
+            # Ищем исходный файл в uploads
+            upload_folder = app.config['UPLOAD_FOLDER']
+            matching_files = [f for f in os.listdir(upload_folder) if f.startswith(session_id)]
+            
+            if matching_files:
+                original_file = os.path.join(upload_folder, matching_files[0])
+                success, message = forecast_app.load_data_from_file(original_file)
+                
+                if success:
+                    forecast_app.session_id = session_id
+                    csv_loaded = True
+                    print(f"✅ Проект {project.get('name')}: Данные загружены из CSV ({message})")
+                else:
+                    print(f"⚠️ Проект {project.get('name')}: Не удалось загрузить CSV ({message})")
+        
+        # Если CSV не загрузился, используем данные из JSON (fallback)
+        if not csv_loaded:
+            print(f"⚠️ Проект {project.get('name')}: Используются данные из JSON (возможна потеря строк)")
+            # Загружаем full_data из проекта
+            full_data = project.get('data_info', {}).get('full_data', [])
+            if full_data:
+                forecast_app.df = pd.DataFrame(full_data)
+                forecast_app.session_id = session_id or project_id
+        
+        # Очищаем NaN значения в метаданных проекта
         def clean_nan_values(obj):
             if isinstance(obj, dict):
                 return {k: clean_nan_values(v) for k, v in obj.items()}
@@ -1092,7 +1121,16 @@ def load_project(project_id):
             else:
                 return obj
         
-        project = clean_nan_values(project)
+        # Очищаем только метаданные, но не full_data (он может быть большим)
+        project_clean = {
+            'id': project.get('id'),
+            'name': project.get('name'),
+            'created_at': project.get('created_at'),
+            'updated_at': datetime.now().isoformat(),
+            'session_id': project.get('session_id'),
+            'mapping_config': clean_nan_values(project.get('mapping_config', {})),
+            'csv_loaded': csv_loaded
+        }
         
         # Обновляем время последнего доступа
         project['updated_at'] = datetime.now().isoformat()
@@ -1101,7 +1139,7 @@ def load_project(project_id):
         
         return jsonify({
             'success': True,
-            'project': project
+            'project': project_clean
         })
         
     except Exception as e:
@@ -1874,40 +1912,63 @@ def upload_file():
     
     return jsonify({'success': False, 'message': 'Недопустимый тип файла'})
 
-@app.route('/api/reload_data/<session_id>', methods=['POST'])
-def reload_data(session_id):
-    """Перезагрузка данных из исходного файла"""
+@app.route('/api/update_file', methods=['POST'])
+def update_file():
+    """Обновление файла данных с сохранением session_id"""
     try:
-        if not session_id or forecast_app.session_id != session_id:
-            return jsonify({'success': False, 'message': 'Сессия не найдена'})
+        if 'file' not in request.files:
+            return jsonify({'success': False, 'message': 'Файл не выбран'})
         
-        # Ищем исходный файл в папке uploads
-        upload_folder = app.config['UPLOAD_FOLDER']
-        matching_files = [f for f in os.listdir(upload_folder) if f.startswith(session_id)]
+        file = request.files['file']
+        old_session_id = request.form.get('session_id')
         
-        if not matching_files:
-            return jsonify({'success': False, 'message': 'Исходный файл не найден'})
+        if file.filename == '':
+            return jsonify({'success': False, 'message': 'Файл не выбран'})
         
-        # Берем первый найденный файл
-        original_file = os.path.join(upload_folder, matching_files[0])
-        
-        # Перезагружаем данные
-        success, message = forecast_app.load_data_from_file(original_file)
-        
-        if success:
-            data_info = forecast_app.get_data_info()
-            return jsonify({
-                'success': True,
-                'message': 'Данные успешно перезагружены',
-                'rows': data_info['shape'][0],
-                'columns': data_info['shape'][1],
-                'filename': matching_files[0].replace(f'{session_id}_', '')
-            })
-        else:
-            return jsonify({'success': False, 'message': message})
+        if file and allowed_file(file.filename):
+            filename = secure_filename(file.filename)
             
+            # Используем тот же session_id для сохранения настроек маппинга
+            session_id = old_session_id if old_session_id else str(uuid.uuid4())
+            
+            # Удаляем старый файл с тем же session_id
+            upload_folder = app.config['UPLOAD_FOLDER']
+            if old_session_id:
+                old_files = [f for f in os.listdir(upload_folder) if f.startswith(old_session_id)]
+                for old_file in old_files:
+                    try:
+                        os.remove(os.path.join(upload_folder, old_file))
+                        print(f"Удален старый файл: {old_file}")
+                    except:
+                        pass
+            
+            # Сохраняем новый файл с тем же session_id
+            new_filename = f"{session_id}_{filename}"
+            filepath = os.path.join(upload_folder, new_filename)
+            file.save(filepath)
+            
+            # Загружаем данные
+            success, message = forecast_app.load_data_from_file(filepath)
+            
+            if success:
+                forecast_app.session_id = session_id
+                data_info = forecast_app.get_data_info()
+                
+                return jsonify({
+                    'success': True,
+                    'message': 'Файл успешно обновлен',
+                    'session_id': session_id,
+                    'rows': data_info['shape'][0],
+                    'columns': data_info['shape'][1],
+                    'filename': filename
+                })
+            else:
+                return jsonify({'success': False, 'message': message})
+        
+        return jsonify({'success': False, 'message': 'Недопустимый тип файла'})
+        
     except Exception as e:
-        return jsonify({'success': False, 'message': f'Ошибка при перезагрузке: {str(e)}'})
+        return jsonify({'success': False, 'message': f'Ошибка при обновлении файла: {str(e)}'})
 
 @app.route('/forecast_api', methods=['POST'])
 def forecast_api():
@@ -1984,6 +2045,6 @@ def download_results(session_id):
 if __name__ == '__main__':
     print("🚀 Запуск MARFOR веб-приложения...")
     print("📊 Каскадная модель с Random Forest")
-    print("🔧 ВЕРСИЯ КОДА: 2.15.0 - Добавлена кнопка перезагрузки данных")
+    print("🔧 ВЕРСИЯ КОДА: 2.16.0 - Автозагрузка CSV при открытии проекта + кнопка обновления файла")
     print("🌐 Откройте http://localhost:5001 в браузере")
     app.run(debug=True, host='0.0.0.0', port=5001)

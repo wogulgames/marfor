@@ -314,9 +314,10 @@
                 <button class="btn btn-secondary me-3" onclick="goBack()">
                     <i class="fas fa-arrow-left me-2"></i>Назад
                 </button>
-                <button class="btn btn-info me-3" onclick="reloadDataFile()" title="Перезагрузить исходный файл с сохранением настроек маппинга">
-                    <i class="fas fa-sync-alt me-2"></i>Перезагрузить данные
+                <button class="btn btn-info me-3" onclick="document.getElementById('updateFileInput').click()" title="Загрузить новый CSV файл с сохранением настроек маппинга">
+                    <i class="fas fa-upload me-2"></i>Обновить файл
                 </button>
+                <input type="file" id="updateFileInput" accept=".csv" style="display: none;" onchange="updateDataFile(event)">
                 <button class="btn btn-primary me-3" onclick="previewData()">
                     <i class="fas fa-eye me-2"></i>Предпросмотр
                 </button>
@@ -575,8 +576,12 @@
             alert('Функция предпросмотра будет реализована');
         }
 
-        async function reloadDataFile() {
-            if (!confirm('Перезагрузить исходный файл данных? Текущие настройки маппинга сохранятся.')) {
+        async function updateDataFile(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            if (!confirm(`Загрузить новый файл "${file.name}"?\nТекущие настройки маппинга сохранятся и будут применены к новым данным.`)) {
+                event.target.value = ''; // Сбрасываем выбор файла
                 return;
             }
 
@@ -585,27 +590,37 @@
                 const currentMapping = collectMappingData();
                 console.log('Сохранены настройки маппинга:', currentMapping);
 
-                // Отправляем запрос на перезагрузку данных
-                const response = await fetch(`/api/reload_data/${sessionStorage.getItem('currentSessionId')}`, {
+                // Создаем FormData для загрузки файла
+                const formData = new FormData();
+                formData.append('file', file);
+                formData.append('session_id', sessionStorage.getItem('currentSessionId'));
+
+                // Загружаем новый файл
+                const response = await fetch('/api/update_file', {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    }
+                    body: formData
                 });
 
                 const result = await response.json();
 
                 if (result.success) {
-                    alert(`✅ Данные успешно перезагружены!\n\nЗагружено: ${result.rows} строк, ${result.columns} колонок`);
+                    alert(`✅ Файл успешно обновлен!\n\nЗагружено: ${result.rows} строк, ${result.columns} колонок\nФайл: ${result.filename}`);
                     
-                    // Перезагружаем страницу маппинга с сохраненными настройками
+                    // Обновляем session_id если он изменился
+                    if (result.session_id) {
+                        sessionStorage.setItem('currentSessionId', result.session_id);
+                    }
+                    
+                    // Перезагружаем страницу маппинга
                     location.reload();
                 } else {
-                    alert('❌ Ошибка при перезагрузке данных: ' + result.message);
+                    alert('❌ Ошибка при обновлении файла: ' + result.message);
                 }
             } catch (error) {
-                console.error('Ошибка при перезагрузке данных:', error);
-                alert('❌ Ошибка при перезагрузке данных: ' + error.message);
+                console.error('Ошибка при обновлении файла:', error);
+                alert('❌ Ошибка при обновлении файла: ' + error.message);
+            } finally {
+                event.target.value = ''; // Сбрасываем input для возможности загрузки того же файла снова
             }
         }
 
