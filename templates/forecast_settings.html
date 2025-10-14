@@ -291,7 +291,18 @@
 
         async function loadTimeSeries() {
             try {
-                const response = await fetch(`/api/get_time_series_values/${currentSessionId}`);
+                // Получаем маппинг из sessionStorage
+                const mappingStr = sessionStorage.getItem('dataMapping');
+                const mapping = mappingStr ? JSON.parse(mappingStr) : null;
+                
+                if (!mapping) {
+                    console.error('Маппинг не найден в sessionStorage');
+                    return;
+                }
+                
+                // Передаем маппинг в API
+                const mappingParam = encodeURIComponent(JSON.stringify(mapping));
+                const response = await fetch(`/api/get_time_series_values/${currentSessionId}?mapping=${mappingParam}`);
                 const result = await response.json();
                 
                 if (result.success) {

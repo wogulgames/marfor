@@ -652,7 +652,7 @@ def get_processed_data(session_id):
 def get_time_series_data(session_id):
     """Получение данных временных рядов для визуализации"""
     try:
-        print(f"🔧 ВЕРСИЯ КОДА: 2.17.2 - Исправлено отображение годов в календаре")
+        print(f"🔧 ВЕРСИЯ КОДА: 2.17.3 - Исправлено определение временных полей из маппинга")
         if not session_id or forecast_app.session_id != session_id:
             return jsonify({'success': False, 'message': 'Сессия не найдена'})
         
@@ -1929,40 +1929,57 @@ def get_time_series_values(session_id):
         
         df = forecast_app.df
         
-        # Получаем маппинг из запроса или sessionStorage
-        time_series = []
+        # Получаем маппинг - он должен быть передан в запросе
+        mapping_data = request.args.get('mapping')
+        if not mapping_data:
+            return jsonify({'success': False, 'message': 'Маппинг не передан. Отправьте параметр mapping.'})
         
-        # Определяем временные поля
+        import json as json_lib
+        mapping = json_lib.loads(mapping_data)
+        
+        # Определяем временные поля из маппинга
         time_fields = {}
-        for col in df.columns:
-            col_lower = col.lower()
-            if 'year' in col_lower:
-                time_fields['year'] = col
-            elif 'halfyear' in col_lower or 'half' in col_lower:
-                time_fields['halfyear'] = col
-            elif 'quarter' in col_lower:
-                time_fields['quarter'] = col
-            elif 'month' in col_lower:
-                time_fields['month'] = col
+        for col in mapping.get('columns', []):
+            if col.get('time_series') and col.get('include'):
+                time_series_type = col['time_series']
+                col_name = col['name']
+                time_fields[time_series_type] = col_name
+        
+        print(f"Временные поля из маппинга: {time_fields}")
+        
+        time_series = []
         
         # Получаем уникальные комбинации
         if time_fields:
-            group_cols = list(time_fields.values())
+            group_cols = [col_name for col_name in time_fields.values() if col_name in df.columns]
+            
+            if not group_cols:
+                return jsonify({'success': False, 'message': 'Временные колонки не найдены в данных'})
+            
             unique_combinations = df[group_cols].drop_duplicates().to_dict('records')
+            
+            print(f"Найдено уникальных комбинаций: {len(unique_combinations)}")
+            if unique_combinations:
+                print(f"Первая комбинация: {unique_combinations[0]}")
             
             for combo in unique_combinations:
                 item = {}
-                for key, col_name in time_fields.items():
+                # Обратное сопоставление: col_name -> time_series_type
+                for time_type, col_name in time_fields.items():
                     value = combo.get(col_name)
                     if pd.notna(value) and value != '':
-                        item[key] = value
+                        item[time_type] = value
                 
-                if item:  # Добавляем только если есть хотя бы одно значение
+                if item:
                     time_series.append(item)
         
         # Сортируем по году
         if time_series:
             time_series.sort(key=lambda x: (x.get('year', 0), x.get('month', 0)))
+        
+        print(f"Возвращаем временных рядов: {len(time_series)}")
+        if time_series:
+            print(f"Первый ряд: {time_series[0]}")
         
         return jsonify({
             'success': True,
@@ -1971,6 +1988,8 @@ def get_time_series_values(session_id):
         })
         
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         return jsonify({'success': False, 'message': f'Ошибка: {str(e)}'})
 
 @app.route('/api/get_metric_time_series/<session_id>')
@@ -2189,6 +2208,6 @@ def download_results(session_id):
 if __name__ == '__main__':
     print("🚀 Запуск MARFOR веб-приложения...")
     print("📊 Каскадная модель с Random Forest")
-    print("🔧 ВЕРСИЯ КОДА: 2.17.2 - Исправлено отображение годов в календаре")
+    print("🔧 ВЕРСИЯ КОДА: 2.17.3 - Исправлено определение временных полей из маппинга")
     print("🌐 Откройте http://localhost:5001 в браузере")
     app.run(debug=True, host='0.0.0.0', port=5001)
