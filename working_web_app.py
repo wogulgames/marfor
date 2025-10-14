@@ -1125,10 +1125,10 @@ def list_projects():
                     # Возвращаем только основную информацию
                     projects.append({
                         'id': project['id'],
-                    'name': project['name'],
-                    'created_at': project['created_at'],
-                    'updated_at': project['updated_at'],
-                    'status': project.get('status', 'saved')
+                        'name': project['name'],
+                        'created_at': project['created_at'],
+                        'updated_at': project['updated_at'],
+                        'status': project.get('status', 'saved')
                     })
                 except:
                     continue
