@@ -618,7 +618,7 @@
             <span class="navbar-text">Маркетинговый инструмент прогнозирования</span>
             <div class="ms-auto">
                 <span class="badge bg-success" style="font-size: 0.8em;">
-                    <i class="fas fa-code"></i> v2.16.0
+                    <i class="fas fa-code"></i> v2.16.1
                 </span>
             </div>
         </div>
@@ -1642,81 +1642,87 @@
             }
         });
 
-        function loadProjectFromUrl(projectId) {
+        async function loadProjectFromUrl(projectId) {
             console.log('loadProjectFromUrl вызвана с projectId:', projectId);
-            // Загружаем данные проекта через API
-            fetch(`/api/load_project/${projectId}`)
-                .then(response => response.json())
-                .then(data => {
-                    console.log('Ответ от сервера:', data);
-                    if (data.success) {
-                        console.log('Проект успешно загружен:', data.project);
-                        const project = data.project;
-                        
-                        // Сохраняем данные в sessionStorage (без full_data для экономии места)
-                        sessionStorage.setItem('sessionId', project.session_id);
-                        
-                        // Создаем dataInfo без full_data для localStorage
-                        const dataInfoForStorage = { ...project.data_info };
-                        delete dataInfoForStorage.full_data; // Удаляем полные данные
-                        
-                        // Безопасное сохранение в sessionStorage с обработкой ошибок
-                        try {
-                            sessionStorage.setItem('dataInfo', JSON.stringify(dataInfoForStorage));
-                            sessionStorage.setItem('uploadedData', JSON.stringify(dataInfoForStorage));
-                            sessionStorage.setItem('dataMapping', JSON.stringify(project.data_mapping));
-                            sessionStorage.setItem('processedData', JSON.stringify(project.processed_data));
-                            sessionStorage.setItem('currentProjectId', project.id);
-                        } catch (error) {
-                            console.warn('Ошибка сохранения в sessionStorage:', error);
-                            // Очищаем старые данные и пробуем снова
-                            sessionStorage.clear();
-                            sessionStorage.setItem('sessionId', project.session_id);
-                            sessionStorage.setItem('dataInfo', JSON.stringify(dataInfoForStorage));
-                            sessionStorage.setItem('dataMapping', JSON.stringify(project.data_mapping));
-                            sessionStorage.setItem('currentProjectId', project.id);
-                        }
-                        
-                        // Устанавливаем глобальные переменные
-                        dataInfo = project.data_info;
-                        currentSessionId = project.session_id;
-                        processedData = project.processed_data;
-                        dataMapping = project.data_mapping;
-                        dataColumns = project.data_info.columns;
-                        
-                        // Скрываем интерфейс создания нового проекта
-                        const uploadSection = document.getElementById('uploadSection');
-                        if (uploadSection) {
-                            uploadSection.style.display = 'none';
-                        }
-                        
-                        // Показываем информацию о загруженном проекте
-                        showDataPreview(dataInfo, project.name);
-                        populateFieldSelects();
-                        populateTimeSeriesSelects();
-                        
-                        // Добавляем кнопку для создания нового проекта
-                        addNewProjectButton();
-                        
-                        // Проверяем, есть ли настройки маппинга
-                        if (dataMapping && Object.keys(dataMapping).length > 0) {
-                            showProcessedDataPreview(processedData, dataMapping);
-                        } else {
-                            // Нет настроек маппинга, сразу переходим к маппингу
-                            window.location.href = '/forecast/mapping';
-                        }
-                    } else {
-                        alert('Ошибка загрузки проекта: ' + data.message);
-                        // Возвращаемся на главную страницу
-                        window.location.href = '/';
+            
+            try {
+                // Загружаем данные проекта через API
+                const projectResponse = await fetch(`/api/load_project/${projectId}`);
+                const projectData = await projectResponse.json();
+                
+                console.log('Ответ от сервера:', projectData);
+                
+                if (!projectData.success) {
+                    alert('Ошибка при загрузке проекта: ' + projectData.message);
+                    return;
+                }
+                
+                const project = projectData.project;
+                currentSessionId = project.session_id;
+                
+                // Получаем data_info отдельно через API
+                const dataInfoResponse = await fetch(`/api/get_processed_data/${currentSessionId}`);
+                const dataInfoData = await dataInfoResponse.json();
+                
+                if (!dataInfoData.success) {
+                    alert('Ошибка при получении данных: ' + dataInfoData.message);
+                    return;
+                }
+                
+                console.log('Проект успешно загружен:', project);
+                console.log('Данные получены:', dataInfoData.data_info);
+                
+                // Сохраняем данные в sessionStorage
+                sessionStorage.setItem('sessionId', currentSessionId);
+                sessionStorage.setItem('currentProjectId', project.id);
+                
+                // Сохраняем data_info без full_data
+                const dataInfoForStorage = { ...dataInfoData.data_info };
+                delete dataInfoForStorage.full_data;
+                
+                // Безопасное сохранение в sessionStorage
+                try {
+                    sessionStorage.setItem('dataInfo', JSON.stringify(dataInfoForStorage));
+                    sessionStorage.setItem('uploadedData', JSON.stringify(dataInfoForStorage));
+                    if (project.mapping_config) {
+                        sessionStorage.setItem('dataMapping', JSON.stringify(project.mapping_config));
                     }
-                })
-                .catch(error => {
-                    console.error('Ошибка при загрузке проекта:', error);
-                    alert('Ошибка при загрузке проекта: ' + error.message);
-                    // Возвращаемся на главную страницу
-                    window.location.href = '/';
-                });
+                } catch (error) {
+                    console.warn('Ошибка сохранения в sessionStorage:', error);
+                    sessionStorage.clear();
+                    sessionStorage.setItem('sessionId', currentSessionId);
+                    sessionStorage.setItem('dataInfo', JSON.stringify(dataInfoForStorage));
+                    sessionStorage.setItem('currentProjectId', project.id);
+                }
+                
+                // Устанавливаем глобальные переменные
+                dataInfo = dataInfoData.data_info;
+                dataColumns = dataInfo.columns;
+                dataMapping = project.mapping_config || {};
+                processedData = null; // Будет получено после применения маппинга
+                
+                // Скрываем интерфейс создания нового проекта
+                const uploadSection = document.getElementById('uploadSection');
+                if (uploadSection) {
+                    uploadSection.style.display = 'none';
+                }
+                
+                // Показываем информацию о загруженном проекте
+                showDataPreview(dataInfo, project.name);
+                populateFieldSelects();
+                populateTimeSeriesSelects();
+                
+                // Добавляем кнопку для создания нового проекта
+                addNewProjectButton();
+                
+                // Всегда переходим на страницу маппинга
+                window.location.href = '/forecast/mapping';
+                
+            } catch (error) {
+                console.error('Ошибка при загрузке проекта:', error);
+                alert('Ошибка при загрузке проекта: ' + error.message);
+                window.location.href = '/';
+            }
         }
 
         function showProcessedDataPreview(processedData, mapping) {
