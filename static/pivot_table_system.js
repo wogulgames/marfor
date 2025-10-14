@@ -2698,16 +2698,16 @@ function renderPivotChart(chartData, config) {
         maxValue, 
         range, 
         padding,
-        shouldStartFromZero,
+        paddingPercent: (padding / range * 100).toFixed(2) + '%',
         yMin, 
         yMax, 
         stepSize,
-        expectedSteps: Math.ceil(range / stepSize),
+        expectedSteps: Math.ceil((yMax - yMin) / stepSize),
         actualRange: yMax - yMin
     });
     console.log('🎛️ Параметры Chart.js для оси Y:', {
-        beginAtZero: shouldStartFromZero,
-        min: shouldStartFromZero ? undefined : yMin,
+        beginAtZero: false,
+        min: yMin,
         max: yMax,
         stepSize: stepSize
     });
