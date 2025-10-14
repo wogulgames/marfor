@@ -18,35 +18,62 @@
             background-color: #6bc884 !important;
         }
         
-        .timeline-row {
+        .calendar-item {
+            padding: 8px 12px;
+            margin: 4px;
+            border-radius: 6px;
+            display: inline-block;
+            font-size: 0.9em;
+            background: #e3f2fd;
+            border: 1px solid #2196f3;
+        }
+        
+        .calendar-year {
+            font-weight: bold;
+            background: #1976d2;
+            color: white;
+            padding: 10px 15px;
+            margin: 10px 0;
+            border-radius: 8px;
+            cursor: pointer;
+        }
+        
+        .calendar-year:hover {
+            background: #1565c0;
+        }
+        
+        .forecast-year {
+            background: #ff9800;
+            color: white;
+        }
+        
+        .forecast-year:hover {
+            background: #f57c00;
+        }
+        
+        .period-selector {
             border: 2px solid #e0e0e0;
             border-radius: 8px;
             padding: 15px;
-            margin-bottom: 10px;
+            margin-top: 10px;
             background: #f8f9fa;
         }
         
-        .timeline-row.forecast {
+        .forecast-selector {
             border-color: #ff9800;
             background: #fff3e0;
         }
         
-        .forecast-divider {
-            border-top: 3px dashed #ff9800;
-            margin: 20px 0;
-            position: relative;
+        .period-checkbox {
+            margin: 5px;
         }
         
-        .forecast-divider::before {
-            content: "Горизонт прогноза";
-            position: absolute;
-            top: -12px;
-            left: 50%;
-            transform: translateX(-50%);
-            background: white;
-            padding: 0 10px;
-            color: #ff9800;
-            font-weight: bold;
+        .selected-periods {
+            background: #e8f5e9;
+            border: 2px solid #4caf50;
+            padding: 10px;
+            border-radius: 6px;
+            margin-top: 10px;
         }
     </style>
 </head>
@@ -63,73 +90,104 @@
             </span>
             <div class="ms-auto">
                 <span class="badge bg-success" style="font-size: 0.8em;">
-                    <i class="fas fa-code"></i> v2.16.1
+                    <i class="fas fa-code"></i> v2.17.0
                 </span>
             </div>
         </div>
     </nav>
 
     <!-- Основной контент -->
-    <div class="container mt-4">
+    <div class="container-fluid mt-4">
         <div class="row">
             <div class="col-12">
-                <div class="card">
+                <!-- Выбор метрики -->
+                <div class="card mb-3">
                     <div class="card-header bg-primary text-dark">
-                        <h5 class="mb-0">
-                            <i class="fas fa-calendar-alt me-2"></i>Настройка горизонта прогнозирования
-                        </h5>
+                        <h6 class="mb-0">
+                            <i class="fas fa-chart-bar me-2"></i>Выбор метрики для прогнозирования
+                        </h6>
                     </div>
                     <div class="card-body">
-                        <div class="alert alert-info">
-                            <i class="fas fa-info-circle me-2"></i>
-                            Укажите временной период для прогнозирования. Вы можете добавить новые годы и выбрать детализацию по полугодиям, кварталам и месяцам.
-                        </div>
-
-                        <!-- Информация о текущих данных -->
-                        <div class="card mb-4">
-                            <div class="card-header">
-                                <h6 class="mb-0"><i class="fas fa-database me-2"></i>Текущие данные</h6>
+                        <div class="row align-items-center">
+                            <div class="col-md-4">
+                                <label class="form-label">Метрика:</label>
+                                <select id="metricSelect" class="form-select" onchange="updateMetricChart()">
+                                    <option value="">Загрузка...</option>
+                                </select>
                             </div>
-                            <div class="card-body" id="currentDataInfo">
-                                Загрузка...
-                            </div>
-                        </div>
-
-                        <!-- Временные ряды -->
-                        <div class="card mb-4">
-                            <div class="card-header d-flex justify-content-between align-items-center">
-                                <h6 class="mb-0"><i class="fas fa-list me-2"></i>Временные ряды</h6>
-                                <button class="btn btn-sm btn-success" onclick="addNewYear()">
-                                    <i class="fas fa-plus me-2"></i>Добавить год
-                                </button>
-                            </div>
-                            <div class="card-body">
-                                <div id="timelineContainer">
-                                    <!-- Здесь будут отображаться временные ряды -->
+                            <div class="col-md-8">
+                                <div class="alert alert-info mb-0">
+                                    <i class="fas fa-info-circle me-2"></i>
+                                    Выберите метрику, для которой будет построен прогноз. График автоматически обновится.
                                 </div>
                             </div>
                         </div>
+                    </div>
+                </div>
 
-                        <!-- График с визуализацией горизонта -->
-                        <div class="card mb-4">
-                            <div class="card-header">
-                                <h6 class="mb-0"><i class="fas fa-chart-line me-2"></i>Визуализация горизонта прогноза</h6>
-                            </div>
-                            <div class="card-body">
-                                <canvas id="forecastHorizonChart" style="height: 400px; width: 100%;"></canvas>
-                            </div>
-                        </div>
+                <!-- График метрики -->
+                <div class="card mb-3">
+                    <div class="card-header bg-primary text-dark">
+                        <h6 class="mb-0">
+                            <i class="fas fa-chart-line me-2"></i>График выбранной метрики
+                        </h6>
+                    </div>
+                    <div class="card-body">
+                        <canvas id="metricChart" style="height: 400px; width: 100%;"></canvas>
+                    </div>
+                </div>
 
-                        <!-- Кнопки действий -->
-                        <div class="text-center mt-4">
-                            <button class="btn btn-secondary me-3" onclick="goBack()">
-                                <i class="fas fa-arrow-left me-2"></i>Назад
-                            </button>
-                            <button class="btn btn-success" onclick="saveForecastSettings()">
-                                <i class="fas fa-save me-2"></i>Сохранить и продолжить
-                            </button>
+                <!-- Календарь временных рядов -->
+                <div class="card mb-3">
+                    <div class="card-header bg-primary text-dark">
+                        <h6 class="mb-0">
+                            <i class="fas fa-calendar-alt me-2"></i>Календарь временных рядов и настройка горизонта прогноза
+                        </h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <!-- Фактические данные -->
+                            <div class="col-md-6">
+                                <h6 class="mb-3">
+                                    <i class="fas fa-database me-2"></i>Фактические данные
+                                </h6>
+                                <div id="historicalCalendar" style="max-height: 500px; overflow-y: auto;">
+                                    Загрузка...
+                                </div>
+                            </div>
+
+                            <!-- Горизонт прогноза -->
+                            <div class="col-md-6">
+                                <h6 class="mb-3">
+                                    <i class="fas fa-calendar-plus me-2 text-warning"></i>Горизонт прогноза
+                                    <button class="btn btn-sm btn-success ms-3" onclick="addForecastYear()">
+                                        <i class="fas fa-plus me-1"></i>Добавить год
+                                    </button>
+                                </h6>
+                                <div id="forecastCalendar" style="max-height: 500px; overflow-y: auto;">
+                                    <p class="text-muted">Нажмите "Добавить год" для создания прогнозного периода</p>
+                                </div>
+                                
+                                <!-- Сводка выбранных периодов -->
+                                <div id="selectedPeriodsSummary" class="mt-3" style="display: none;">
+                                    <div class="selected-periods">
+                                        <h6><i class="fas fa-check-circle me-2"></i>Выбрано для прогноза:</h6>
+                                        <div id="summaryContent"></div>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </div>
+                </div>
+
+                <!-- Кнопки действий -->
+                <div class="text-center mb-4">
+                    <button class="btn btn-secondary btn-lg me-3" onclick="goBack()">
+                        <i class="fas fa-arrow-left me-2"></i>Назад
+                    </button>
+                    <button class="btn btn-success btn-lg" onclick="saveForecastSettings()">
+                        <i class="fas fa-save me-2"></i>Сохранить и запустить прогноз
+                    </button>
                 </div>
             </div>
         </div>
@@ -139,9 +197,12 @@
     <script>
         let currentSessionId = null;
         let timeSeriesConfig = null;
-        let existingData = [];
+        let existingTimeSeries = [];
         let forecastPeriods = [];
         let chartInstance = null;
+        let metrics = [];
+        let selectedMetric = null;
+        let metricData = {};
 
         // Инициализация при загрузке страницы
         document.addEventListener('DOMContentLoaded', async function() {
@@ -155,22 +216,11 @@
                 return;
             }
             
-            await loadTimeSeriesData();
+            await loadData();
         });
 
-        async function loadTimeSeriesData() {
+        async function loadData() {
             try {
-                // Получаем информацию о данных
-                const response = await fetch(`/api/get_processed_data/${currentSessionId}`);
-                const result = await response.json();
-                
-                if (!result.success) {
-                    alert('Ошибка загрузки данных: ' + result.message);
-                    return;
-                }
-                
-                const dataInfo = result.data_info;
-                
                 // Получаем маппинг из sessionStorage
                 const mappingStr = sessionStorage.getItem('dataMapping');
                 const mapping = mappingStr ? JSON.parse(mappingStr) : null;
@@ -181,33 +231,36 @@
                     return;
                 }
                 
-                // Находим временные поля
-                timeSeriesConfig = {
-                    year: null,
-                    halfyear: null,
-                    quarter: null,
-                    month: null
-                };
+                // Находим метрики и временные поля
+                metrics = [];
+                timeSeriesConfig = {};
                 
                 mapping.columns.forEach(col => {
+                    if (col.role === 'metric' && col.include) {
+                        metrics.push({
+                            name: col.name,
+                            displayName: col.name
+                        });
+                    }
                     if (col.time_series && col.include) {
                         timeSeriesConfig[col.time_series] = col.name;
                     }
                 });
                 
-                console.log('Конфигурация временных рядов:', timeSeriesConfig);
+                console.log('Метрики:', metrics);
+                console.log('Временные поля:', timeSeriesConfig);
                 
-                // Показываем информацию о текущих данных
-                displayCurrentDataInfo(dataInfo, timeSeriesConfig);
+                // Заполняем select метрик
+                populateMetricSelect();
                 
-                // Загружаем существующие временные ряды
-                await loadExistingTimeSeries();
+                // Загружаем временные ряды
+                await loadTimeSeries();
                 
-                // Отображаем временные ряды
-                renderTimeline();
+                // Отображаем календарь
+                renderCalendar();
                 
-                // Отрисовываем график
-                renderForecastChart();
+                // Загружаем данные для графика
+                await loadMetricData();
                 
             } catch (error) {
                 console.error('Ошибка загрузки данных:', error);
@@ -215,179 +268,282 @@
             }
         }
 
-        function displayCurrentDataInfo(dataInfo, config) {
-            const infoDiv = document.getElementById('currentDataInfo');
-            const hasYear = config.year ? '✅' : '❌';
-            const hasHalfyear = config.halfyear ? '✅' : '❌';
-            const hasQuarter = config.quarter ? '✅' : '❌';
-            const hasMonth = config.month ? '✅' : '❌';
+        function populateMetricSelect() {
+            const select = document.getElementById('metricSelect');
+            select.innerHTML = '';
             
-            infoDiv.innerHTML = `
-                <div class="row">
-                    <div class="col-md-6">
-                        <p><strong>Всего записей:</strong> ${dataInfo.shape[0].toLocaleString('ru-RU')}</p>
-                        <p><strong>Колонок:</strong> ${dataInfo.shape[1]}</p>
-                    </div>
-                    <div class="col-md-6">
-                        <p><strong>Временные поля:</strong></p>
-                        <ul class="list-unstyled ms-3">
-                            <li>${hasYear} Год: ${config.year || 'не настроено'}</li>
-                            <li>${hasHalfyear} Полугодие: ${config.halfyear || 'не настроено'}</li>
-                            <li>${hasQuarter} Квартал: ${config.quarter || 'не настроено'}</li>
-                            <li>${hasMonth} Месяц: ${config.month || 'не настроено'}</li>
-                        </ul>
-                    </div>
-                </div>
-            `;
+            if (metrics.length === 0) {
+                select.innerHTML = '<option value="">Метрики не найдены</option>';
+                return;
+            }
+            
+            metrics.forEach((metric, index) => {
+                const option = document.createElement('option');
+                option.value = metric.name;
+                option.text = metric.displayName;
+                if (index === 0) {
+                    option.selected = true;
+                    selectedMetric = metric.name;
+                }
+                select.appendChild(option);
+            });
         }
 
-        async function loadExistingTimeSeries() {
+        async function loadTimeSeries() {
             try {
-                // Запрашиваем уникальные значения временных полей
                 const response = await fetch(`/api/get_time_series_values/${currentSessionId}`);
                 const result = await response.json();
                 
                 if (result.success) {
-                    existingData = result.time_series;
-                    console.log('Существующие временные ряды:', existingData);
+                    existingTimeSeries = result.time_series;
+                    console.log('Загружено временных рядов:', existingTimeSeries.length);
                 } else {
-                    console.error('Ошибка получения временных рядов:', result.message);
+                    console.error('Ошибка:', result.message);
+                }
+            } catch (error) {
+                console.error('Ошибка загрузки временных рядов:', error);
+            }
+        }
+
+        async function loadMetricData() {
+            if (!selectedMetric) return;
+            
+            try {
+                // Запрашиваем агрегированные данные по выбранной метрике
+                const response = await fetch(`/api/get_metric_time_series/${currentSessionId}?metric=${selectedMetric}`);
+                const result = await response.json();
+                
+                if (result.success) {
+                    metricData = result.data;
+                    console.log('Данные метрики загружены:', metricData);
+                    renderMetricChart();
+                } else {
+                    console.error('Ошибка загрузки данных метрики:', result.message);
                 }
             } catch (error) {
                 console.error('Ошибка:', error);
             }
         }
 
-        function renderTimeline() {
-            const container = document.getElementById('timelineContainer');
+        function renderCalendar() {
+            renderHistoricalCalendar();
+            renderForecastCalendar();
+            updateSummary();
+        }
+
+        function renderHistoricalCalendar() {
+            const container = document.getElementById('historicalCalendar');
             
-            if (existingData.length === 0) {
-                container.innerHTML = '<p class="text-muted">Нет данных для отображения</p>';
+            if (existingTimeSeries.length === 0) {
+                container.innerHTML = '<p class="text-muted">Нет данных</p>';
                 return;
             }
             
-            let html = '<h6 class="mb-3">Существующие данные:</h6>';
-            
             // Группируем по годам
             const yearGroups = {};
-            existingData.forEach(item => {
+            existingTimeSeries.forEach(item => {
                 const year = item.year;
                 if (!yearGroups[year]) {
-                    yearGroups[year] = [];
+                    yearGroups[year] = {
+                        halfyears: {},
+                        quarters: {},
+                        months: []
+                    };
                 }
-                yearGroups[year].push(item);
+                
+                const group = yearGroups[year];
+                
+                if (item.halfyear) {
+                    const hy = item.halfyear;
+                    if (!group.halfyears[hy]) {
+                        group.halfyears[hy] = { quarters: {}, months: [] };
+                    }
+                    
+                    if (item.quarter) {
+                        const q = item.quarter;
+                        if (!group.halfyears[hy].quarters[q]) {
+                            group.halfyears[hy].quarters[q] = [];
+                        }
+                        if (item.month) {
+                            group.halfyears[hy].quarters[q].push(item.month);
+                        }
+                    } else if (item.month) {
+                        group.halfyears[hy].months.push(item.month);
+                    }
+                } else if (item.quarter) {
+                    const q = item.quarter;
+                    if (!group.quarters[q]) {
+                        group.quarters[q] = [];
+                    }
+                    if (item.month) {
+                        group.quarters[q].push(item.month);
+                    }
+                } else if (item.month) {
+                    group.months.push(item.month);
+                }
             });
+            
+            let html = '';
             
             // Отображаем каждый год
-            Object.keys(yearGroups).sort().forEach(year => {
-                html += `<div class="timeline-row">`;
-                html += `<strong>Год: ${year}</strong>`;
-                html += `<div class="ms-3 mt-2">`;
+            Object.keys(yearGroups).sort((a, b) => a - b).forEach(year => {
+                const group = yearGroups[year];
+                html += `<div class="mb-3">`;
+                html += `<div class="calendar-year">${year}</div>`;
+                html += `<div class="ms-3">`;
                 
-                const items = yearGroups[year];
-                const periods = new Set();
-                items.forEach(item => {
-                    if (item.halfyear) periods.add(`H${item.halfyear}`);
-                    if (item.quarter) periods.add(`Q${item.quarter}`);
-                    if (item.month) periods.add(`М${item.month}`);
-                });
+                // Полугодия
+                if (Object.keys(group.halfyears).length > 0) {
+                    Object.keys(group.halfyears).sort().forEach(hy => {
+                        html += `<div class="ms-2 mt-2">`;
+                        html += `<span class="calendar-item bg-info text-white">H${hy}</span>`;
+                        
+                        const hyData = group.halfyears[hy];
+                        
+                        // Кварталы внутри полугодия
+                        if (Object.keys(hyData.quarters).length > 0) {
+                            Object.keys(hyData.quarters).sort().forEach(q => {
+                                html += `<div class="ms-3 mt-1">`;
+                                html += `<span class="calendar-item">Q${q}</span>`;
+                                
+                                // Месяцы внутри квартала
+                                const months = hyData.quarters[q].sort((a, b) => a - b);
+                                if (months.length > 0) {
+                                    html += `<span class="ms-2">`;
+                                    months.forEach(m => {
+                                        html += `<span class="calendar-item bg-light">${m}</span>`;
+                                    });
+                                    html += `</span>`;
+                                }
+                                
+                                html += `</div>`;
+                            });
+                        }
+                        
+                        // Месяцы напрямую в полугодии
+                        if (hyData.months.length > 0) {
+                            html += `<div class="ms-3 mt-1">`;
+                            hyData.months.sort((a, b) => a - b).forEach(m => {
+                                html += `<span class="calendar-item bg-light">${m}</span>`;
+                            });
+                            html += `</div>`;
+                        }
+                        
+                        html += `</div>`;
+                    });
+                }
                 
-                if (periods.size > 0) {
-                    html += `<small class="text-muted">Периоды: ${Array.from(periods).join(', ')}</small>`;
+                // Кварталы напрямую (без полугодий)
+                if (Object.keys(group.quarters).length > 0) {
+                    Object.keys(group.quarters).sort().forEach(q => {
+                        html += `<div class="ms-2 mt-2">`;
+                        html += `<span class="calendar-item">Q${q}</span>`;
+                        
+                        const months = group.quarters[q].sort((a, b) => a - b);
+                        if (months.length > 0) {
+                            html += `<span class="ms-2">`;
+                            months.forEach(m => {
+                                html += `<span class="calendar-item bg-light">${m}</span>`;
+                            });
+                            html += `</span>`;
+                        }
+                        
+                        html += `</div>`;
+                    });
+                }
+                
+                // Месяцы напрямую (без кварталов и полугодий)
+                if (group.months.length > 0) {
+                    html += `<div class="ms-2 mt-2">`;
+                    group.months.sort((a, b) => a - b).forEach(m => {
+                        html += `<span class="calendar-item bg-light">${m}</span>`;
+                    });
+                    html += `</div>`;
                 }
                 
                 html += `</div>`;
                 html += `</div>`;
             });
-            
-            // Разделитель
-            html += '<div class="forecast-divider"></div>';
-            
-            // Секция для прогнозных периодов
-            html += '<h6 class="mb-3 mt-4">Прогнозные периоды:</h6>';
-            html += '<div id="forecastPeriodsContainer">';
-            
-            if (forecastPeriods.length === 0) {
-                html += '<p class="text-muted">Нажмите "Добавить год" чтобы создать прогнозный период</p>';
-            } else {
-                forecastPeriods.forEach((period, index) => {
-                    html += renderForecastPeriod(period, index);
-                });
-            }
-            
-            html += '</div>';
             
             container.innerHTML = html;
         }
 
-        function renderForecastPeriod(period, index) {
-            let html = `<div class="timeline-row forecast" id="forecast-period-${index}">`;
-            html += `<div class="d-flex justify-content-between align-items-center mb-2">`;
-            html += `<strong>Прогноз: Год ${period.year}</strong>`;
-            html += `<button class="btn btn-sm btn-danger" onclick="removeForecastPeriod(${index})">`;
-            html += `<i class="fas fa-times"></i></button>`;
-            html += `</div>`;
+        function renderForecastCalendar() {
+            const container = document.getElementById('forecastCalendar');
             
-            // Выбор детализации
-            html += `<div class="row">`;
-            
-            // Полугодия
-            if (timeSeriesConfig.halfyear) {
-                html += `<div class="col-md-3">`;
-                html += `<label class="form-label">Полугодия:</label>`;
-                html += `<div class="form-check">`;
-                html += `<input class="form-check-input" type="checkbox" id="h1-${index}" value="H1" ${period.halfyears.includes('H1') ? 'checked' : ''} onchange="updateForecastPeriod(${index})">`;
-                html += `<label class="form-check-label" for="h1-${index}">H1</label>`;
-                html += `</div>`;
-                html += `<div class="form-check">`;
-                html += `<input class="form-check-input" type="checkbox" id="h2-${index}" value="H2" ${period.halfyears.includes('H2') ? 'checked' : ''} onchange="updateForecastPeriod(${index})">`;
-                html += `<label class="form-check-label" for="h2-${index}">H2</label>`;
-                html += `</div>`;
-                html += `</div>`;
+            if (forecastPeriods.length === 0) {
+                container.innerHTML = '<p class="text-muted">Нажмите "Добавить год" для создания прогнозного периода</p>';
+                return;
             }
             
-            // Кварталы
-            if (timeSeriesConfig.quarter) {
-                html += `<div class="col-md-3">`;
-                html += `<label class="form-label">Кварталы:</label>`;
-                for (let q = 1; q <= 4; q++) {
-                    html += `<div class="form-check">`;
-                    html += `<input class="form-check-input" type="checkbox" id="q${q}-${index}" value="Q${q}" ${period.quarters.includes(`Q${q}`) ? 'checked' : ''} onchange="updateForecastPeriod(${index})">`;
-                    html += `<label class="form-check-label" for="q${q}-${index}">Q${q}</label>`;
+            let html = '';
+            
+            forecastPeriods.forEach((period, yearIndex) => {
+                html += `<div class="mb-3">`;
+                html += `<div class="calendar-year forecast-year d-flex justify-content-between align-items-center">`;
+                html += `<span>${period.year}</span>`;
+                html += `<button class="btn btn-sm btn-danger" onclick="removeForecastYear(${yearIndex})">`;
+                html += `<i class="fas fa-times"></i></button>`;
+                html += `</div>`;
+                
+                html += `<div class="period-selector forecast-selector">`;
+                
+                // Полугодия
+                if (timeSeriesConfig.halfyear) {
+                    html += `<div class="mb-3">`;
+                    html += `<label class="form-label fw-bold">Полугодия:</label><br>`;
+                    ['H1', 'H2'].forEach(hy => {
+                        const checked = period.halfyears.includes(hy) ? 'checked' : '';
+                        html += `<div class="form-check form-check-inline period-checkbox">`;
+                        html += `<input class="form-check-input" type="checkbox" id="hy-${yearIndex}-${hy}" value="${hy}" ${checked} onchange="updateForecastPeriod(${yearIndex})">`;
+                        html += `<label class="form-check-label" for="hy-${yearIndex}-${hy}">${hy}</label>`;
+                        html += `</div>`;
+                    });
                     html += `</div>`;
                 }
-                html += `</div>`;
-            }
-            
-            // Месяцы
-            if (timeSeriesConfig.month) {
-                html += `<div class="col-md-6">`;
-                html += `<label class="form-label">Месяцы:</label>`;
-                html += `<div class="row">`;
-                for (let m = 1; m <= 12; m++) {
-                    html += `<div class="col-4">`;
-                    html += `<div class="form-check">`;
-                    html += `<input class="form-check-input" type="checkbox" id="m${m}-${index}" value="${m}" ${period.months.includes(m) ? 'checked' : ''} onchange="updateForecastPeriod(${index})">`;
-                    html += `<label class="form-check-label" for="m${m}-${index}">${m}</label>`;
-                    html += `</div>`;
+                
+                // Кварталы
+                if (timeSeriesConfig.quarter) {
+                    html += `<div class="mb-3">`;
+                    html += `<label class="form-label fw-bold">Кварталы:</label><br>`;
+                    for (let q = 1; q <= 4; q++) {
+                        const qLabel = `Q${q}`;
+                        const checked = period.quarters.includes(qLabel) ? 'checked' : '';
+                        html += `<div class="form-check form-check-inline period-checkbox">`;
+                        html += `<input class="form-check-input" type="checkbox" id="q-${yearIndex}-${q}" value="${qLabel}" ${checked} onchange="updateForecastPeriod(${yearIndex})">`;
+                        html += `<label class="form-check-label" for="q-${yearIndex}-${q}">${qLabel}</label>`;
+                        html += `</div>`;
+                    }
                     html += `</div>`;
                 }
+                
+                // Месяцы
+                if (timeSeriesConfig.month) {
+                    html += `<div class="mb-3">`;
+                    html += `<label class="form-label fw-bold">Месяцы:</label><br>`;
+                    for (let m = 1; m <= 12; m++) {
+                        const checked = period.months.includes(m) ? 'checked' : '';
+                        html += `<div class="form-check form-check-inline period-checkbox" style="width: 60px;">`;
+                        html += `<input class="form-check-input" type="checkbox" id="m-${yearIndex}-${m}" value="${m}" ${checked} onchange="updateForecastPeriod(${yearIndex})">`;
+                        html += `<label class="form-check-label" for="m-${yearIndex}-${m}">${m}</label>`;
+                        html += `</div>`;
+                    }
+                    html += `</div>`;
+                }
+                
                 html += `</div>`;
                 html += `</div>`;
-            }
+            });
             
-            html += `</div>`;
-            html += `</div>`;
-            
-            return html;
+            container.innerHTML = html;
         }
 
-        function addNewYear() {
-            // Определяем следующий год
+        function addForecastYear() {
+            // Определяем максимальный год
             let maxYear = 0;
             
-            if (existingData.length > 0) {
-                maxYear = Math.max(...existingData.map(d => d.year));
+            if (existingTimeSeries.length > 0) {
+                maxYear = Math.max(...existingTimeSeries.map(d => d.year || 0));
             }
             
             if (forecastPeriods.length > 0) {
@@ -396,7 +552,7 @@
             
             const newYear = maxYear + 1;
             
-            // Добавляем новый прогнозный период
+            // Добавляем новый период
             forecastPeriods.push({
                 year: newYear,
                 halfyears: [],
@@ -404,34 +560,36 @@
                 months: []
             });
             
-            renderTimeline();
-            renderForecastChart();
+            renderForecastCalendar();
+            updateSummary();
+            renderMetricChart();
         }
 
-        function removeForecastPeriod(index) {
+        function removeForecastYear(index) {
             if (confirm(`Удалить прогнозный период для ${forecastPeriods[index].year} года?`)) {
                 forecastPeriods.splice(index, 1);
-                renderTimeline();
-                renderForecastChart();
+                renderForecastCalendar();
+                updateSummary();
+                renderMetricChart();
             }
         }
 
-        function updateForecastPeriod(index) {
-            const period = forecastPeriods[index];
+        function updateForecastPeriod(yearIndex) {
+            const period = forecastPeriods[yearIndex];
             
             // Обновляем полугодия
             period.halfyears = [];
-            ['H1', 'H2'].forEach(h => {
-                const checkbox = document.getElementById(`${h.toLowerCase()}-${index}`);
+            ['H1', 'H2'].forEach(hy => {
+                const checkbox = document.getElementById(`hy-${yearIndex}-${hy}`);
                 if (checkbox && checkbox.checked) {
-                    period.halfyears.push(h);
+                    period.halfyears.push(hy);
                 }
             });
             
             // Обновляем кварталы
             period.quarters = [];
             for (let q = 1; q <= 4; q++) {
-                const checkbox = document.getElementById(`q${q}-${index}`);
+                const checkbox = document.getElementById(`q-${yearIndex}-${q}`);
                 if (checkbox && checkbox.checked) {
                     period.quarters.push(`Q${q}`);
                 }
@@ -440,18 +598,61 @@
             // Обновляем месяцы
             period.months = [];
             for (let m = 1; m <= 12; m++) {
-                const checkbox = document.getElementById(`m${m}-${index}`);
+                const checkbox = document.getElementById(`m-${yearIndex}-${m}`);
                 if (checkbox && checkbox.checked) {
                     period.months.push(m);
                 }
             }
             
             console.log('Обновлен период:', period);
-            renderForecastChart();
+            updateSummary();
+            renderMetricChart();
         }
 
-        function renderForecastChart() {
-            const canvas = document.getElementById('forecastHorizonChart');
+        function updateSummary() {
+            const summaryDiv = document.getElementById('selectedPeriodsSummary');
+            const contentDiv = document.getElementById('summaryContent');
+            
+            if (forecastPeriods.length === 0) {
+                summaryDiv.style.display = 'none';
+                return;
+            }
+            
+            summaryDiv.style.display = 'block';
+            
+            let html = '';
+            let totalPeriods = 0;
+            
+            forecastPeriods.forEach(period => {
+                const parts = [];
+                if (period.halfyears.length > 0) parts.push(`${period.halfyears.length} полугодий`);
+                if (period.quarters.length > 0) parts.push(`${period.quarters.length} кварталов`);
+                if (period.months.length > 0) parts.push(`${period.months.length} месяцев`);
+                
+                const count = period.months.length || period.quarters.length || period.halfyears.length || 0;
+                totalPeriods += count;
+                
+                if (parts.length > 0) {
+                    html += `<div><strong>${period.year}:</strong> ${parts.join(', ')}</div>`;
+                }
+            });
+            
+            html += `<div class="mt-2"><strong>Всего периодов для прогноза: ${totalPeriods}</strong></div>`;
+            
+            contentDiv.innerHTML = html;
+        }
+
+        async function updateMetricChart() {
+            const select = document.getElementById('metricSelect');
+            selectedMetric = select.value;
+            
+            if (selectedMetric) {
+                await loadMetricData();
+            }
+        }
+
+        function renderMetricChart() {
+            const canvas = document.getElementById('metricChart');
             if (!canvas) return;
             
             // Уничтожаем предыдущий график
@@ -459,39 +660,21 @@
                 chartInstance.destroy();
             }
             
-            // Подготавливаем данные для графика
-            const labels = [];
-            const historicalData = [];
-            const forecastData = [];
+            if (!metricData.labels || metricData.labels.length === 0) {
+                return;
+            }
             
-            // Добавляем исторические данные (группируем по годам для простоты)
-            const yearGroups = {};
-            existingData.forEach(item => {
-                if (!yearGroups[item.year]) {
-                    yearGroups[item.year] = 0;
-                }
-                yearGroups[item.year]++;
-            });
-            
-            Object.keys(yearGroups).sort().forEach(year => {
-                labels.push(year);
-                historicalData.push(yearGroups[year]);
-                forecastData.push(null);
-            });
+            // Подготавливаем данные
+            const labels = [...metricData.labels];
+            const historicalValues = [...metricData.values];
+            const forecastValues = new Array(historicalValues.length).fill(null);
             
             // Добавляем прогнозные периоды
             forecastPeriods.forEach(period => {
-                labels.push(period.year);
-                historicalData.push(null);
-                
-                // Считаем количество периодов
-                let count = 0;
-                if (period.months.length > 0) count = period.months.length;
-                else if (period.quarters.length > 0) count = period.quarters.length * 3;
-                else if (period.halfyears.length > 0) count = period.halfyears.length * 6;
-                else count = 12; // Весь год
-                
-                forecastData.push(count);
+                labels.push(period.year.toString());
+                historicalValues.push(null);
+                // Пока ставим 0, позже здесь будет реальный прогноз
+                forecastValues.push(0);
             });
             
             const ctx = canvas.getContext('2d');
@@ -501,24 +684,28 @@
                     labels: labels,
                     datasets: [
                         {
-                            label: 'Исторические данные',
-                            data: historicalData,
+                            label: 'Фактические данные',
+                            data: historicalValues,
                             borderColor: '#2196F3',
                             backgroundColor: '#2196F333',
-                            borderWidth: 3,
+                            borderWidth: 4,
                             pointRadius: 6,
-                            tension: 0.2
+                            pointHoverRadius: 8,
+                            tension: 0.2,
+                            fill: false
                         },
                         {
-                            label: 'Прогноз',
-                            data: forecastData,
+                            label: 'Горизонт прогноза',
+                            data: forecastValues,
                             borderColor: '#FF9800',
                             backgroundColor: '#FF980033',
-                            borderWidth: 3,
+                            borderWidth: 4,
                             borderDash: [10, 5],
                             pointRadius: 6,
+                            pointHoverRadius: 8,
                             pointStyle: 'rectRot',
-                            tension: 0.2
+                            tension: 0.2,
+                            fill: false
                         }
                     ]
                 },
@@ -528,7 +715,7 @@
                     plugins: {
                         title: {
                             display: true,
-                            text: 'Горизонт прогнозирования',
+                            text: `${selectedMetric || 'Метрика'} - Фактические данные и горизонт прогноза`,
                             font: { size: 16, weight: 'bold' }
                         },
                         legend: {
@@ -541,7 +728,7 @@
                                     const label = context.dataset.label || '';
                                     const value = context.parsed.y;
                                     if (value === null) return null;
-                                    return `${label}: ${value} периодов`;
+                                    return `${label}: ${value.toLocaleString('ru-RU')}`;
                                 }
                             }
                         }
@@ -550,15 +737,15 @@
                         x: {
                             title: {
                                 display: true,
-                                text: 'Год'
+                                text: 'Период'
                             }
                         },
                         y: {
                             title: {
                                 display: true,
-                                text: 'Количество периодов'
+                                text: 'Значение'
                             },
-                            beginAtZero: true
+                            beginAtZero: false
                         }
                     }
                 }
@@ -566,14 +753,30 @@
         }
 
         async function saveForecastSettings() {
+            if (!selectedMetric) {
+                alert('Выберите метрику для прогнозирования');
+                return;
+            }
+            
             if (forecastPeriods.length === 0) {
                 alert('Добавьте хотя бы один прогнозный период');
+                return;
+            }
+            
+            // Проверяем, что в каждом периоде выбрано что-то
+            const emptyPeriods = forecastPeriods.filter(p => 
+                p.halfyears.length === 0 && p.quarters.length === 0 && p.months.length === 0
+            );
+            
+            if (emptyPeriods.length > 0) {
+                alert('Для каждого года необходимо выбрать хотя бы один период (полугодие, квартал или месяц)');
                 return;
             }
             
             try {
                 const settings = {
                     session_id: currentSessionId,
+                    metric: selectedMetric,
                     forecast_periods: forecastPeriods,
                     time_series_config: timeSeriesConfig
                 };
@@ -589,8 +792,8 @@
                 const result = await response.json();
                 
                 if (result.success) {
-                    alert('✅ Настройки прогноза сохранены!');
-                    // Переходим к следующему шагу (пока вернемся на главную)
+                    alert('✅ Настройки прогноза сохранены!\n\nТеперь можно запустить прогнозирование.');
+                    // Пока вернемся на главную, позже добавим страницу запуска прогноза
                     window.location.href = '/forecast';
                 } else {
                     alert('❌ Ошибка: ' + result.message);
@@ -602,9 +805,10 @@
         }
 
         function goBack() {
-            window.location.href = '/forecast';
+            if (confirm('Вернуться назад? Несохраненные настройки будут потеряны.')) {
+                window.location.href = '/forecast';
+            }
         }
     </script>
 </body>
 </html>
-

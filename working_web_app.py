@@ -652,7 +652,7 @@ def get_processed_data(session_id):
 def get_time_series_data(session_id):
     """Получение данных временных рядов для визуализации"""
     try:
-        print(f"🔧 ВЕРСИЯ КОДА: 2.17.0 - Добавлена страница настройки горизонта прогнозирования")
+        print(f"🔧 ВЕРСИЯ КОДА: 2.17.1 - Переработан интерфейс настройки прогноза с календарем")
         if not session_id or forecast_app.session_id != session_id:
             return jsonify({'success': False, 'message': 'Сессия не найдена'})
         
@@ -1973,6 +1973,54 @@ def get_time_series_values(session_id):
     except Exception as e:
         return jsonify({'success': False, 'message': f'Ошибка: {str(e)}'})
 
+@app.route('/api/get_metric_time_series/<session_id>')
+def get_metric_time_series(session_id):
+    """Получение данных метрики по временным рядам"""
+    try:
+        if not session_id or forecast_app.session_id != session_id:
+            return jsonify({'success': False, 'message': 'Сессия не найдена'})
+        
+        if forecast_app.df is None:
+            return jsonify({'success': False, 'message': 'Данные не загружены'})
+        
+        metric = request.args.get('metric')
+        if not metric:
+            return jsonify({'success': False, 'message': 'Метрика не указана'})
+        
+        df = forecast_app.df
+        
+        if metric not in df.columns:
+            return jsonify({'success': False, 'message': f'Метрика {metric} не найдена'})
+        
+        # Определяем временные поля
+        time_field = None
+        for col in df.columns:
+            if 'year' in col.lower():
+                time_field = col
+                break
+        
+        if not time_field:
+            return jsonify({'success': False, 'message': 'Временное поле не найдено'})
+        
+        # Агрегируем данные по годам
+        aggregated = df.groupby(time_field)[metric].sum().reset_index()
+        aggregated = aggregated.sort_values(time_field)
+        
+        labels = aggregated[time_field].astype(str).tolist()
+        values = aggregated[metric].tolist()
+        
+        return jsonify({
+            'success': True,
+            'data': {
+                'labels': labels,
+                'values': values,
+                'metric': metric
+            }
+        })
+        
+    except Exception as e:
+        return jsonify({'success': False, 'message': f'Ошибка: {str(e)}'})
+
 @app.route('/api/save_forecast_settings', methods=['POST'])
 def save_forecast_settings():
     """Сохранение настроек прогноза"""
@@ -2141,6 +2189,6 @@ def download_results(session_id):
 if __name__ == '__main__':
     print("🚀 Запуск MARFOR веб-приложения...")
     print("📊 Каскадная модель с Random Forest")
-    print("🔧 ВЕРСИЯ КОДА: 2.17.0 - Добавлена страница настройки горизонта прогнозирования")
+    print("🔧 ВЕРСИЯ КОДА: 2.17.1 - Переработан интерфейс настройки прогноза с календарем")
     print("🌐 Откройте http://localhost:5001 в браузере")
     app.run(debug=True, host='0.0.0.0', port=5001)
