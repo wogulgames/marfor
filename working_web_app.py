@@ -583,6 +583,11 @@ def data_mapping():
     """Страница маппинга данных"""
     return render_template('data_mapping.html')
 
+@app.route('/forecast/settings')
+def forecast_settings():
+    """Страница настройки горизонта прогнозирования"""
+    return render_template('forecast_settings.html')
+
 @app.route('/forecast/configure')
 def forecast_configure():
     """Страница настройки прогноза"""
@@ -647,7 +652,7 @@ def get_processed_data(session_id):
 def get_time_series_data(session_id):
     """Получение данных временных рядов для визуализации"""
     try:
-        print(f"🔧 ВЕРСИЯ КОДА: 2.16.1 - Исправлена загрузка проекта с получением data_info")
+        print(f"🔧 ВЕРСИЯ КОДА: 2.17.0 - Добавлена страница настройки горизонта прогнозирования")
         if not session_id or forecast_app.session_id != session_id:
             return jsonify({'success': False, 'message': 'Сессия не найдена'})
         
@@ -1912,6 +1917,97 @@ def upload_file():
     
     return jsonify({'success': False, 'message': 'Недопустимый тип файла'})
 
+@app.route('/api/get_time_series_values/<session_id>')
+def get_time_series_values(session_id):
+    """Получение уникальных значений временных рядов"""
+    try:
+        if not session_id or forecast_app.session_id != session_id:
+            return jsonify({'success': False, 'message': 'Сессия не найдена'})
+        
+        if forecast_app.df is None:
+            return jsonify({'success': False, 'message': 'Данные не загружены'})
+        
+        df = forecast_app.df
+        
+        # Получаем маппинг из запроса или sessionStorage
+        time_series = []
+        
+        # Определяем временные поля
+        time_fields = {}
+        for col in df.columns:
+            col_lower = col.lower()
+            if 'year' in col_lower:
+                time_fields['year'] = col
+            elif 'halfyear' in col_lower or 'half' in col_lower:
+                time_fields['halfyear'] = col
+            elif 'quarter' in col_lower:
+                time_fields['quarter'] = col
+            elif 'month' in col_lower:
+                time_fields['month'] = col
+        
+        # Получаем уникальные комбинации
+        if time_fields:
+            group_cols = list(time_fields.values())
+            unique_combinations = df[group_cols].drop_duplicates().to_dict('records')
+            
+            for combo in unique_combinations:
+                item = {}
+                for key, col_name in time_fields.items():
+                    value = combo.get(col_name)
+                    if pd.notna(value) and value != '':
+                        item[key] = value
+                
+                if item:  # Добавляем только если есть хотя бы одно значение
+                    time_series.append(item)
+        
+        # Сортируем по году
+        if time_series:
+            time_series.sort(key=lambda x: (x.get('year', 0), x.get('month', 0)))
+        
+        return jsonify({
+            'success': True,
+            'time_series': time_series,
+            'time_fields': time_fields
+        })
+        
+    except Exception as e:
+        return jsonify({'success': False, 'message': f'Ошибка: {str(e)}'})
+
+@app.route('/api/save_forecast_settings', methods=['POST'])
+def save_forecast_settings():
+    """Сохранение настроек прогноза"""
+    try:
+        data = request.get_json()
+        session_id = data.get('session_id')
+        
+        if not session_id:
+            return jsonify({'success': False, 'message': 'Session ID не указан'})
+        
+        # Сохраняем настройки в сессию
+        forecast_settings = {
+            'forecast_periods': data.get('forecast_periods', []),
+            'time_series_config': data.get('time_series_config', {}),
+            'created_at': datetime.now().isoformat()
+        }
+        
+        # Можно сохранить в файл или в память
+        # Пока сохраним в глобальную переменную
+        if not hasattr(forecast_app, 'forecast_settings'):
+            forecast_app.forecast_settings = {}
+        
+        forecast_app.forecast_settings[session_id] = forecast_settings
+        
+        print(f"✅ Сохранены настройки прогноза для сессии {session_id}")
+        print(f"   Прогнозных периодов: {len(forecast_settings['forecast_periods'])}")
+        
+        return jsonify({
+            'success': True,
+            'message': 'Настройки прогноза сохранены'
+        })
+        
+    except Exception as e:
+        return jsonify({'success': False, 'message': f'Ошибка: {str(e)}'})
+
 @app.route('/api/update_file', methods=['POST'])
 def update_file():
     """Обновление файла данных с сохранением session_id"""
@@ -2045,6 +2141,6 @@ def download_results(session_id):
 if __name__ == '__main__':
     print("🚀 Запуск MARFOR веб-приложения...")
     print("📊 Каскадная модель с Random Forest")
-    print("🔧 ВЕРСИЯ КОДА: 2.16.1 - Исправлена загрузка проекта с получением data_info")
+    print("🔧 ВЕРСИЯ КОДА: 2.17.0 - Добавлена страница настройки горизонта прогнозирования")
     print("🌐 Откройте http://localhost:5001 в браузере")
     app.run(debug=True, host='0.0.0.0', port=5001)

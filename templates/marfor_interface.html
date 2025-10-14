@@ -618,7 +618,7 @@
             <span class="navbar-text">Маркетинговый инструмент прогнозирования</span>
             <div class="ms-auto">
                 <span class="badge bg-success" style="font-size: 0.8em;">
-                    <i class="fas fa-code"></i> v2.16.1
+                    <i class="fas fa-code"></i> v2.17.0
                 </span>
             </div>
         </div>
@@ -1779,8 +1779,8 @@
                     <button class="btn btn-danger btn-sm ms-2" onclick="deleteCurrentProject()">
                         <i class="fas fa-trash me-2"></i>Удалить проект
                     </button>
-                    <button class="btn btn-success btn-sm ms-2" onclick="startForecast()">
-                        <i class="fas fa-chart-line me-2"></i>Запустить прогноз
+                    <button class="btn btn-success btn-sm ms-2" onclick="goToForecastSettings()">
+                        <i class="fas fa-cog me-2"></i>Перейти к настройке параметров для прогноза
                     </button>
                 </div>
                 <div id="dataTableContainer" class="mt-3" style="display: none;">
@@ -4411,6 +4411,20 @@
             }
             
             window.open('/download/' + format + '/' + currentSessionId, '_blank');
+        }
+
+        function goToForecastSettings() {
+            // Проверяем, что данные загружены
+            if (!currentSessionId) {
+                alert('Сначала загрузите данные');
+                return;
+            }
+            
+            // Сохраняем текущий session_id
+            sessionStorage.setItem('currentSessionId', currentSessionId);
+            
+            // Переходим на страницу настройки прогноза
+            window.location.href = `/forecast/settings?session_id=${currentSessionId}`;
         }
     </script>
 </body>
