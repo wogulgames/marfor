@@ -1112,25 +1112,53 @@ def list_projects():
     """Список сохраненных проектов"""
     try:
         projects_dir = 'projects'
+        print(f"🔍 Проверяем директорию проектов: {projects_dir}")
         if not os.path.exists(projects_dir):
+            print(f"❌ Директория {projects_dir} не существует")
             return jsonify({'success': True, 'projects': []})
         
         projects = []
-        for filename in os.listdir(projects_dir):
+        files = os.listdir(projects_dir)
+        print(f"📁 Найдено файлов в {projects_dir}: {len(files)}")
+        
+        for filename in files:
+            print(f"📄 Обрабатываем файл: {filename}")
             if filename.endswith('.json'):
                 project_file = os.path.join(projects_dir, filename)
                 try:
                     with open(project_file, 'r', encoding='utf-8') as f:
                         project = json.load(f)
-                    # Возвращаем только основную информацию
-                    projects.append({
-                        'id': project['id'],
-                        'name': project['name'],
-                        'created_at': project['created_at'],
-                        'updated_at': project['updated_at'],
-                        'status': project.get('status', 'saved')
-                    })
-                except:
+                    
+                    # Поддержка старого формата (без метаданных)
+                    if 'id' not in project:
+                        # Старый формат - используем имя файла как ID
+                        project_id = filename.replace('.json', '')
+                        project_name = project.get('data_info', {}).get('filename', 'Проект без имени')
+                        # Получаем время модификации файла
+                        import os.path, time
+                        mtime = os.path.getmtime(project_file)
+                        timestamp = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(mtime))
+                        
+                        projects.append({
+                            'id': project_id,
+                            'name': project_name,
+                            'created_at': timestamp,
+                            'updated_at': timestamp,
+                            'status': 'saved'
+                        })
+                        print(f"✅ Загружен старый проект: {project_name}")
+                    else:
+                        # Новый формат с метаданными
+                        projects.append({
+                            'id': project['id'],
+                            'name': project['name'],
+                            'created_at': project['created_at'],
+                            'updated_at': project['updated_at'],
+                            'status': project.get('status', 'saved')
+                        })
+                        print(f"✅ Загружен проект: {project.get('name', 'без имени')}")
+                except Exception as e:
+                    print(f"❌ Ошибка загрузки проекта {filename}: {str(e)}")
                     continue
         
         # Сортируем по времени обновления
