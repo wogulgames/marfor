@@ -649,7 +649,7 @@
             const mapping = {
                 columns: [],
                 // Обработка данных
-                missingValues: document.getElementById('missingValues')?.value || 'zeros',
+                missingValues: document.querySelector('input[name="missingValues"]:checked')?.value || 'zeros',
                 detectOutliers: document.getElementById('detectOutliers')?.checked || false,
                 removeOutliers: document.getElementById('removeOutliers')?.checked || false,
                 outlierThreshold: parseFloat(document.getElementById('outlierThreshold')?.value) || 3,
@@ -730,9 +730,11 @@
                     
                     
                     // Восстанавливаем настройки обработки
-                    const missingValuesEl = document.getElementById('missingValues');
-                    if (missingValuesEl && mapping.missingValues) {
-                        missingValuesEl.value = mapping.missingValues;
+                    if (mapping.missingValues) {
+                        const radioButton = document.querySelector(`input[name="missingValues"][value="${mapping.missingValues}"]`);
+                        if (radioButton) {
+                            radioButton.checked = true;
+                        }
                     }
                     
                     const detectOutliersEl = document.getElementById('detectOutliers');
