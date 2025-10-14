@@ -339,132 +339,91 @@
                 return;
             }
             
-            // Группируем по годам
-            const yearGroups = {};
+            // Группируем данные в иерархическую структуру
+            const hierarchy = {};
+            
             existingTimeSeries.forEach(item => {
                 const year = item.year;
-                if (!yearGroups[year]) {
-                    yearGroups[year] = {
-                        halfyears: {},
-                        quarters: {},
-                        months: []
-                    };
+                if (!hierarchy[year]) {
+                    hierarchy[year] = {};
                 }
                 
-                const group = yearGroups[year];
+                // Строим путь: year/halfyear/quarter/month
+                let currentLevel = hierarchy[year];
                 
                 if (item.halfyear) {
-                    const hy = item.halfyear;
-                    if (!group.halfyears[hy]) {
-                        group.halfyears[hy] = { quarters: {}, months: [] };
+                    const hy = `H${item.halfyear}`;
+                    if (!currentLevel[hy]) {
+                        currentLevel[hy] = {};
                     }
-                    
-                    if (item.quarter) {
-                        const q = item.quarter;
-                        if (!group.halfyears[hy].quarters[q]) {
-                            group.halfyears[hy].quarters[q] = [];
-                        }
-                        if (item.month) {
-                            group.halfyears[hy].quarters[q].push(item.month);
-                        }
-                    } else if (item.month) {
-                        group.halfyears[hy].months.push(item.month);
+                    currentLevel = currentLevel[hy];
+                }
+                
+                if (item.quarter) {
+                    const q = `Q${item.quarter}`;
+                    if (!currentLevel[q]) {
+                        currentLevel[q] = {};
                     }
-                } else if (item.quarter) {
-                    const q = item.quarter;
-                    if (!group.quarters[q]) {
-                        group.quarters[q] = [];
-                    }
-                    if (item.month) {
-                        group.quarters[q].push(item.month);
-                    }
-                } else if (item.month) {
-                    group.months.push(item.month);
+                    currentLevel = currentLevel[q];
+                }
+                
+                if (item.month) {
+                    const m = item.month.toString();
+                    currentLevel[m] = true;
                 }
             });
+            
+            console.log('Иерархия данных:', hierarchy);
             
             let html = '';
             
-            // Отображаем каждый год
-            Object.keys(yearGroups).sort((a, b) => a - b).forEach(year => {
-                const group = yearGroups[year];
-                html += `<div class="mb-3">`;
-                html += `<div class="calendar-year">${year}</div>`;
-                html += `<div class="ms-3">`;
+            // Рекурсивная функция для отображения иерархии
+            function renderLevel(data, level = 0, parentPath = '') {
+                let result = '';
+                const indent = level * 20;
                 
-                // Полугодия
-                if (Object.keys(group.halfyears).length > 0) {
-                    Object.keys(group.halfyears).sort().forEach(hy => {
-                        html += `<div class="ms-2 mt-2">`;
-                        html += `<span class="calendar-item bg-info text-white">H${hy}</span>`;
-                        
-                        const hyData = group.halfyears[hy];
-                        
-                        // Кварталы внутри полугодия
-                        if (Object.keys(hyData.quarters).length > 0) {
-                            Object.keys(hyData.quarters).sort().forEach(q => {
-                                html += `<div class="ms-3 mt-1">`;
-                                html += `<span class="calendar-item">Q${q}</span>`;
-                                
-                                // Месяцы внутри квартала
-                                const months = hyData.quarters[q].sort((a, b) => a - b);
-                                if (months.length > 0) {
-                                    html += `<span class="ms-2">`;
-                                    months.forEach(m => {
-                                        html += `<span class="calendar-item bg-light">${m}</span>`;
-                                    });
-                                    html += `</span>`;
-                                }
-                                
-                                html += `</div>`;
-                            });
-                        }
-                        
-                        // Месяцы напрямую в полугодии
-                        if (hyData.months.length > 0) {
-                            html += `<div class="ms-3 mt-1">`;
-                            hyData.months.sort((a, b) => a - b).forEach(m => {
-                                html += `<span class="calendar-item bg-light">${m}</span>`;
-                            });
-                            html += `</div>`;
-                        }
-                        
-                        html += `</div>`;
-                    });
-                }
+                Object.keys(data).sort((a, b) => {
+                    // Сортировка: числа по возрастанию, строки по алфавиту
+                    const aNum = parseInt(a.replace(/[^0-9]/g, ''));
+                    const bNum = parseInt(b.replace(/[^0-9]/g, ''));
+                    if (!isNaN(aNum) && !isNaN(bNum)) return aNum - bNum;
+                    return a.localeCompare(b);
+                }).forEach(key => {
+                    const value = data[key];
+                    const path = parentPath ? `${parentPath}/${key}` : key;
+                    
+                    result += `<div style="margin-left: ${indent}px; margin-top: 5px;">`;
+                    
+                    // Определяем стиль в зависимости от уровня
+                    let itemClass = 'calendar-item';
+                    if (level === 0) {
+                        // Год
+                        itemClass += ' bg-primary text-white fw-bold';
+                    } else if (key.startsWith('H')) {
+                        // Полугодие
+                        itemClass += ' bg-info text-white';
+                    } else if (key.startsWith('Q')) {
+                        // Квартал
+                        itemClass += ' bg-secondary text-white';
+                    } else {
+                        // Месяц
+                        itemClass += ' bg-light';
+                    }
+                    
+                    result += `<span class="${itemClass}">${key}</span>`;
+                    
+                    // Если есть вложенные элементы, отображаем их
+                    if (typeof value === 'object' && Object.keys(value).length > 0) {
+                        result += renderLevel(value, level + 1, path);
+                    }
+                    
+                    result += `</div>`;
+                });
                 
-                // Кварталы напрямую (без полугодий)
-                if (Object.keys(group.quarters).length > 0) {
-                    Object.keys(group.quarters).sort().forEach(q => {
-                        html += `<div class="ms-2 mt-2">`;
-                        html += `<span class="calendar-item">Q${q}</span>`;
-                        
-                        const months = group.quarters[q].sort((a, b) => a - b);
-                        if (months.length > 0) {
-                            html += `<span class="ms-2">`;
-                            months.forEach(m => {
-                                html += `<span class="calendar-item bg-light">${m}</span>`;
-                            });
-                            html += `</span>`;
-                        }
-                        
-                        html += `</div>`;
-                    });
-                }
-                
-                // Месяцы напрямую (без кварталов и полугодий)
-                if (group.months.length > 0) {
-                    html += `<div class="ms-2 mt-2">`;
-                    group.months.sort((a, b) => a - b).forEach(m => {
-                        html += `<span class="calendar-item bg-light">${m}</span>`;
-                    });
-                    html += `</div>`;
-                }
-                
-                html += `</div>`;
-                html += `</div>`;
-            });
+                return result;
+            }
             
+            html = renderLevel(hierarchy);
             container.innerHTML = html;
         }
 
