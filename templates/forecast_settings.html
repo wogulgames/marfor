@@ -407,7 +407,11 @@
             
             forecastMonthsCount = months;
             
-            // Определяем последний период из фактических данных
+            // СНАЧАЛА очищаем старые прогнозные периоды
+            timelineData = timelineData.filter(p => !p.isForecast);
+            forecastPeriods = [];
+            
+            // ЗАТЕМ определяем последний период из ФАКТИЧЕСКИХ данных
             if (timelineData.length === 0) {
                 alert('Нет фактических данных для определения горизонта');
                 return;
@@ -417,9 +421,7 @@
             let currentYear = lastPeriod.year;
             let currentMonth = lastPeriod.month;
             
-            // Очищаем старые прогнозные периоды
-            timelineData = timelineData.filter(p => !p.isForecast);
-            forecastPeriods = [];
+            console.log('Последний фактический период:', `${currentYear}-${currentMonth}`);
             
             // Добавляем прогнозные месяцы
             for (let i = 0; i < months; i++) {
