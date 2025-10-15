@@ -2442,7 +2442,11 @@ def generate_forecast():
         if not year_col or not month_col or metric not in df.columns:
             return jsonify({'success': False, 'message': 'Необходимые поля не найдены'})
         
-        # Агрегируем фактические данные
+        # Сохраняем все исходные данные (не агрегируем!)
+        # Добавляем is_forecast = False ко всем фактическим данным
+        df['is_forecast'] = False
+        
+        # Агрегируем данные только для построения прогноза
         df_agg = df.groupby([year_col, month_col])[metric].sum().reset_index()
         df_agg = df_agg.sort_values([year_col, month_col])
         
@@ -2468,36 +2472,36 @@ def generate_forecast():
             return jsonify({'success': False, 'message': f'Неизвестная модель: {selected_model}'})
         
         # Создаем DataFrame с прогнозными данными
-        forecast_df = pd.DataFrame(forecast_months)
-        forecast_df[metric] = forecast_values
-        forecast_df['is_forecast'] = True
+        # Берем структуру из последней строки исходных данных
+        last_row = df.iloc[-1].to_dict()
         
-        # Добавляем Quarter и Halfyear для прогнозных данных
-        forecast_df['Quarter'] = forecast_df['month'].apply(lambda m: f'Q{(m-1)//3 + 1}')
-        forecast_df['Halfyear'] = forecast_df['month'].apply(lambda m: 'H1' if m <= 6 else 'H2')
+        # Создаем прогнозные строки
+        forecast_rows = []
+        for i, month_data in enumerate(forecast_months):
+            forecast_row = last_row.copy()
+            forecast_row[year_col] = month_data['year']
+            forecast_row[month_col] = month_data['month']
+            forecast_row[metric] = forecast_values[i]
+            forecast_row['is_forecast'] = True
+            
+            # Добавляем Quarter и Halfyear
+            forecast_row['Quarter'] = f'Q{(month_data["month"]-1)//3 + 1}'
+            forecast_row['Halfyear'] = 'H1' if month_data['month'] <= 6 else 'H2'
+            
+            forecast_rows.append(forecast_row)
         
-        # Переименовываем колонки для соответствия исходным данным
-        forecast_df = forecast_df.rename(columns={'year': year_col, 'month': month_col})
-        
-        # Объединяем фактические и прогнозные данные
-        df_agg['is_forecast'] = False
+        forecast_df = pd.DataFrame(forecast_rows)
         
         # Добавляем Quarter и Halfyear к фактическим данным если их нет
-        if 'Quarter' not in df_agg.columns:
-            df_agg['Quarter'] = df_agg[month_col].apply(lambda m: f'Q{(m-1)//3 + 1}')
-        if 'Halfyear' not in df_agg.columns:
-            df_agg['Halfyear'] = df_agg[month_col].apply(lambda m: 'H1' if m <= 6 else 'H2')
+        if 'Quarter' not in df.columns:
+            df['Quarter'] = df[month_col].apply(lambda m: f'Q{(m-1)//3 + 1}')
+        if 'Halfyear' not in df.columns:
+            df['Halfyear'] = df[month_col].apply(lambda m: 'H1' if m <= 6 else 'H2')
         
-        combined_df = pd.concat([df_agg, forecast_df], ignore_index=True)
+        # Объединяем фактические данные со всеми колонками + прогнозные данные
+        combined_df = pd.concat([df, forecast_df], ignore_index=True)
         
-        # Добавляем остальные колонки из исходных данных
-        for col in df.columns:
-            if col not in combined_df.columns:
-                # Для прогнозных строк используем пустые значения
-                combined_df[col] = combined_df.apply(
-                    lambda row: '' if row.get('is_forecast', False) else df[col].iloc[0] if len(df) > 0 else '',
-                    axis=1
-                )
+        print(f"   📊 Объединено: {len(df)} фактических + {len(forecast_df)} прогнозных = {len(combined_df)} строк")
         
         print(f"   ✅ Прогноз построен: {len(forecast_df)} периодов")
         
@@ -2510,7 +2514,7 @@ def generate_forecast():
             'metric': metric,
             'combined_data': combined_df.to_dict('records'),
             'forecast_only': forecast_df.to_dict('records'),
-            'historical_periods': len(df_agg),
+            'historical_periods': len(df),
             'forecast_periods': len(forecast_df)
         }
         
