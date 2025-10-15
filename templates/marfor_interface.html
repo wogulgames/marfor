@@ -3383,9 +3383,22 @@
             
             // Добавляем поля в зависимости от режима
             if (pivotState.currentPivotMode === 'time-series') {
-                window.selectedMetrics.forEach(metric => params.append('metrics', metric));
+                console.log('📊 window.selectedMetrics при загрузке:', window.selectedMetrics);
+                if (window.selectedMetrics && window.selectedMetrics.length > 0) {
+                    window.selectedMetrics.forEach(metric => params.append('metrics', metric));
+                } else {
+                    console.warn('⚠️ window.selectedMetrics пуст! Используем первую метрику из маппинга');
+                    // Берем первую выбранную метрику из чекбоксов
+                    const selectedCheckboxes = document.querySelectorAll('#primaryFieldCheckboxes input[type="checkbox"]:checked');
+                    if (selectedCheckboxes.length > 0) {
+                        selectedCheckboxes.forEach(cb => params.append('metrics', cb.value));
+                        console.log('✅ Добавлены метрики из чекбоксов:', Array.from(selectedCheckboxes).map(cb => cb.value));
+                    }
+                }
             } else {
-                window.selectedSlices.forEach(slice => params.append('slices', slice));
+                if (window.selectedSlices && window.selectedSlices.length > 0) {
+                    window.selectedSlices.forEach(slice => params.append('slices', slice));
+                }
             }
             
             // Всегда показываем сводную таблицу
