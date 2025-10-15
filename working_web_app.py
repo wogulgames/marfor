@@ -2443,6 +2443,11 @@ def generate_forecast():
         print(f"   Метрика: {metric}")
         print(f"   Прогнозных периодов: {len(forecast_periods)}")
         
+        # Очищаем старые результаты прогноза для этой сессии
+        if hasattr(forecast_app, 'forecast_results') and session_id in forecast_app.forecast_results:
+            print(f"   🗑️ Удаляем старый прогноз из кэша")
+            del forecast_app.forecast_results[session_id]
+        
         # Подготовка данных для прогноза
         df = forecast_app.df
         
