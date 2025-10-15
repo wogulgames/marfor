@@ -2475,13 +2475,26 @@ def generate_forecast():
         # Берем структуру из последней строки исходных данных
         last_row = df.iloc[-1].to_dict()
         
+        # Получаем список всех метрик из маппинга
+        all_metrics = [col['name'] for col in mapping_config.get('columns', []) if col.get('role') == 'metric']
+        print(f"   📊 Все метрики: {all_metrics}")
+        print(f"   🎯 Метрика с прогнозом: {metric}")
+        
         # Создаем прогнозные строки
         forecast_rows = []
         for i, month_data in enumerate(forecast_months):
             forecast_row = last_row.copy()
             forecast_row[year_col] = month_data['year']
             forecast_row[month_col] = month_data['month']
-            forecast_row[metric] = forecast_values[i]
+            
+            # Устанавливаем значения метрик
+            forecast_row[metric] = forecast_values[i]  # Прогнозная метрика
+            
+            # Для остальных метрик устанавливаем 0 (прогноз не строился)
+            for other_metric in all_metrics:
+                if other_metric != metric:
+                    forecast_row[other_metric] = 0
+            
             forecast_row['is_forecast'] = True
             
             # Добавляем Quarter и Halfyear
