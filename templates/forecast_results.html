@@ -1659,9 +1659,9 @@
                     sample_data: forecastData.raw_data.slice(0, 10)
                 };
                 
-                // Сохраняем в sessionStorage
-                sessionStorage.setItem('processedData', JSON.stringify(processedData));
-                sessionStorage.setItem('dataInfo', JSON.stringify(dataInfo));
+                // НЕ сохраняем в sessionStorage - данные слишком большие!
+                // Храним только маппинг и session_id
+                console.log('⚠️ Данные хранятся в памяти, не в sessionStorage (слишком большие)');
                 
                 // Показываем информацию о прогнозе (НЕ вызываем showProcessedDataPreview!)
                 displayForecastInfo(forecastInfo);
