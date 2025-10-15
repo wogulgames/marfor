@@ -87,16 +87,20 @@
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        // Заглушка для createAutoFilters (вызывается из pivot_table_system.js)
-        function createAutoFilters() {
-            console.log('createAutoFilters вызвана (заглушка)');
-            // На странице результатов фильтры не нужны, можно оставить пустой
-        }
-        
+        // Глобальные переменные для pivot_table_system.js
         let currentSessionId = null;
         let forecastData = null;
         let currentPivotData = null;
         let currentPivotConfig = null;
+        let rawPivotData = null;
+        let currentFilters = [];
+        
+        // Заглушка для createAutoFilters (вызывается из pivot_table_system.js)
+        function createAutoFilters() {
+            console.log('✅ createAutoFilters вызвана');
+            // На странице результатов фильтры пока не реализованы
+            return [];
+        }
 
         document.addEventListener('DOMContentLoaded', async function() {
             const urlParams = new URLSearchParams(window.location.search);
