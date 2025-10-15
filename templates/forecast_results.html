@@ -1644,6 +1644,20 @@
                 console.log(`📊 Прогнозных строк: ${forecastRows.length}`);
                 console.log('📊 Пример прогнозной строки:', forecastRows[0]);
                 
+                // ВАЖНО: Проверяем значения всех метрик в прогнозных строках
+                if (forecastRows.length > 0) {
+                    console.log('🔍 === АНАЛИЗ ПРОГНОЗНЫХ ДАННЫХ ===');
+                    const firstForecastRow = forecastRows[0];
+                    const metrics = Object.keys(firstForecastRow).filter(key => 
+                        dataMapping.columns.find(col => col.name === key && col.role === 'metric')
+                    );
+                    console.log('📊 Метрики в прогнозных строках:', metrics);
+                    metrics.forEach(metric => {
+                        const values = forecastRows.map(row => row[metric]);
+                        console.log(`📊 ${metric}:`, values);
+                    });
+                }
+                
                 // Получаем маппинг из sessionStorage
                 const savedDataMapping = sessionStorage.getItem('dataMapping');
                 if (!savedDataMapping) {
