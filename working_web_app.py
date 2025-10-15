@@ -55,26 +55,41 @@ def calculate_metrics(actual, predicted):
 
 def train_arima_model(train_df, test_df, metric):
     """Обучение ARIMA модели"""
-    from statsmodels.tsa.arima.model import ARIMA
-    
-    # Обучаем на тренировочных данных
-    model = ARIMA(train_df[metric], order=(1, 1, 1))
-    model_fit = model.fit()
-    
-    # Прогноз на контрольную выборку
-    forecast = model_fit.forecast(steps=len(test_df))
-    
-    # Вычисляем метрики
-    metrics = calculate_metrics(test_df[metric].values, forecast.values)
-    
-    return {
-        'metrics': metrics,
-        'validation': {
-            'labels': test_df['period'].tolist(),
-            'actual': test_df[metric].tolist(),
-            'predicted': forecast.tolist()
+    try:
+        from statsmodels.tsa.arima.model import ARIMA
+        
+        print(f"   ARIMA: Обучающая выборка - {len(train_df)} периодов")
+        print(f"   ARIMA: Контрольная выборка - {len(test_df)} периодов")
+        
+        # Обучаем на тренировочных данных
+        model = ARIMA(train_df[metric], order=(1, 1, 1))
+        model_fit = model.fit()
+        
+        print(f"   ARIMA: Модель обучена")
+        
+        # Прогноз на контрольную выборку
+        forecast = model_fit.forecast(steps=len(test_df))
+        
+        print(f"   ARIMA: Прогноз построен")
+        
+        # Вычисляем метрики
+        metrics = calculate_metrics(test_df[metric].values, forecast.values)
+        
+        print(f"   ARIMA: Метрики вычислены - MAPE: {metrics['mape']:.2f}%")
+        
+        return {
+            'metrics': metrics,
+            'validation': {
+                'labels': test_df['period'].tolist(),
+                'actual': test_df[metric].tolist(),
+                'predicted': forecast.tolist()
+            }
         }
-    }
+    except Exception as e:
+        print(f"   ❌ ARIMA: Ошибка - {str(e)}")
+        import traceback
+        traceback.print_exc()
+        raise
 
 def train_prophet_model(train_df, test_df, metric, year_col, month_col):
     """Обучение Prophet модели"""
