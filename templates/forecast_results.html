@@ -6,6 +6,7 @@
     <title>MARFOR - Результаты прогноза</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="/static/breadcrumbs.css" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         /* Стили для прогнозных данных */
@@ -637,6 +638,8 @@
         </div>
     </nav>
 
+    <!-- Хлебные крошки -->
+    <div id="breadcrumbContainer"></div>
 
     <!-- Основной контент -->
     <div class="container my-3">
@@ -929,6 +932,7 @@
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="/static/breadcrumbs.js"></script>
     <script src="/static/pivot_table_system.js"></script>
     <script>
         let currentSessionId = null;
@@ -1582,6 +1586,9 @@
         window.addEventListener('DOMContentLoaded', async function() {
             console.log('🔧 ВЕРСИЯ: Результаты прогноза v1.0.0');
             console.log('DOMContentLoaded вызван');
+            
+            // Рендерим хлебные крошки (шаг 5 - Результаты прогноза)
+            breadcrumbsModule.render(5);
             
             // Получаем session_id из URL
             const urlParams = new URLSearchParams(window.location.search);
