@@ -611,6 +611,10 @@
             }
             
             try {
+                // Получаем маппинг из sessionStorage
+                const mappingData = sessionStorage.getItem('dataMapping');
+                const mapping = mappingData ? JSON.parse(mappingData) : null;
+                
                 // Запускаем построение прогноза
                 const response = await fetch('/api/generate_forecast', {
                     method: 'POST',
@@ -619,7 +623,8 @@
                     },
                     body: JSON.stringify({
                         session_id: currentSessionId,
-                        model: selectedModel
+                        model: selectedModel,
+                        mapping: mapping  // Передаем маппинг
                     })
                 });
                 

@@ -2406,6 +2406,7 @@ def generate_forecast():
         data = request.get_json()
         session_id = data.get('session_id')
         selected_model = data.get('model')
+        mapping_from_request = data.get('mapping')  # Получаем маппинг из запроса
         
         if not session_id or forecast_app.session_id != session_id:
             return jsonify({'success': False, 'message': 'Сессия не найдена'})
@@ -2421,10 +2422,14 @@ def generate_forecast():
         metric = settings['metric']
         forecast_periods = settings['forecast_periods']
         
-        # Получаем маппинг из forecast_app
+        # Получаем маппинг (приоритет - из запроса)
         mapping_config = None
-        if hasattr(forecast_app, 'mapping_config'):
+        if mapping_from_request:
+            mapping_config = mapping_from_request
+            print("   ✅ Маппинг получен из запроса", flush=True)
+        elif hasattr(forecast_app, 'mapping_config'):
             mapping_config = forecast_app.mapping_config
+            print("   ✅ Маппинг получен из forecast_app", flush=True)
         else:
             # Пытаемся загрузить из проекта
             import json
@@ -2433,9 +2438,10 @@ def generate_forecast():
                 with open(project_file, 'r', encoding='utf-8') as f:
                     project_data = json.load(f)
                     mapping_config = project_data.get('data_mapping', {})
+                    print("   ✅ Маппинг загружен из файла проекта", flush=True)
         
-        if not mapping_config:
-            print("   ⚠️ Маппинг не найден, будет использован базовый набор метрик")
+        if not mapping_config or not mapping_config.get('columns'):
+            print("   ⚠️ Маппинг не найден, будет использован базовый набор метрик", flush=True)
             mapping_config = {'columns': []}
         
         print(f"\n🚀 ГЕНЕРАЦИЯ ПРОГНОЗА:", flush=True)
