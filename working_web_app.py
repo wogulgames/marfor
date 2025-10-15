@@ -652,7 +652,7 @@ def get_processed_data(session_id):
 def get_time_series_data(session_id):
     """Получение данных временных рядов для визуализации"""
     try:
-        print(f"🔧 ВЕРСИЯ КОДА: 2.19.0 - Горизонтальная временная шкала с прогнозом")
+        print(f"🔧 ВЕРСИЯ КОДА: 2.19.1 - Компактная шкала + график по месяцам")
         if not session_id or forecast_app.session_id != session_id:
             return jsonify({'success': False, 'message': 'Сессия не найдена'})
         
@@ -2011,22 +2011,37 @@ def get_metric_time_series(session_id):
         if metric not in df.columns:
             return jsonify({'success': False, 'message': f'Метрика {metric} не найдена'})
         
-        # Определяем временные поля
-        time_field = None
+        # Определяем временные поля (year и month)
+        year_field = None
+        month_field = None
+        
         for col in df.columns:
-            if 'year' in col.lower():
-                time_field = col
-                break
+            if 'year' in col.lower() and not year_field:
+                year_field = col
+            if 'month' in col.lower() and not month_field:
+                month_field = col
         
-        if not time_field:
-            return jsonify({'success': False, 'message': 'Временное поле не найдено'})
+        if not year_field:
+            return jsonify({'success': False, 'message': 'Поле года не найдено'})
         
-        # Агрегируем данные по годам
-        aggregated = df.groupby(time_field)[metric].sum().reset_index()
-        aggregated = aggregated.sort_values(time_field)
-        
-        labels = aggregated[time_field].astype(str).tolist()
-        values = aggregated[metric].tolist()
+        # Если есть поле месяца, агрегируем по году и месяцу
+        if month_field:
+            # Создаем составной ключ год-месяц
+            df_copy = df.copy()
+            df_copy['year_month'] = df_copy[year_field].astype(str) + '-' + df_copy[month_field].astype(str).str.zfill(2)
+            
+            aggregated = df_copy.groupby(['year_month', year_field, month_field])[metric].sum().reset_index()
+            aggregated = aggregated.sort_values([year_field, month_field])
+            
+            labels = aggregated['year_month'].tolist()
+            values = aggregated[metric].tolist()
+        else:
+            # Только по годам
+            aggregated = df.groupby(year_field)[metric].sum().reset_index()
+            aggregated = aggregated.sort_values(year_field)
+            
+            labels = aggregated[year_field].astype(str).tolist()
+            values = aggregated[metric].tolist()
         
         return jsonify({
             'success': True,
@@ -2208,6 +2223,6 @@ def download_results(session_id):
 if __name__ == '__main__':
     print("🚀 Запуск MARFOR веб-приложения...")
     print("📊 Каскадная модель с Random Forest")
-    print("🔧 ВЕРСИЯ КОДА: 2.19.0 - Горизонтальная временная шкала с прогнозом")
+    print("🔧 ВЕРСИЯ КОДА: 2.19.1 - Компактная шкала + график по месяцам")
     print("🌐 Откройте http://localhost:5001 в браузере")
     app.run(debug=True, host='0.0.0.0', port=5001)

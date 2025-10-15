@@ -21,26 +21,27 @@
         .timeline-container {
             display: flex;
             overflow-x: auto;
-            padding: 20px 0;
+            padding: 10px;
             background: #f8f9fa;
             border-radius: 8px;
-            min-height: 200px;
+            gap: 10px;
         }
         
         .timeline-year {
-            min-width: 600px;
-            margin-right: 20px;
+            display: flex;
+            flex-direction: column;
+            min-width: 400px;
         }
         
         .year-header {
-            font-size: 1.2em;
+            font-size: 0.95em;
             font-weight: bold;
-            padding: 10px;
+            padding: 6px 10px;
             background: #2196f3;
             color: white;
             text-align: center;
-            border-radius: 8px 8px 0 0;
-            margin-bottom: 10px;
+            border-radius: 6px 6px 0 0;
+            margin-bottom: 5px;
         }
         
         .year-header.forecast {
@@ -49,16 +50,17 @@
         
         .timeline-months {
             display: flex;
-            flex-wrap: wrap;
-            gap: 8px;
-            padding: 10px;
+            gap: 4px;
+            padding: 5px;
+            background: white;
+            border-radius: 0 0 6px 6px;
         }
         
         .month-cell {
-            width: 80px;
-            height: 80px;
-            border: 2px solid #2196f3;
-            border-radius: 8px;
+            width: 28px;
+            height: 50px;
+            border: 1.5px solid #2196f3;
+            border-radius: 4px;
             display: flex;
             flex-direction: column;
             align-items: center;
@@ -66,49 +68,28 @@
             background: white;
             cursor: default;
             transition: all 0.2s;
+            position: relative;
         }
         
         .month-cell.forecast {
             border-color: #ff9800;
             background: #fff3e0;
-            cursor: pointer;
         }
         
-        .month-cell.forecast:hover {
-            background: #ffe0b2;
-            transform: scale(1.05);
-        }
-        
-        .month-cell.selected {
-            background: #ffd54f;
-            border-color: #ffa000;
-            border-width: 3px;
+        .month-cell.empty {
+            opacity: 0.2;
+            border-style: dashed;
         }
         
         .month-number {
-            font-size: 1.5em;
+            font-size: 0.85em;
             font-weight: bold;
         }
         
         .month-label {
-            font-size: 0.8em;
+            font-size: 0.55em;
             color: #666;
-        }
-        
-        .quarter-label {
-            position: absolute;
-            top: -20px;
-            font-size: 0.9em;
-            font-weight: bold;
-            color: #666;
-        }
-        
-        .halfyear-label {
-            position: absolute;
-            top: -40px;
-            font-size: 1em;
-            font-weight: bold;
-            color: #333;
+            margin-top: 2px;
         }
         
         .forecast-controls {
@@ -526,17 +507,6 @@
                         html += `<div class="${cellClass}" data-year="${year}" data-month="${m}">`;
                         html += `<div class="month-number">${m}</div>`;
                         html += `<div class="month-label">${monthNames[m-1]}</div>`;
-                        
-                        // Метки кварталов (только для первого месяца квартала)
-                        if (m % 3 === 1) {
-                            html += `<div class="quarter-label">Q${Math.ceil(m/3)}</div>`;
-                        }
-                        
-                        // Метки полугодий (только для первого месяца полугодия)
-                        if (m === 1 || m === 7) {
-                            html += `<div class="halfyear-label">H${m <= 6 ? 1 : 2}</div>`;
-                        }
-                        
                         html += `</div>`;
                     } else {
                         // Пустая ячейка для месяцев без данных
