@@ -1663,11 +1663,11 @@
                 sessionStorage.setItem('processedData', JSON.stringify(processedData));
                 sessionStorage.setItem('dataInfo', JSON.stringify(dataInfo));
                 
-                // Показываем информацию о прогнозе
+                // Показываем информацию о прогнозе (НЕ вызываем showProcessedDataPreview!)
                 displayForecastInfo(forecastInfo);
                 
-                // Показываем интерфейс с данными (используем стандартную функцию)
-                showProcessedDataPreview(processedData, dataMapping);
+                // Показываем интерфейс для работы с данными
+                showForecastResultsInterface(processedData, dataMapping);
                 
                 console.log('✅ Интерфейс инициализирован');
                 
@@ -1689,7 +1689,7 @@
             if (!container) return;
             
             const infoHtml = `
-                <div class="alert alert-info mb-3">
+                <div class="alert alert-success mb-3">
                     <h5><i class="fas fa-chart-line me-2"></i>Результаты прогноза</h5>
                     <div class="row">
                         <div class="col-md-3">
@@ -1714,7 +1714,119 @@
                 </div>
             `;
             
-            container.insertAdjacentHTML('afterbegin', infoHtml);
+            container.innerHTML = infoHtml;
+        }
+        
+        function showForecastResultsInterface(processedData, mapping) {
+            // Показываем интерфейс временных рядов для работы с прогнозными данными
+            const container = document.getElementById('dataPreview');
+            if (!container) return;
+            
+            // Добавляем интерфейс временных рядов после информации о прогнозе
+            const interfaceHtml = `
+                <div class="card mb-4">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h6 class="mb-0" id="pivotModeTitle">
+                            <i class="fas fa-clock me-2"></i>Режим отображения: Временные ряды
+                        </h6>
+                        <div class="btn-group" role="group">
+                            <button type="button" class="btn btn-sm btn-outline-secondary active" id="timeSeriesModeBtn" onclick="switchPivotMode('time-series')">
+                                <i class="fas fa-clock me-1"></i>Временные ряды
+                            </button>
+                            <button type="button" class="btn btn-sm btn-outline-secondary" id="slicesModeBtn" onclick="switchPivotMode('slices')">
+                                <i class="fas fa-layer-group me-1"></i>Срезы
+                            </button>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label class="form-label" id="primaryFieldLabel">Метрики</label>
+                                <div class="dropdown">
+                                    <button class="btn btn-outline-secondary dropdown-toggle w-100" type="button" id="primaryFieldDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                                        <span id="primaryFieldDropdownText">Выберите метрики</span>
+                                    </button>
+                                    <ul class="dropdown-menu w-100" id="primaryFieldDropdownMenu">
+                                        <li class="dropdown-item-text">
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="checkbox" id="selectAllPrimary" onchange="toggleAllPrimaryFields(this)">
+                                                <label class="form-check-label fw-bold" for="selectAllPrimary">
+                                                    Выбрать все
+                                                </label>
+                                            </div>
+                                        </li>
+                                        <li><hr class="dropdown-divider"></li>
+                                        <div id="primaryFieldCheckboxes">
+                                            <!-- Чекбоксы будут добавлены динамически -->
+                                        </div>
+                                    </ul>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label" id="splitFieldLabel">Разбивка по срезам</label>
+                                <div class="dropdown">
+                                    <button class="btn btn-outline-secondary dropdown-toggle w-100" type="button" id="splitFieldDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                                        <span id="splitFieldDropdownText">Только временные ряды</span>
+                                    </button>
+                                    <ul class="dropdown-menu w-100" id="splitFieldDropdownMenu">
+                                        <li class="dropdown-item-text">
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="radio" name="splitFieldSelection" id="noSplitFieldSelection" value="" onchange="updateSelectedSplitField()" checked>
+                                                <label class="form-check-label fw-bold" for="noSplitFieldSelection">
+                                                    <span id="noSplitFieldText">Только временные ряды</span>
+                                                </label>
+                                            </div>
+                                        </li>
+                                        <li><hr class="dropdown-divider"></li>
+                                        <div id="splitFieldRadioButtons">
+                                            <!-- Радиокнопки будут добавлены динамически -->
+                                        </div>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Секция фильтров -->
+                        <div class="row mb-3">
+                            <div class="col-md-12">
+                                <div class="card">
+                                    <div class="card-header d-flex justify-content-between align-items-center">
+                                        <h6 class="mb-0">
+                                            <i class="fas fa-filter me-2"></i>Фильтры
+                                        </h6>
+                                        <button class="btn btn-sm btn-outline-secondary" onclick="resetAllFilters()">
+                                            <i class="fas fa-undo me-1"></i>Сбросить все
+                                        </button>
+                                    </div>
+                                    <div class="card-body">
+                                        <div id="filtersContainer">
+                                            <!-- Фильтры будут добавлены динамически -->
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="text-center">
+                            <button class="btn btn-primary" id="buildChartBtn" onclick="loadTimeSeriesData();">
+                                <i class="fas fa-chart-line me-2"></i>Построить график
+                            </button>
+                        </div>
+                        <div class="mt-3">
+                            <div id="timeSeriesChartContainer">
+                                <!-- График и таблица будут отрисованы здесь -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            container.insertAdjacentHTML('beforeend', interfaceHtml);
+            
+            // Инициализируем интерфейс
+            setTimeout(() => {
+                populateTimeSeriesSelects();
+            }, 100);
         }
         
         function getModelDisplayName(modelName) {
