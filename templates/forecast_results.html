@@ -1624,7 +1624,8 @@
                 processedData = {
                     data: forecastData.raw_data,
                     columns: Object.keys(forecastData.raw_data[0] || {}),
-                    rows: forecastData.raw_data.length
+                    rows: forecastData.raw_data.length,
+                    shape: [forecastData.raw_data.length, Object.keys(forecastData.raw_data[0] || {}).length]
                 };
                 
                 // Устанавливаем глобальные переменные
