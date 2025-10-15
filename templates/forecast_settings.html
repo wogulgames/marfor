@@ -583,15 +583,28 @@
             const historicalValues = [...metricData.values];
             const forecastValues = new Array(historicalValues.length).fill(null);
             
-            // Добавляем прогнозные годы
-            const forecastYears = [...new Set(timelineData.filter(p => p.isForecast).map(p => p.year))];
-            forecastYears.forEach(year => {
-                if (!labels.includes(year.toString())) {
-                    labels.push(year.toString());
+            // Добавляем прогнозные периоды (месяцы)
+            const forecastPeriods = timelineData.filter(p => p.isForecast);
+            
+            if (forecastPeriods.length > 0) {
+                // Получаем последнее значение фактических данных для соединения линий
+                const lastHistoricalValue = historicalValues[historicalValues.length - 1];
+                
+                // Добавляем прогнозные месяцы
+                forecastPeriods.forEach(period => {
+                    const label = `${period.year}-${period.month.toString().padStart(2, '0')}`;
+                    labels.push(label);
                     historicalValues.push(null);
-                    forecastValues.push(0); // Пока 0, позже будет реальный прогноз
-                }
-            });
+                    
+                    // Для первого прогнозного периода используем последнее фактическое значение
+                    // чтобы линия была непрерывной
+                    forecastValues.push(lastHistoricalValue);
+                });
+                
+                // Добавляем последнее фактическое значение в начало прогнозной линии
+                // чтобы линии соединились
+                forecastValues[historicalValues.filter(v => v !== null).length - 1] = lastHistoricalValue;
+            }
             
             const ctx = canvas.getContext('2d');
             chartInstance = new Chart(ctx, {
