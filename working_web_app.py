@@ -2438,15 +2438,17 @@ def generate_forecast():
             print("   ⚠️ Маппинг не найден, будет использован базовый набор метрик")
             mapping_config = {'columns': []}
         
-        print(f"\n🚀 ГЕНЕРАЦИЯ ПРОГНОЗА:")
-        print(f"   Модель: {selected_model}")
-        print(f"   Метрика: {metric}")
-        print(f"   Прогнозных периодов: {len(forecast_periods)}")
+        print(f"\n🚀 ГЕНЕРАЦИЯ ПРОГНОЗА:", flush=True)
+        print(f"   Модель: {selected_model}", flush=True)
+        print(f"   Метрика: {metric}", flush=True)
+        print(f"   Прогнозных периодов: {len(forecast_periods)}", flush=True)
         
         # Очищаем старые результаты прогноза для этой сессии
         if hasattr(forecast_app, 'forecast_results') and session_id in forecast_app.forecast_results:
-            print(f"   🗑️ Удаляем старый прогноз из кэша")
+            print(f"   🗑️ Удаляем старый прогноз из кэша", flush=True)
             del forecast_app.forecast_results[session_id]
+        else:
+            print(f"   ℹ️ Старого прогноза нет, создаем новый", flush=True)
         
         # Подготовка данных для прогноза
         df = forecast_app.df
@@ -2499,8 +2501,9 @@ def generate_forecast():
         
         # Получаем список всех метрик из маппинга
         all_metrics = [col['name'] for col in mapping_config.get('columns', []) if col.get('role') == 'metric']
-        print(f"   📊 Все метрики: {all_metrics}")
-        print(f"   🎯 Метрика с прогнозом: {metric}")
+        print(f"   📊 Все метрики: {all_metrics}", flush=True)
+        print(f"   🎯 Метрика с прогнозом: {metric}", flush=True)
+        print(f"   ⚠️ Остальные метрики будут заполнены нулями", flush=True)
         
         # Создаем прогнозные строки
         forecast_rows = []
@@ -2513,9 +2516,14 @@ def generate_forecast():
             forecast_row[metric] = forecast_values[i]  # Прогнозная метрика
             
             # Для остальных метрик устанавливаем 0 (прогноз не строился)
+            zeros_count = 0
             for other_metric in all_metrics:
                 if other_metric != metric:
                     forecast_row[other_metric] = 0
+                    zeros_count += 1
+            
+            if i == 0:  # Логируем только для первой строки
+                print(f"   📝 Прогнозная строка {i+1}: {metric}={forecast_values[i]}, остальные {zeros_count} метрик=0", flush=True)
             
             forecast_row['is_forecast'] = True
             
