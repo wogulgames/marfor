@@ -3318,10 +3318,11 @@
         }
 
         function loadTimeSeriesData() {
+            console.log('🔥🔥🔥 === ФУНКЦИЯ loadTimeSeriesData() ВЫЗВАНА === 🔥🔥🔥');
             console.log('🔧 ВЕРСИЯ КОДА: 2.2.2 - Исправлена логика разбивки в режиме срезов, восстановлена функциональность коллапсирования');
-            console.log('🔥 === ФУНКЦИЯ loadTimeSeriesData() ВЫЗВАНА ===');
             console.log('currentSessionId:', currentSessionId);
-            console.log('window.selectedMetrics:', window.selectedMetrics);
+            console.log('window.selectedMetrics ПЕРЕД проверкой:', window.selectedMetrics);
+            console.log('pivotState.currentPivotMode:', pivotState.currentPivotMode);
             console.log('window.currentFilters:', window.currentFilters);
             console.log('window.filtersChanged:', window.filtersChanged);
             
@@ -3334,17 +3335,22 @@
             
             // Проверяем наличие выбранных полей в зависимости от режима
             if (pivotState.currentPivotMode === 'time-series') {
+                console.log('🔍 Режим time-series, проверяем метрики...');
                 // Если метрики не установлены, пытаемся взять из чекбоксов
                 if (!window.selectedMetrics || window.selectedMetrics.length === 0) {
-                    console.warn('⚠️ window.selectedMetrics пуст, пытаемся взять из чекбоксов');
+                    console.warn('⚠️⚠️⚠️ window.selectedMetrics пуст, пытаемся взять из чекбоксов');
                     const selectedCheckboxes = document.querySelectorAll('#primaryFieldCheckboxes input[type="checkbox"]:checked');
+                    console.log('🔍 Найдено выбранных чекбоксов:', selectedCheckboxes.length);
                     if (selectedCheckboxes.length > 0) {
                         window.selectedMetrics = Array.from(selectedCheckboxes).map(cb => cb.value);
-                        console.log('✅ Установлены метрики из чекбоксов:', window.selectedMetrics);
+                        console.log('✅✅✅ Установлены метрики из чекбоксов:', window.selectedMetrics);
                     } else {
+                        console.error('❌ Нет выбранных чекбоксов!');
                         alert('Выберите хотя бы одну метрику');
                         return;
                     }
+                } else {
+                    console.log('✅ window.selectedMetrics уже установлен:', window.selectedMetrics);
                 }
             } else {
                 if (!window.selectedSlices || window.selectedSlices.length === 0) {
