@@ -3334,11 +3334,19 @@
             
             // Проверяем наличие выбранных полей в зависимости от режима
             if (pivotState.currentPivotMode === 'time-series') {
+                // Если метрики не установлены, пытаемся взять из чекбоксов
                 if (!window.selectedMetrics || window.selectedMetrics.length === 0) {
-                    alert('Выберите хотя бы одну метрику');
-                    return;
-                }
+                    console.warn('⚠️ window.selectedMetrics пуст, пытаемся взять из чекбоксов');
+                    const selectedCheckboxes = document.querySelectorAll('#primaryFieldCheckboxes input[type="checkbox"]:checked');
+                    if (selectedCheckboxes.length > 0) {
+                        window.selectedMetrics = Array.from(selectedCheckboxes).map(cb => cb.value);
+                        console.log('✅ Установлены метрики из чекбоксов:', window.selectedMetrics);
                     } else {
+                        alert('Выберите хотя бы одну метрику');
+                        return;
+                    }
+                }
+            } else {
                 if (!window.selectedSlices || window.selectedSlices.length === 0) {
                     alert('Выберите хотя бы один срез');
                     return;
