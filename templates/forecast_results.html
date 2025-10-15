@@ -1626,10 +1626,22 @@
                 }
                 
                 console.log('✅ Результаты прогноза загружены');
+                console.log('📊 Результаты:', result);
                 
                 // Сохраняем данные прогноза
                 const forecastData = result.forecast_data;
                 const forecastInfo = result.info;
+                
+                console.log('📊 forecastData:', forecastData);
+                console.log('📊 forecastInfo:', forecastInfo);
+                console.log('📊 Количество строк в raw_data:', forecastData.raw_data.length);
+                
+                // Проверяем, есть ли прогнозные данные
+                const forecastRows = forecastData.raw_data.filter(row => row.is_forecast === true);
+                const factRows = forecastData.raw_data.filter(row => row.is_forecast === false);
+                console.log(`📊 Фактических строк: ${factRows.length}`);
+                console.log(`📊 Прогнозных строк: ${forecastRows.length}`);
+                console.log('📊 Пример прогнозной строки:', forecastRows[0]);
                 
                 // Получаем маппинг из sessionStorage
                 const savedDataMapping = sessionStorage.getItem('dataMapping');
@@ -1660,7 +1672,8 @@
                 };
                 
                 // НЕ сохраняем в sessionStorage - данные слишком большие!
-                // Храним только маппинг и session_id
+                // Храним только маппинг, session_id и метрику прогноза
+                sessionStorage.setItem('forecastMetric', forecastInfo.metric);
                 console.log('⚠️ Данные хранятся в памяти, не в sessionStorage (слишком большие)');
                 
                 // Показываем информацию о прогнозе (НЕ вызываем showProcessedDataPreview!)
@@ -1826,6 +1839,17 @@
             // Инициализируем интерфейс
             setTimeout(() => {
                 populateTimeSeriesSelects();
+                
+                // Автоматически выбираем метрику, по которой строился прогноз
+                const forecastMetric = sessionStorage.getItem('forecastMetric');
+                if (forecastMetric) {
+                    console.log('🎯 Автоматически выбираем метрику прогноза:', forecastMetric);
+                    const checkbox = document.getElementById(`primary-${forecastMetric}`);
+                    if (checkbox) {
+                        checkbox.checked = true;
+                        updateSelectedMetrics();
+                    }
+                }
             }, 100);
         }
         
