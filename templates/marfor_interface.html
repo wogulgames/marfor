@@ -3439,11 +3439,30 @@
                 console.log('split_by_slice пустое значение');
             }
             
-            // Передаем данные маппинга
+            // Передаем данные маппинга с учетом выбранных метрик
             const mappingData = JSON.parse(sessionStorage.getItem('dataMapping') || '{}');
             if (mappingData && mappingData.columns && mappingData.columns.length > 0) {
-                params.append('mapping_data', JSON.stringify(mappingData));
-                console.log('Передаем данные маппинга в запросе:', mappingData.columns.length, 'колонок');
+                // Создаем копию mapping с обновленными include для метрик
+                const modifiedMapping = JSON.parse(JSON.stringify(mappingData)); // deep copy
+                
+                // Получаем список выбранных метрик
+                const selectedMetricsList = window.selectedMetrics || [];
+                console.log('📊 Выбранные метрики для отображения:', selectedMetricsList);
+                
+                // Обновляем include для всех метрик
+                modifiedMapping.columns.forEach(col => {
+                    if (col.role === 'metric') {
+                        // Устанавливаем include=true только для выбранных метрик
+                        col.include = selectedMetricsList.includes(col.name);
+                        console.log(`  Метрика ${col.name}: include=${col.include}`);
+                    }
+                });
+                
+                // Сохраняем список выбранных метрик в mapping
+                modifiedMapping.selectedMetrics = selectedMetricsList;
+                
+                params.append('mapping_data', JSON.stringify(modifiedMapping));
+                console.log('✅ Передаем данные маппинга с обновленными метриками:', modifiedMapping.columns.length, 'колонок');
             } else {
                 console.warn('Данные маппинга не найдены в sessionStorage');
             }
