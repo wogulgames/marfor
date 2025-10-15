@@ -2072,14 +2072,16 @@ function createPivotConfigFromMapping(mappingData, mode = 'normal', splitBySlice
     mappingData.columns.forEach(col => {
         console.log('Обрабатываем колонку:', col);
         if (col.role === 'metric') {
-            // Добавляем метрики из выбранных пользователем
-            if (mappingData.selectedMetrics && mappingData.selectedMetrics.includes(col.name)) {
+            // Добавляем метрики на основе флага include или списка selectedMetrics
+            const shouldInclude = (mappingData.selectedMetrics && mappingData.selectedMetrics.includes(col.name)) || 
+                                  (col.include === true) ||
+                                  (col.include !== false && metricFields.length === 0); // fallback для первой метрики
+            
+            if (shouldInclude) {
                 metricFields.push(new PivotField(col.name, col.name, 'metric'));
-                console.log('Добавлена выбранная метрика:', col.name);
-            } else if (!mappingData.selectedMetrics && metricFields.length === 0) {
-                // Fallback: если нет выбранных метрик, добавляем первую
-                metricFields.push(new PivotField(col.name, col.name, 'metric'));
-                console.log('Добавлена первая метрика (fallback):', col.name);
+                console.log('Добавлена метрика:', col.name, 'include:', col.include);
+            } else {
+                console.log('Метрика пропущена:', col.name, 'include:', col.include);
             }
         } else if (col.time_series && col.time_series !== '') {
             timeFields.push(new PivotField(col.name, col.name, 'time', col.nesting_level || 0));
