@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MARFOR - Результаты прогноза</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="/static/pivot_table_system.js"></script>
+    <style>
+        .btn-primary {
+            background-color: #81db99 !important;
+            border-color: #81db99 !important;
+            color: #000 !important;
+        }
+        
+        .btn-primary:hover {
+            background-color: #6bc884 !important;
+        }
+        
+        .forecast-badge {
+            background: #ff9800;
+            color: white;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 0.8em;
+            margin-left: 5px;
+        }
+    </style>
+</head>
+<body>
+    <!-- Навигация -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container-fluid">
+            <a class="navbar-brand d-flex align-items-center" href="/forecast">
+                <img src="/static/images/logo.png" alt="MARFOR Logo" height="32" class="me-2" style="object-fit: contain;">
+                <strong>MARFOR</strong>
+            </a>
+            <span class="navbar-text">
+                <i class="fas fa-chart-line me-2"></i>Результаты прогноза
+            </span>
+            <div class="ms-auto">
+                <span class="badge bg-success" style="font-size: 0.8em;">
+                    <i class="fas fa-code"></i> v2.20.0
+                </span>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Основной контент -->
+    <div class="container-fluid mt-4">
+        <div class="row">
+            <div class="col-12">
+                <!-- Информация о прогнозе -->
+                <div class="card mb-3">
+                    <div class="card-header bg-success text-white">
+                        <h6 class="mb-0">
+                            <i class="fas fa-info-circle me-2"></i>Информация о прогнозе
+                        </h6>
+                    </div>
+                    <div class="card-body" id="forecastInfo">
+                        Загрузка...
+                    </div>
+                </div>
+
+                <!-- Контейнер для сводной таблицы и графиков -->
+                <div id="pivotTableContainer">
+                    Загрузка данных...
+                </div>
+
+                <!-- Кнопки действий -->
+                <div class="text-center mb-4 mt-4">
+                    <button class="btn btn-secondary btn-lg me-3" onclick="goBack()">
+                        <i class="fas fa-arrow-left me-2"></i>Назад к обучению
+                    </button>
+                    <button class="btn btn-primary btn-lg me-3" onclick="exportResults()">
+                        <i class="fas fa-download me-2"></i>Экспортировать результаты
+                    </button>
+                    <button class="btn btn-success btn-lg" onclick="saveProject()">
+                        <i class="fas fa-save me-2"></i>Сохранить проект
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        let currentSessionId = null;
+        let forecastData = null;
+        let currentPivotData = null;
+        let currentPivotConfig = null;
+
+        document.addEventListener('DOMContentLoaded', async function() {
+            const urlParams = new URLSearchParams(window.location.search);
+            currentSessionId = urlParams.get('session_id') || sessionStorage.getItem('currentSessionId');
+            
+            if (!currentSessionId) {
+                alert('Сессия не найдена');
+                window.location.href = '/forecast';
+                return;
+            }
+            
+            await loadForecastResults();
+        });
+
+        async function loadForecastResults() {
+            try {
+                // Получаем результаты прогноза
+                const response = await fetch(`/api/get_forecast_results/${currentSessionId}`);
+                const result = await response.json();
+                
+                if (result.success) {
+                    forecastData = result.forecast_data;
+                    displayForecastInfo(result.info);
+                    
+                    // Сохраняем данные для сводной таблицы
+                    window.currentPivotData = forecastData.pivot_data;
+                    window.rawPivotData = forecastData.raw_data;
+                    
+                    // Получаем маппинг из sessionStorage
+                    const mappingStr = sessionStorage.getItem('dataMapping');
+                    const mapping = mappingStr ? JSON.parse(mappingStr) : null;
+                    
+                    if (mapping) {
+                        // Рендерим сводную таблицу с прогнозными данными
+                        renderNewPivotTable(
+                            forecastData.raw_data,
+                            mapping,
+                            'time-series',
+                            ''
+                        );
+                    }
+                } else {
+                    alert('Ошибка загрузки результатов: ' + result.message);
+                }
+            } catch (error) {
+                console.error('Ошибка:', error);
+                alert('Ошибка загрузки результатов: ' + error.message);
+            }
+        }
+
+        function displayForecastInfo(info) {
+            const infoDiv = document.getElementById('forecastInfo');
+            
+            infoDiv.innerHTML = `
+                <div class="row">
+                    <div class="col-md-3">
+                        <p><strong>Модель:</strong> ${getModelDisplayName(info.model)}</p>
+                    </div>
+                    <div class="col-md-3">
+                        <p><strong>Метрика:</strong> ${info.metric}</p>
+                    </div>
+                    <div class="col-md-3">
+                        <p><strong>Фактических периодов:</strong> ${info.historical_periods}</p>
+                    </div>
+                    <div class="col-md-3">
+                        <p><strong>Прогнозных периодов:</strong> 
+                            <span class="forecast-badge">${info.forecast_periods}</span>
+                        </p>
+                    </div>
+                </div>
+                <div class="alert alert-warning mt-2">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    <strong>Прогнозные периоды отмечены желтым цветом</strong> на графике и в таблице
+                </div>
+            `;
+        }
+
+        function getModelDisplayName(modelName) {
+            const names = {
+                'arima': 'ARIMA',
+                'prophet': 'Prophet',
+                'random_forest': 'Random Forest'
+            };
+            return names[modelName] || modelName;
+        }
+
+        function exportResults() {
+            if (!forecastData) {
+                alert('Нет данных для экспорта');
+                return;
+            }
+            
+            // Экспорт в CSV
+            window.open(`/api/export_forecast/${currentSessionId}`, '_blank');
+        }
+
+        function saveProject() {
+            if (!forecastData) {
+                alert('Нет данных для сохранения');
+                return;
+            }
+            
+            const projectName = prompt('Введите название проекта:', 'Прогноз ' + new Date().toLocaleDateString());
+            
+            if (!projectName) return;
+            
+            // Сохраняем проект с результатами прогноза
+            fetch('/api/save_project_with_forecast', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    session_id: currentSessionId,
+                    project_name: projectName
+                })
+            })
+            .then(response => response.json())
+            .then(result => {
+                if (result.success) {
+                    alert('✅ Проект сохранен!');
+                    window.location.href = '/forecast';
+                } else {
+                    alert('❌ Ошибка сохранения: ' + result.message);
+                }
+            })
+            .catch(error => {
+                console.error('Ошибка:', error);
+                alert('❌ Ошибка: ' + error.message);
+            });
+        }
+
+        function goBack() {
+            if (confirm('Вернуться к обучению? Результаты прогноза будут потеряны.')) {
+                window.location.href = `/forecast/training?session_id=${currentSessionId}`;
+            }
+        }
+    </script>
+</body>
+</html>
+

@@ -247,7 +247,7 @@
                         </div>
                         <div class="card-body">
                             <div class="mb-3">
-                                <label class="form-label">Выберите модель для отображения:</label>
+                                <label class="form-label">Выберите модель прогнозирования:</label>
                                 <select id="modelSelect" class="form-select" onchange="updateValidationChart()">
                                     <option value="">Выберите модель...</option>
                                 </select>
@@ -583,16 +583,50 @@
             // Можно добавить дополнительную информацию о модели
         }
 
-        function proceedToForecast() {
+        async function proceedToForecast() {
             if (!trainingResults) {
                 alert('Сначала обучите модели');
                 return;
             }
             
-            // Переходим к финальному прогнозу
-            // Пока возвращаемся на главную, позже создадим страницу прогноза
-            alert('Модели обучены! Следующий шаг - построение прогноза (в разработке)');
-            window.location.href = '/forecast';
+            // Получаем выбранную модель
+            const select = document.getElementById('modelSelect');
+            const selectedModel = select.value;
+            
+            if (!selectedModel) {
+                alert('Выберите модель прогнозирования');
+                return;
+            }
+            
+            if (!confirm(`Построить прогноз с использованием модели ${getModelDisplayName(selectedModel)}?`)) {
+                return;
+            }
+            
+            try {
+                // Запускаем построение прогноза
+                const response = await fetch('/api/generate_forecast', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        session_id: currentSessionId,
+                        model: selectedModel
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    // Переходим на страницу результатов прогноза
+                    window.location.href = `/forecast/results?session_id=${currentSessionId}`;
+                } else {
+                    alert('❌ Ошибка построения прогноза: ' + result.message);
+                }
+            } catch (error) {
+                console.error('Ошибка:', error);
+                alert('❌ Ошибка: ' + error.message);
+            }
         }
 
         function goBack() {

@@ -155,6 +155,68 @@ def train_random_forest_model(train_df, test_df, metric, year_col, month_col):
         }
     }
 
+# Функции генерации прогноза на будущие периоды
+
+def generate_arima_forecast(df_agg, metric, steps):
+    """Генерация прогноза с помощью ARIMA"""
+    from statsmodels.tsa.arima.model import ARIMA
+    
+    # Обучаем на всех данных
+    model = ARIMA(df_agg[metric], order=(1, 1, 1))
+    model_fit = model.fit()
+    
+    # Прогноз на N шагов вперед
+    forecast = model_fit.forecast(steps=steps)
+    
+    return forecast.tolist()
+
+def generate_prophet_forecast(df_agg, metric, year_col, month_col, forecast_months):
+    """Генерация прогноза с помощью Prophet"""
+    from prophet import Prophet
+    
+    # Подготовка данных
+    prophet_df = df_agg[[year_col, month_col, metric]].copy()
+    prophet_df['ds'] = pd.to_datetime(prophet_df[year_col].astype(str) + '-' + 
+                                      prophet_df[month_col].astype(str).str.zfill(2) + '-01')
+    prophet_df['y'] = prophet_df[metric]
+    
+    # Обучаем модель
+    model = Prophet(yearly_seasonality=True, weekly_seasonality=False, daily_seasonality=False)
+    model.fit(prophet_df[['ds', 'y']])
+    
+    # Создаем DataFrame для прогноза
+    future_dates = []
+    for fm in forecast_months:
+        date_str = f"{fm['year']}-{str(fm['month']).zfill(2)}-01"
+        future_dates.append(date_str)
+    
+    future_df = pd.DataFrame({'ds': pd.to_datetime(future_dates)})
+    
+    # Прогноз
+    forecast = model.predict(future_df)
+    
+    return forecast['yhat'].tolist()
+
+def generate_random_forest_forecast(df_agg, metric, year_col, month_col, forecast_months):
+    """Генерация прогноза с помощью Random Forest"""
+    from sklearn.ensemble import RandomForestRegressor
+    
+    # Подготовка данных
+    X_train = df_agg[[year_col, month_col]].values
+    y_train = df_agg[metric].values
+    
+    # Обучаем модель
+    model = RandomForestRegressor(n_estimators=100, random_state=42, n_jobs=-1)
+    model.fit(X_train, y_train)
+    
+    # Подготовка данных для прогноза
+    X_forecast = np.array([[fm['year'], fm['month']] for fm in forecast_months])
+    
+    # Прогноз
+    predicted = model.predict(X_forecast)
+    
+    return predicted.tolist()
+
 # Flask
 from flask import Flask, render_template, render_template_string, request, jsonify, send_file, redirect
 from werkzeug.utils import secure_filename
@@ -715,6 +777,11 @@ def model_training():
     """Страница обучения и валидации моделей"""
     return render_template('model_training.html')
 
+@app.route('/forecast/results')
+def forecast_results():
+    """Страница результатов прогноза"""
+    return render_template('forecast_results.html')
+
 @app.route('/forecast/configure')
 def forecast_configure():
     """Страница настройки прогноза"""
@@ -779,7 +846,7 @@ def get_processed_data(session_id):
 def get_time_series_data(session_id):
     """Получение данных временных рядов для визуализации"""
     try:
-        print(f"🔧 ВЕРСИЯ КОДА: 2.20.0 - Обучение и валидация моделей")
+        print(f"🔧 ВЕРСИЯ КОДА: 2.21.0 - Генерация прогноза и страница результатов")
         if not session_id or forecast_app.session_id != session_id:
             return jsonify({'success': False, 'message': 'Сессия не найдена'})
         
@@ -2332,6 +2399,140 @@ def train_models():
         traceback.print_exc()
         return jsonify({'success': False, 'message': f'Ошибка: {str(e)}'})
 
+@app.route('/api/generate_forecast', methods=['POST'])
+def generate_forecast():
+    """Генерация прогноза с использованием обученной модели"""
+    try:
+        data = request.get_json()
+        session_id = data.get('session_id')
+        selected_model = data.get('model')
+        
+        if not session_id or forecast_app.session_id != session_id:
+            return jsonify({'success': False, 'message': 'Сессия не найдена'})
+        
+        if forecast_app.df is None:
+            return jsonify({'success': False, 'message': 'Данные не загружены'})
+        
+        # Получаем настройки прогноза
+        if not hasattr(forecast_app, 'forecast_settings') or session_id not in forecast_app.forecast_settings:
+            return jsonify({'success': False, 'message': 'Настройки прогноза не найдены'})
+        
+        settings = forecast_app.forecast_settings[session_id]
+        metric = settings['metric']
+        forecast_periods = settings['forecast_periods']
+        
+        print(f"\n🚀 ГЕНЕРАЦИЯ ПРОГНОЗА:")
+        print(f"   Модель: {selected_model}")
+        print(f"   Метрика: {metric}")
+        print(f"   Прогнозных периодов: {len(forecast_periods)}")
+        
+        # Подготовка данных для прогноза
+        df = forecast_app.df
+        
+        # Находим временные поля
+        year_col = None
+        month_col = None
+        
+        for col in df.columns:
+            if 'year' in col.lower() and not year_col:
+                year_col = col
+            if 'month' in col.lower() and not month_col:
+                month_col = col
+        
+        if not year_col or not month_col or metric not in df.columns:
+            return jsonify({'success': False, 'message': 'Необходимые поля не найдены'})
+        
+        # Агрегируем фактические данные
+        df_agg = df.groupby([year_col, month_col])[metric].sum().reset_index()
+        df_agg = df_agg.sort_values([year_col, month_col])
+        
+        # Создаем список прогнозных периодов
+        forecast_months = []
+        for period in forecast_periods:
+            for month in period['months']:
+                forecast_months.append({
+                    'year': period['year'],
+                    'month': month
+                })
+        
+        print(f"   Всего прогнозных месяцев: {len(forecast_months)}")
+        
+        # Обучаем модель на всех фактических данных
+        if selected_model == 'arima':
+            forecast_values = generate_arima_forecast(df_agg, metric, len(forecast_months))
+        elif selected_model == 'prophet':
+            forecast_values = generate_prophet_forecast(df_agg, metric, year_col, month_col, forecast_months)
+        elif selected_model == 'random_forest':
+            forecast_values = generate_random_forest_forecast(df_agg, metric, year_col, month_col, forecast_months)
+        else:
+            return jsonify({'success': False, 'message': f'Неизвестная модель: {selected_model}'})
+        
+        # Создаем DataFrame с прогнозными данными
+        forecast_df = pd.DataFrame(forecast_months)
+        forecast_df[metric] = forecast_values
+        forecast_df['is_forecast'] = True
+        
+        # Объединяем фактические и прогнозные данные
+        df_agg['is_forecast'] = False
+        combined_df = pd.concat([df_agg, forecast_df], ignore_index=True)
+        
+        # Добавляем остальные колонки из маппинга (заполняем значениями по умолчанию)
+        for col in df.columns:
+            if col not in combined_df.columns and col != metric:
+                # Для прогнозных строк используем значения по умолчанию
+                combined_df[col] = ''
+        
+        print(f"   ✅ Прогноз построен: {len(forecast_df)} периодов")
+        
+        # Сохраняем результаты прогноза
+        if not hasattr(forecast_app, 'forecast_results'):
+            forecast_app.forecast_results = {}
+        
+        forecast_app.forecast_results[session_id] = {
+            'model': selected_model,
+            'metric': metric,
+            'combined_data': combined_df.to_dict('records'),
+            'forecast_only': forecast_df.to_dict('records'),
+            'historical_periods': len(df_agg),
+            'forecast_periods': len(forecast_df)
+        }
+        
+        return jsonify({
+            'success': True,
+            'message': 'Прогноз успешно построен'
+        })
+        
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'message': f'Ошибка: {str(e)}'})
+
+@app.route('/api/get_forecast_results/<session_id>')
+def get_forecast_results(session_id):
+    """Получение результатов прогноза"""
+    try:
+        if not hasattr(forecast_app, 'forecast_results') or session_id not in forecast_app.forecast_results:
+            return jsonify({'success': False, 'message': 'Результаты прогноза не найдены'})
+        
+        results = forecast_app.forecast_results[session_id]
+        
+        return jsonify({
+            'success': True,
+            'forecast_data': {
+                'raw_data': results['combined_data'],
+                'pivot_data': None  # Будет построена на фронтенде
+            },
+            'info': {
+                'model': results['model'],
+                'metric': results['metric'],
+                'historical_periods': results['historical_periods'],
+                'forecast_periods': results['forecast_periods']
+            }
+        })
+        
+    except Exception as e:
+        return jsonify({'success': False, 'message': f'Ошибка: {str(e)}'})
+
 @app.route('/api/update_file', methods=['POST'])
 def update_file():
     """Обновление файла данных с сохранением session_id"""
@@ -2465,6 +2666,6 @@ def download_results(session_id):
 if __name__ == '__main__':
     print("🚀 Запуск MARFOR веб-приложения...")
     print("📊 Каскадная модель с Random Forest")
-    print("🔧 ВЕРСИЯ КОДА: 2.20.0 - Обучение и валидация моделей")
+    print("🔧 ВЕРСИЯ КОДА: 2.21.0 - Генерация прогноза и страница результатов")
     print("🌐 Откройте http://localhost:5001 в браузере")
     app.run(debug=True, host='0.0.0.0', port=5001)
