@@ -1,0 +1,603 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MARFOR - Обучение модели</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        .btn-primary {
+            background-color: #81db99 !important;
+            border-color: #81db99 !important;
+            color: #000 !important;
+        }
+        
+        .btn-primary:hover {
+            background-color: #6bc884 !important;
+        }
+        
+        .model-card {
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 15px;
+            transition: all 0.3s;
+        }
+        
+        .model-card:hover {
+            border-color: #81db99;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+        
+        .model-card.selected {
+            border-color: #81db99;
+            background: #f1f8f4;
+        }
+        
+        .metric-badge {
+            display: inline-block;
+            padding: 5px 10px;
+            border-radius: 4px;
+            margin: 3px;
+            font-size: 0.9em;
+        }
+        
+        .metric-good {
+            background: #4caf50;
+            color: white;
+        }
+        
+        .metric-medium {
+            background: #ff9800;
+            color: white;
+        }
+        
+        .metric-bad {
+            background: #f44336;
+            color: white;
+        }
+        
+        .training-status {
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+            text-align: center;
+        }
+        
+        .training-status.running {
+            background: #e3f2fd;
+            border: 2px solid #2196f3;
+        }
+        
+        .training-status.complete {
+            background: #e8f5e9;
+            border: 2px solid #4caf50;
+        }
+    </style>
+</head>
+<body>
+    <!-- Навигация -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container-fluid">
+            <a class="navbar-brand d-flex align-items-center" href="/forecast">
+                <img src="/static/images/logo.png" alt="MARFOR Logo" height="32" class="me-2" style="object-fit: contain;">
+                <strong>MARFOR</strong>
+            </a>
+            <span class="navbar-text">
+                <i class="fas fa-brain me-2"></i>Обучение и валидация модели
+            </span>
+            <div class="ms-auto">
+                <span class="badge bg-success" style="font-size: 0.8em;">
+                    <i class="fas fa-code"></i> v2.19.2
+                </span>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Основной контент -->
+    <div class="container-fluid mt-4">
+        <div class="row">
+            <div class="col-12">
+                <!-- Информация о настройках -->
+                <div class="card mb-3">
+                    <div class="card-header bg-primary text-dark">
+                        <h6 class="mb-0">
+                            <i class="fas fa-info-circle me-2"></i>Настройки прогнозирования
+                        </h6>
+                    </div>
+                    <div class="card-body" id="forecastSettingsInfo">
+                        Загрузка...
+                    </div>
+                </div>
+
+                <!-- Разделение данных -->
+                <div class="card mb-3">
+                    <div class="card-header bg-primary text-dark">
+                        <h6 class="mb-0">
+                            <i class="fas fa-database me-2"></i>Разделение данных на обучающую и контрольную выборки
+                        </h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <label class="form-label">Размер контрольной выборки (%):</label>
+                                <input type="range" class="form-range" id="testSizeSlider" min="10" max="40" value="20" oninput="updateTestSizeLabel()">
+                                <div class="text-center">
+                                    <span id="testSizeLabel" class="badge bg-info">20%</span>
+                                    <small class="text-muted d-block mt-2">Обучающая: 80% | Контрольная: 20%</small>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="alert alert-info mb-0">
+                                    <i class="fas fa-info-circle me-2"></i>
+                                    <strong>Обучающая выборка</strong> - для обучения моделей<br>
+                                    <strong>Контрольная выборка</strong> - для проверки точности
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Выбор моделей -->
+                <div class="card mb-3">
+                    <div class="card-header bg-primary text-dark">
+                        <h6 class="mb-0">
+                            <i class="fas fa-sliders-h me-2"></i>Выбор моделей для обучения
+                        </h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <!-- ARIMA -->
+                            <div class="col-md-4">
+                                <div class="model-card" onclick="toggleModel('arima')">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="model_arima" checked>
+                                        <label class="form-check-label fw-bold" for="model_arima">
+                                            <i class="fas fa-chart-line me-2"></i>ARIMA
+                                        </label>
+                                    </div>
+                                    <small class="text-muted">Классический метод временных рядов. Хорош для трендов и сезонности.</small>
+                                </div>
+                            </div>
+                            
+                            <!-- Prophet -->
+                            <div class="col-md-4">
+                                <div class="model-card" onclick="toggleModel('prophet')">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="model_prophet" checked>
+                                        <label class="form-check-label fw-bold" for="model_prophet">
+                                            <i class="fas fa-magic me-2"></i>Prophet
+                                        </label>
+                                    </div>
+                                    <small class="text-muted">Модель от Facebook. Автоматически учитывает тренды и праздники.</small>
+                                </div>
+                            </div>
+                            
+                            <!-- Random Forest -->
+                            <div class="col-md-4">
+                                <div class="model-card" onclick="toggleModel('random_forest')">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="model_random_forest" checked>
+                                        <label class="form-check-label fw-bold" for="model_random_forest">
+                                            <i class="fas fa-tree me-2"></i>Random Forest
+                                        </label>
+                                    </div>
+                                    <small class="text-muted">Ансамбль деревьев решений. Устойчив к выбросам.</small>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="text-center mt-3">
+                            <button class="btn btn-success btn-lg" onclick="trainModels()">
+                                <i class="fas fa-play me-2"></i>Запустить обучение моделей
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Статус обучения -->
+                <div id="trainingStatus" style="display: none;">
+                    <div class="training-status running">
+                        <div class="spinner-border text-primary me-3" role="status">
+                            <span class="visually-hidden">Обучение...</span>
+                        </div>
+                        <span class="fs-5">Обучение моделей...</span>
+                        <div id="trainingProgress" class="mt-2"></div>
+                    </div>
+                </div>
+
+                <!-- Результаты обучения -->
+                <div id="trainingResults" style="display: none;">
+                    <div class="card mb-3">
+                        <div class="card-header bg-success text-white">
+                            <h6 class="mb-0">
+                                <i class="fas fa-check-circle me-2"></i>Результаты обучения
+                            </h6>
+                        </div>
+                        <div class="card-body">
+                            <!-- Таблица сравнения моделей -->
+                            <h6 class="mb-3">Сравнение моделей:</h6>
+                            <div class="table-responsive">
+                                <table class="table table-striped table-bordered">
+                                    <thead class="table-dark">
+                                        <tr>
+                                            <th>Модель</th>
+                                            <th>MAE<br><small>(средняя абсолютная ошибка)</small></th>
+                                            <th>RMSE<br><small>(корень из средней квадратичной)</small></th>
+                                            <th>MAPE, %<br><small>(средняя процентная ошибка)</small></th>
+                                            <th>Рейтинг</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="modelsComparisonTable">
+                                        <!-- Заполняется динамически -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- График: Факт vs Прогноз -->
+                    <div class="card mb-3">
+                        <div class="card-header bg-primary text-dark">
+                            <h6 class="mb-0">
+                                <i class="fas fa-chart-area me-2"></i>Валидация на контрольной выборке
+                            </h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="mb-3">
+                                <label class="form-label">Выберите модель для отображения:</label>
+                                <select id="modelSelect" class="form-select" onchange="updateValidationChart()">
+                                    <option value="">Выберите модель...</option>
+                                </select>
+                            </div>
+                            <canvas id="validationChart" style="height: 500px; width: 100%;"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- Кнопка перехода к прогнозу -->
+                    <div class="text-center mb-4">
+                        <button class="btn btn-secondary btn-lg me-3" onclick="goBack()">
+                            <i class="fas fa-arrow-left me-2"></i>Изменить настройки
+                        </button>
+                        <button class="btn btn-success btn-lg" onclick="proceedToForecast()">
+                            <i class="fas fa-rocket me-2"></i>Перейти к прогнозированию
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        let currentSessionId = null;
+        let forecastSettings = null;
+        let trainingResults = null;
+        let validationChartInstance = null;
+        let selectedModels = ['arima', 'prophet', 'random_forest'];
+
+        document.addEventListener('DOMContentLoaded', async function() {
+            const urlParams = new URLSearchParams(window.location.search);
+            currentSessionId = urlParams.get('session_id') || sessionStorage.getItem('currentSessionId');
+            
+            if (!currentSessionId) {
+                alert('Сессия не найдена');
+                window.location.href = '/forecast';
+                return;
+            }
+            
+            await loadForecastSettings();
+        });
+
+        async function loadForecastSettings() {
+            try {
+                // Получаем сохраненные настройки прогноза
+                const response = await fetch(`/api/get_forecast_settings/${currentSessionId}`);
+                const result = await response.json();
+                
+                if (result.success) {
+                    forecastSettings = result.settings;
+                    displayForecastSettings();
+                } else {
+                    alert('Ошибка загрузки настроек: ' + result.message);
+                }
+            } catch (error) {
+                console.error('Ошибка:', error);
+                alert('Ошибка загрузки настроек: ' + error.message);
+            }
+        }
+
+        function displayForecastSettings() {
+            const infoDiv = document.getElementById('forecastSettingsInfo');
+            
+            if (!forecastSettings) {
+                infoDiv.innerHTML = '<p class="text-muted">Настройки не найдены</p>';
+                return;
+            }
+            
+            const totalMonths = forecastSettings.forecast_months || 0;
+            const metric = forecastSettings.metric || 'не указана';
+            
+            infoDiv.innerHTML = `
+                <div class="row">
+                    <div class="col-md-3">
+                        <p><strong>Метрика:</strong> ${metric}</p>
+                    </div>
+                    <div class="col-md-3">
+                        <p><strong>Горизонт прогноза:</strong> ${totalMonths} месяцев</p>
+                    </div>
+                    <div class="col-md-6">
+                        <p><strong>Прогнозные периоды:</strong></p>
+                        <div>
+                            ${forecastSettings.forecast_periods.map(p => 
+                                `<span class="badge bg-warning text-dark me-1">${p.year}: ${p.months.length} мес.</span>`
+                            ).join('')}
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function updateTestSizeLabel() {
+            const slider = document.getElementById('testSizeSlider');
+            const label = document.getElementById('testSizeLabel');
+            const testSize = slider.value;
+            const trainSize = 100 - testSize;
+            
+            label.textContent = `${testSize}%`;
+            label.parentElement.querySelector('small').textContent = `Обучающая: ${trainSize}% | Контрольная: ${testSize}%`;
+        }
+
+        function toggleModel(modelId) {
+            const checkbox = document.getElementById(`model_${modelId}`);
+            checkbox.checked = !checkbox.checked;
+            
+            const card = checkbox.closest('.model-card');
+            if (checkbox.checked) {
+                card.classList.add('selected');
+                if (!selectedModels.includes(modelId)) {
+                    selectedModels.push(modelId);
+                }
+            } else {
+                card.classList.remove('selected');
+                selectedModels = selectedModels.filter(m => m !== modelId);
+            }
+        }
+
+        async function trainModels() {
+            if (selectedModels.length === 0) {
+                alert('Выберите хотя бы одну модель');
+                return;
+            }
+            
+            const testSize = parseInt(document.getElementById('testSizeSlider').value);
+            
+            // Показываем статус обучения
+            document.getElementById('trainingStatus').style.display = 'block';
+            document.getElementById('trainingResults').style.display = 'none';
+            
+            try {
+                const response = await fetch('/api/train_models', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        session_id: currentSessionId,
+                        metric: forecastSettings.metric,
+                        models: selectedModels,
+                        test_size: testSize / 100,
+                        forecast_periods: forecastSettings.forecast_periods
+                    })
+                });
+                
+                const result = await response.json();
+                
+                document.getElementById('trainingStatus').style.display = 'none';
+                
+                if (result.success) {
+                    trainingResults = result.results;
+                    displayTrainingResults();
+                } else {
+                    alert('❌ Ошибка обучения: ' + result.message);
+                }
+            } catch (error) {
+                document.getElementById('trainingStatus').style.display = 'none';
+                console.error('Ошибка:', error);
+                alert('❌ Ошибка: ' + error.message);
+            }
+        }
+
+        function displayTrainingResults() {
+            document.getElementById('trainingResults').style.display = 'block';
+            
+            // Заполняем таблицу сравнения
+            const tableBody = document.getElementById('modelsComparisonTable');
+            const modelSelect = document.getElementById('modelSelect');
+            
+            tableBody.innerHTML = '';
+            modelSelect.innerHTML = '<option value="">Выберите модель...</option>';
+            
+            // Сортируем модели по MAPE (лучшие первые)
+            const sortedModels = Object.entries(trainingResults).sort((a, b) => {
+                return a[1].metrics.mape - b[1].metrics.mape;
+            });
+            
+            sortedModels.forEach(([modelName, data], index) => {
+                const metrics = data.metrics;
+                const rank = index + 1;
+                const rankBadge = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : rank;
+                
+                // Определяем класс для MAPE
+                let mapeClass = 'metric-good';
+                if (metrics.mape > 20) mapeClass = 'metric-bad';
+                else if (metrics.mape > 10) mapeClass = 'metric-medium';
+                
+                const row = `
+                    <tr>
+                        <td><strong>${getModelDisplayName(modelName)}</strong></td>
+                        <td>${metrics.mae.toLocaleString('ru-RU', {maximumFractionDigits: 2})}</td>
+                        <td>${metrics.rmse.toLocaleString('ru-RU', {maximumFractionDigits: 2})}</td>
+                        <td><span class="metric-badge ${mapeClass}">${metrics.mape.toFixed(2)}%</span></td>
+                        <td><span class="fs-4">${rankBadge}</span></td>
+                    </tr>
+                `;
+                
+                tableBody.innerHTML += row;
+                
+                // Добавляем в select
+                const option = document.createElement('option');
+                option.value = modelName;
+                option.text = `${getModelDisplayName(modelName)} (MAPE: ${metrics.mape.toFixed(2)}%)`;
+                if (index === 0) {
+                    option.selected = true;
+                }
+                modelSelect.appendChild(option);
+            });
+            
+            // Отображаем график для лучшей модели
+            if (sortedModels.length > 0) {
+                updateValidationChart();
+            }
+        }
+
+        function getModelDisplayName(modelName) {
+            const names = {
+                'arima': 'ARIMA',
+                'prophet': 'Prophet',
+                'random_forest': 'Random Forest',
+                'linear_regression': 'Linear Regression',
+                'xgboost': 'XGBoost'
+            };
+            return names[modelName] || modelName;
+        }
+
+        function updateValidationChart() {
+            const select = document.getElementById('modelSelect');
+            const selectedModel = select.value;
+            
+            if (!selectedModel || !trainingResults[selectedModel]) {
+                return;
+            }
+            
+            const modelData = trainingResults[selectedModel];
+            const canvas = document.getElementById('validationChart');
+            
+            if (validationChartInstance) {
+                validationChartInstance.destroy();
+            }
+            
+            const ctx = canvas.getContext('2d');
+            validationChartInstance = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: modelData.validation.labels,
+                    datasets: [
+                        {
+                            label: 'Фактические значения',
+                            data: modelData.validation.actual,
+                            borderColor: '#2196F3',
+                            backgroundColor: '#2196F333',
+                            borderWidth: 4,
+                            pointRadius: 6,
+                            tension: 0.2,
+                            fill: false
+                        },
+                        {
+                            label: 'Прогноз модели',
+                            data: modelData.validation.predicted,
+                            borderColor: '#4CAF50',
+                            backgroundColor: '#4CAF5033',
+                            borderWidth: 4,
+                            borderDash: [5, 5],
+                            pointRadius: 6,
+                            pointStyle: 'rect',
+                            tension: 0.2,
+                            fill: false
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: `${getModelDisplayName(selectedModel)} - Валидация на контрольной выборке`,
+                            font: { size: 16, weight: 'bold' }
+                        },
+                        legend: {
+                            display: true,
+                            position: 'top'
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const label = context.dataset.label || '';
+                                    const value = context.parsed.y;
+                                    if (value === null) return null;
+                                    return `${label}: ${value.toLocaleString('ru-RU', {maximumFractionDigits: 2})}`;
+                                },
+                                footer: function(tooltipItems) {
+                                    if (tooltipItems.length >= 2) {
+                                        const actual = tooltipItems[0].parsed.y;
+                                        const predicted = tooltipItems[1].parsed.y;
+                                        const error = Math.abs(actual - predicted);
+                                        const errorPercent = (error / actual * 100).toFixed(2);
+                                        return `Ошибка: ${error.toLocaleString('ru-RU', {maximumFractionDigits: 2})} (${errorPercent}%)`;
+                                    }
+                                    return '';
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            title: {
+                                display: true,
+                                text: 'Период (контрольная выборка)'
+                            }
+                        },
+                        y: {
+                            title: {
+                                display: true,
+                                text: forecastSettings.metric
+                            },
+                            beginAtZero: false
+                        }
+                    }
+                }
+            });
+            
+            // Отображаем метрики для выбранной модели
+            displayModelMetrics(selectedModel);
+        }
+
+        function displayModelMetrics(modelName) {
+            const modelData = trainingResults[modelName];
+            // Можно добавить дополнительную информацию о модели
+        }
+
+        function proceedToForecast() {
+            if (!trainingResults) {
+                alert('Сначала обучите модели');
+                return;
+            }
+            
+            // Переходим к финальному прогнозу
+            // Пока возвращаемся на главную, позже создадим страницу прогноза
+            alert('Модели обучены! Следующий шаг - построение прогноза (в разработке)');
+            window.location.href = '/forecast';
+        }
+
+        function goBack() {
+            if (confirm('Вернуться к настройкам? Результаты обучения будут потеряны.')) {
+                window.location.href = `/forecast/settings?session_id=${currentSessionId}`;
+            }
+        }
+    </script>
+</body>
+</html>
+

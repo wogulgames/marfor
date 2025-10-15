@@ -33,6 +33,113 @@ def convert_to_json_serializable(obj):
     else:
         return obj
 
+def calculate_metrics(actual, predicted):
+    """Вычисление метрик точности прогноза"""
+    actual = np.array(actual)
+    predicted = np.array(predicted)
+    
+    # MAE - средняя абсолютная ошибка
+    mae = np.mean(np.abs(actual - predicted))
+    
+    # RMSE - корень из средней квадратичной ошибки
+    rmse = np.sqrt(np.mean((actual - predicted) ** 2))
+    
+    # MAPE - средняя абсолютная процентная ошибка
+    mape = np.mean(np.abs((actual - predicted) / actual)) * 100
+    
+    return {
+        'mae': float(mae),
+        'rmse': float(rmse),
+        'mape': float(mape)
+    }
+
+def train_arima_model(train_df, test_df, metric):
+    """Обучение ARIMA модели"""
+    from statsmodels.tsa.arima.model import ARIMA
+    
+    # Обучаем на тренировочных данных
+    model = ARIMA(train_df[metric], order=(1, 1, 1))
+    model_fit = model.fit()
+    
+    # Прогноз на контрольную выборку
+    forecast = model_fit.forecast(steps=len(test_df))
+    
+    # Вычисляем метрики
+    metrics = calculate_metrics(test_df[metric].values, forecast.values)
+    
+    return {
+        'metrics': metrics,
+        'validation': {
+            'labels': test_df['period'].tolist(),
+            'actual': test_df[metric].tolist(),
+            'predicted': forecast.tolist()
+        }
+    }
+
+def train_prophet_model(train_df, test_df, metric, year_col, month_col):
+    """Обучение Prophet модели"""
+    from prophet import Prophet
+    
+    # Подготовка данных для Prophet
+    prophet_df = train_df[[year_col, month_col, metric]].copy()
+    prophet_df['ds'] = pd.to_datetime(prophet_df[year_col].astype(str) + '-' + 
+                                      prophet_df[month_col].astype(str).str.zfill(2) + '-01')
+    prophet_df['y'] = prophet_df[metric]
+    
+    # Обучаем модель
+    model = Prophet(yearly_seasonality=True, weekly_seasonality=False, daily_seasonality=False)
+    model.fit(prophet_df[['ds', 'y']])
+    
+    # Прогноз на контрольную выборку
+    future_df = test_df[[year_col, month_col]].copy()
+    future_df['ds'] = pd.to_datetime(future_df[year_col].astype(str) + '-' + 
+                                     future_df[month_col].astype(str).str.zfill(2) + '-01')
+    
+    forecast = model.predict(future_df)
+    predicted = forecast['yhat'].values
+    
+    # Вычисляем метрики
+    metrics = calculate_metrics(test_df[metric].values, predicted)
+    
+    return {
+        'metrics': metrics,
+        'validation': {
+            'labels': test_df['period'].tolist(),
+            'actual': test_df[metric].tolist(),
+            'predicted': predicted.tolist()
+        }
+    }
+
+def train_random_forest_model(train_df, test_df, metric, year_col, month_col):
+    """Обучение Random Forest модели"""
+    from sklearn.ensemble import RandomForestRegressor
+    
+    # Подготовка признаков
+    X_train = train_df[[year_col, month_col]].values
+    y_train = train_df[metric].values
+    
+    X_test = test_df[[year_col, month_col]].values
+    y_test = test_df[metric].values
+    
+    # Обучаем модель
+    model = RandomForestRegressor(n_estimators=100, random_state=42, n_jobs=-1)
+    model.fit(X_train, y_train)
+    
+    # Прогноз
+    predicted = model.predict(X_test)
+    
+    # Вычисляем метрики
+    metrics = calculate_metrics(y_test, predicted)
+    
+    return {
+        'metrics': metrics,
+        'validation': {
+            'labels': test_df['period'].tolist(),
+            'actual': test_df[metric].tolist(),
+            'predicted': predicted.tolist()
+        }
+    }
+
 # Flask
 from flask import Flask, render_template, render_template_string, request, jsonify, send_file, redirect
 from werkzeug.utils import secure_filename
@@ -588,6 +695,11 @@ def forecast_settings():
     """Страница настройки горизонта прогнозирования"""
     return render_template('forecast_settings.html')
 
+@app.route('/forecast/training')
+def model_training():
+    """Страница обучения и валидации моделей"""
+    return render_template('model_training.html')
+
 @app.route('/forecast/configure')
 def forecast_configure():
     """Страница настройки прогноза"""
@@ -652,7 +764,7 @@ def get_processed_data(session_id):
 def get_time_series_data(session_id):
     """Получение данных временных рядов для визуализации"""
     try:
-        print(f"🔧 ВЕРСИЯ КОДА: 2.19.2 - Прогнозная линия от последней точки факта")
+        print(f"🔧 ВЕРСИЯ КОДА: 2.20.0 - Обучение и валидация моделей")
         if not session_id or forecast_app.session_id != session_id:
             return jsonify({'success': False, 'message': 'Сессия не найдена'})
         
@@ -2067,19 +2179,22 @@ def save_forecast_settings():
         
         # Сохраняем настройки в сессию
         forecast_settings = {
+            'metric': data.get('metric'),
+            'forecast_months': data.get('forecast_months', 0),
             'forecast_periods': data.get('forecast_periods', []),
             'time_series_config': data.get('time_series_config', {}),
             'created_at': datetime.now().isoformat()
         }
         
-        # Можно сохранить в файл или в память
-        # Пока сохраним в глобальную переменную
+        # Сохраняем в глобальную переменную
         if not hasattr(forecast_app, 'forecast_settings'):
             forecast_app.forecast_settings = {}
         
         forecast_app.forecast_settings[session_id] = forecast_settings
         
         print(f"✅ Сохранены настройки прогноза для сессии {session_id}")
+        print(f"   Метрика: {forecast_settings['metric']}")
+        print(f"   Горизонт: {forecast_settings['forecast_months']} месяцев")
         print(f"   Прогнозных периодов: {len(forecast_settings['forecast_periods'])}")
         
         return jsonify({
@@ -2088,6 +2203,118 @@ def save_forecast_settings():
         })
         
     except Exception as e:
+        return jsonify({'success': False, 'message': f'Ошибка: {str(e)}'})
+
+@app.route('/api/get_forecast_settings/<session_id>')
+def get_forecast_settings(session_id):
+    """Получение сохраненных настроек прогноза"""
+    try:
+        if not hasattr(forecast_app, 'forecast_settings') or session_id not in forecast_app.forecast_settings:
+            return jsonify({'success': False, 'message': 'Настройки прогноза не найдены'})
+        
+        settings = forecast_app.forecast_settings[session_id]
+        
+        return jsonify({
+            'success': True,
+            'settings': settings
+        })
+        
+    except Exception as e:
+        return jsonify({'success': False, 'message': f'Ошибка: {str(e)}'})
+
+@app.route('/api/train_models', methods=['POST'])
+def train_models():
+    """Обучение моделей прогнозирования"""
+    try:
+        data = request.get_json()
+        session_id = data.get('session_id')
+        
+        if not session_id or forecast_app.session_id != session_id:
+            return jsonify({'success': False, 'message': 'Сессия не найдена'})
+        
+        if forecast_app.df is None:
+            return jsonify({'success': False, 'message': 'Данные не загружены'})
+        
+        metric = data.get('metric')
+        models_to_train = data.get('models', [])
+        test_size = data.get('test_size', 0.2)
+        
+        print(f"\n🎯 ОБУЧЕНИЕ МОДЕЛЕЙ:")
+        print(f"   Метрика: {metric}")
+        print(f"   Модели: {models_to_train}")
+        print(f"   Размер тестовой выборки: {test_size * 100}%")
+        
+        # Подготовка данных
+        df = forecast_app.df
+        
+        # Находим временные поля
+        year_col = None
+        month_col = None
+        
+        for col in df.columns:
+            if 'year' in col.lower() and not year_col:
+                year_col = col
+            if 'month' in col.lower() and not month_col:
+                month_col = col
+        
+        if not year_col or not month_col or metric not in df.columns:
+            return jsonify({'success': False, 'message': 'Необходимые поля не найдены'})
+        
+        # Агрегируем данные по году-месяцу
+        df_agg = df.groupby([year_col, month_col])[metric].sum().reset_index()
+        df_agg = df_agg.sort_values([year_col, month_col])
+        df_agg['period'] = df_agg[year_col].astype(str) + '-' + df_agg[month_col].astype(str).str.zfill(2)
+        
+        print(f"   Всего периодов: {len(df_agg)}")
+        
+        # Разделение на обучающую и контрольную выборки
+        split_index = int(len(df_agg) * (1 - test_size))
+        train_df = df_agg[:split_index]
+        test_df = df_agg[split_index:]
+        
+        print(f"   Обучающая выборка: {len(train_df)} периодов")
+        print(f"   Контрольная выборка: {len(test_df)} периодов")
+        
+        results = {}
+        
+        # Обучение моделей
+        for model_name in models_to_train:
+            print(f"\n📊 Обучение модели: {model_name}")
+            
+            try:
+                if model_name == 'arima':
+                    model_result = train_arima_model(train_df, test_df, metric)
+                elif model_name == 'prophet':
+                    model_result = train_prophet_model(train_df, test_df, metric, year_col, month_col)
+                elif model_name == 'random_forest':
+                    model_result = train_random_forest_model(train_df, test_df, metric, year_col, month_col)
+                else:
+                    continue
+                
+                results[model_name] = model_result
+                print(f"   ✅ {model_name}: MAPE = {model_result['metrics']['mape']:.2f}%")
+                
+            except Exception as e:
+                print(f"   ❌ Ошибка обучения {model_name}: {e}")
+                continue
+        
+        if not results:
+            return jsonify({'success': False, 'message': 'Не удалось обучить ни одну модель'})
+        
+        # Сохраняем результаты обучения
+        if not hasattr(forecast_app, 'training_results'):
+            forecast_app.training_results = {}
+        
+        forecast_app.training_results[session_id] = results
+        
+        return jsonify({
+            'success': True,
+            'results': results
+        })
+        
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
         return jsonify({'success': False, 'message': f'Ошибка: {str(e)}'})
 
 @app.route('/api/update_file', methods=['POST'])
@@ -2223,6 +2450,6 @@ def download_results(session_id):
 if __name__ == '__main__':
     print("🚀 Запуск MARFOR веб-приложения...")
     print("📊 Каскадная модель с Random Forest")
-    print("🔧 ВЕРСИЯ КОДА: 2.19.2 - Прогнозная линия от последней точки факта")
+    print("🔧 ВЕРСИЯ КОДА: 2.20.0 - Обучение и валидация моделей")
     print("🌐 Откройте http://localhost:5001 в браузере")
     app.run(debug=True, host='0.0.0.0', port=5001)

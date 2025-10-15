@@ -714,8 +714,8 @@
                 const result = await response.json();
                 
                 if (result.success) {
-                    alert(`✅ Настройки прогноза сохранены!\n\nМетрика: ${selectedMetric}\nГоризонт: ${forecastMonthsCount} месяцев`);
-                    window.location.href = '/forecast';
+                    // Переходим на страницу обучения модели
+                    window.location.href = `/forecast/training?session_id=${currentSessionId}`;
                 } else {
                     alert('❌ Ошибка: ' + result.message);
                 }
