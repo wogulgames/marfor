@@ -1637,7 +1637,17 @@
                 console.log('📊 forecastInfo:', forecastInfo);
                 console.log('📊 Количество строк в raw_data:', forecastData.raw_data.length);
                 
-                // Проверяем, есть ли прогнозные данные
+                // СНАЧАЛА загружаем маппинг
+                const savedDataMapping = sessionStorage.getItem('dataMapping');
+                if (!savedDataMapping) {
+                    alert('Ошибка: маппинг не найден. Вернитесь к настройкам прогноза.');
+                    return;
+                }
+                
+                dataMapping = JSON.parse(savedDataMapping);
+                console.log('📊 Маппинг загружен:', dataMapping);
+                
+                // ТЕПЕРЬ проверяем прогнозные данные
                 const forecastRows = forecastData.raw_data.filter(row => row.is_forecast === true);
                 const factRows = forecastData.raw_data.filter(row => row.is_forecast === false);
                 console.log(`📊 Фактических строк: ${factRows.length}`);
@@ -1645,7 +1655,7 @@
                 console.log('📊 Пример прогнозной строки:', forecastRows[0]);
                 
                 // ВАЖНО: Проверяем значения всех метрик в прогнозных строках
-                if (forecastRows.length > 0) {
+                if (forecastRows.length > 0 && dataMapping && dataMapping.columns) {
                     console.log('🔍 === АНАЛИЗ ПРОГНОЗНЫХ ДАННЫХ ===');
                     const firstForecastRow = forecastRows[0];
                     const metrics = Object.keys(firstForecastRow).filter(key => 
@@ -1657,15 +1667,6 @@
                         console.log(`📊 ${metric}:`, values);
                     });
                 }
-                
-                // Получаем маппинг из sessionStorage
-                const savedDataMapping = sessionStorage.getItem('dataMapping');
-                if (!savedDataMapping) {
-                    alert('Ошибка: маппинг не найден. Вернитесь к настройкам прогноза.');
-                    return;
-                }
-                
-                dataMapping = JSON.parse(savedDataMapping);
                 
                 // Устанавливаем данные как processedData для совместимости
                 processedData = {
