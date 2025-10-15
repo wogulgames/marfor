@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MarFor - Результаты прогноза</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        .forecast-badge {
+            background-color: #ffc107;
+            color: #000;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: bold;
+        }
+        
+        .forecast-row {
+            background-color: #fff3cd !important;
+        }
+        
+        /* Мятный цвет для кнопок */
+        .btn-primary {
+            background-color: #81db99 !important;
+            border-color: #81db99 !important;
+            color: #000 !important;
+        }
+        
+        .btn-primary:hover {
+            background-color: #6bc884 !important;
+            border-color: #6bc884 !important;
+        }
+        
+        /* Стили для сводной таблицы */
+        .pivot-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        
+        .pivot-table th, .pivot-table td {
+            border: 1px solid #dee2e6;
+            padding: 8px;
+            text-align: left;
+        }
+        
+        .pivot-table th {
+            background-color: #f8f9fa;
+            font-weight: 600;
+        }
+        
+        .pivot-row-level-0 {
+            background-color: #f8f9fa;
+            font-weight: 600;
+        }
+        
+        .pivot-row-level-1 {
+            padding-left: 20px;
+        }
+        
+        .pivot-row-level-2 {
+            padding-left: 40px;
+        }
+        
+        .pivot-total-row {
+            background-color: #e9ecef;
+            font-weight: 700;
+        }
+        
+        /* Стили для фильтров */
+        .filter-card {
+            border: 1px solid #dee2e6;
+            border-radius: 0.375rem;
+            margin-bottom: 0.75rem;
+            background-color: #f8f9fa;
+        }
+        
+        .filter-header {
+            background-color: #e9ecef;
+            padding: 0.5rem 0.75rem;
+            border-bottom: 1px solid #dee2e6;
+            font-weight: 600;
+            color: #495057;
+            font-size: 0.875rem;
+        }
+        
+        .filter-body {
+            padding: 0.75rem;
+        }
+        
+        .filter-option {
+            display: flex;
+            align-items: center;
+            padding: 0.25rem 0;
+        }
+        
+        .filter-option input[type="checkbox"] {
+            margin-right: 0.5rem;
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="/">
+                <i class="fas fa-chart-line me-2"></i>MarFor
+            </a>
+            <span class="navbar-text text-white">
+                Результаты прогноза
+            </span>
+        </div>
+    </nav>
+
+    <div class="container-fluid mt-4">
+        <!-- Информация о прогнозе -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5><i class="fas fa-info-circle me-2"></i>Информация о прогнозе</h5>
+            </div>
+            <div class="card-body" id="forecastInfo">
+                <!-- Заполняется динамически -->
+            </div>
+        </div>
+
+        <!-- Интерфейс управления -->
+        <div class="card mb-4">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h6 class="mb-0" id="pivotModeTitle">
+                    <i class="fas fa-clock me-2"></i>Режим отображения: Временные ряды
+                </h6>
+                <div class="btn-group" role="group">
+                    <button type="button" class="btn btn-sm btn-outline-secondary active" id="timeSeriesModeBtn" onclick="switchPivotMode('time-series')">
+                        <i class="fas fa-clock me-1"></i>Временные ряды
+                    </button>
+                    <button type="button" class="btn btn-sm btn-outline-secondary" id="slicesModeBtn" onclick="switchPivotMode('slices')">
+                        <i class="fas fa-layer-group me-1"></i>Срезы
+                    </button>
+                </div>
+            </div>
+            <div class="card-body">
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <label class="form-label" id="primaryFieldLabel">Метрики</label>
+                        <div class="dropdown">
+                            <button class="btn btn-outline-secondary dropdown-toggle w-100" type="button" id="primaryFieldDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                                <span id="primaryFieldDropdownText">Выберите метрики</span>
+                            </button>
+                            <ul class="dropdown-menu w-100" id="primaryFieldDropdownMenu">
+                                <li class="dropdown-item-text">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="selectAllPrimary" onchange="toggleAllPrimaryFields(this)">
+                                        <label class="form-check-label fw-bold" for="selectAllPrimary">
+                                            Выбрать все
+                                        </label>
+                                    </div>
+                                </li>
+                                <li><hr class="dropdown-divider"></li>
+                                <div id="primaryFieldCheckboxes">
+                                    <!-- Чекбоксы будут добавлены динамически -->
+                                </div>
+                            </ul>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label" id="splitFieldLabel">Разбивка по срезам</label>
+                        <div class="dropdown">
+                            <button class="btn btn-outline-secondary dropdown-toggle w-100" type="button" id="splitFieldDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                                <span id="splitFieldDropdownText">Только временные ряды</span>
+                            </button>
+                            <ul class="dropdown-menu w-100" id="splitFieldDropdownMenu">
+                                <li class="dropdown-item-text">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="radio" name="splitFieldSelection" id="noSplitFieldSelection" value="" onchange="updateSelectedSplitField()" checked>
+                                        <label class="form-check-label fw-bold" for="noSplitFieldSelection">
+                                            <span id="noSplitFieldText">Только временные ряды</span>
+                                        </label>
+                                    </div>
+                                </li>
+                                <li><hr class="dropdown-divider"></li>
+                                <div id="splitFieldRadioButtons">
+                                    <!-- Радиокнопки будут добавлены динамически -->
+                                </div>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Секция фильтров -->
+                <div class="row mb-3">
+                    <div class="col-md-12">
+                        <div class="card">
+                            <div class="card-header d-flex justify-content-between align-items-center">
+                                <h6 class="mb-0">
+                                    <i class="fas fa-filter me-2"></i>Фильтры
+                                </h6>
+                                <button class="btn btn-sm btn-outline-secondary" onclick="resetAllFilters()">
+                                    <i class="fas fa-undo me-1"></i>Сбросить все
+                                </button>
+                            </div>
+                            <div class="card-body">
+                                <div id="filtersContainer">
+                                    <!-- Фильтры будут добавлены динамически -->
+                                    <p class="text-muted text-center">Фильтры будут доступны после загрузки данных</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="text-center">
+                    <button class="btn btn-primary" id="buildChartBtn" onclick="loadTimeSeriesData();">
+                        <i class="fas fa-chart-line me-2"></i>Построить график
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Контейнер для графика и таблицы -->
+        <div id="timeSeriesChartContainer">
+            <!-- Здесь будет отрисована сводная таблица и график -->
+        </div>
+
+        <!-- Кнопки действий -->
+        <div class="card mb-4">
+            <div class="card-body text-center">
+                <button class="btn btn-success me-2" onclick="exportResults()">
+                    <i class="fas fa-download me-2"></i>Экспортировать результаты
+                </button>
+                <button class="btn btn-secondary me-2" onclick="window.location.href='/forecast/training?session_id=' + currentSessionId">
+                    <i class="fas fa-arrow-left me-2"></i>Вернуться к обучению
+                </button>
+                <button class="btn btn-primary" onclick="window.location.href='/forecast/settings?session_id=' + currentSessionId">
+                    <i class="fas fa-cog me-2"></i>Настройки прогноза
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="/static/pivot_table_system.js"></script>
+    <script src="/static/pivot_filters.js"></script>
+    <script src="/static/pivot_controls.js"></script>
+    <script src="/static/pivot_loader.js"></script>
+    <script>
+        // Глобальные переменные
+        let currentSessionId = null;
+        let forecastData = null;
+        let currentPivotData = null;
+        let rawPivotData = null;
+        let currentPivotConfig = null;
+        let currentFilters = [];
+        let processedData = null;
+        let dataMapping = null;
+        let dataColumns = [];
+        let dataInfo = null;
+        let selectedSliceForSplit = '';
+        
+        // Состояние сводной таблицы
+        const pivotState = {
+            currentPivotMode: 'time-series',
+            selectedMetrics: [],
+            selectedSlices: [],
+            selectedSplitField: ''
+        };
+
+        document.addEventListener('DOMContentLoaded', async function() {
+            const urlParams = new URLSearchParams(window.location.search);
+            currentSessionId = urlParams.get('session_id') || sessionStorage.getItem('currentSessionId');
+            
+            if (!currentSessionId) {
+                alert('Сессия не найдена');
+                window.location.href = '/forecast';
+                return;
+            }
+            
+            await loadForecastResults();
+        });
+
+        async function loadForecastResults() {
+            try {
+                // Получаем результаты прогноза
+                const response = await fetch(`/api/get_forecast_results/${currentSessionId}`);
+                const result = await response.json();
+                
+                if (result.success) {
+                    forecastData = result.forecast_data;
+                    displayForecastInfo(result.info);
+                    
+                    // Сохраняем данные
+                    rawPivotData = forecastData.raw_data;
+                    currentPivotData = forecastData.raw_data;
+                    
+                    // Получаем маппинг из sessionStorage
+                    const mappingStr = sessionStorage.getItem('dataMapping');
+                    dataMapping = mappingStr ? JSON.parse(mappingStr) : null;
+                    
+                    if (dataMapping) {
+                        console.log('📊 Загружен маппинг:', dataMapping);
+                        
+                        // Инициализируем модули
+                        initializeModules();
+                        
+                        // Автоматически загружаем данные
+                        setTimeout(() => {
+                            loadTimeSeriesData();
+                        }, 500);
+                    } else {
+                        console.warn('⚠️ Маппинг не найден в sessionStorage');
+                    }
+                } else {
+                    alert('Ошибка загрузки результатов: ' + result.message);
+                }
+            } catch (error) {
+                console.error('Ошибка:', error);
+                alert('Ошибка загрузки результатов: ' + error.message);
+            }
+        }
+
+        function initializeModules() {
+            console.log('🔧 Инициализация модулей...');
+
+            // Инициализируем модуль фильтров
+            pivotFiltersModule.init('filtersContainer', () => {
+                console.log('🔍 Фильтры изменены, перезагружаем данные');
+                loadTimeSeriesData();
+            });
+
+            // Инициализируем модуль управления
+            pivotControlsModule.init({
+                dataMapping: dataMapping,
+                onStateChange: (state) => {
+                    console.log('🔄 Состояние изменено:', state);
+                    pivotState.currentMode = state.currentMode;
+                    pivotState.selectedMetrics = state.selectedMetrics;
+                    pivotState.selectedSlices = state.selectedSlices;
+                    selectedSliceForSplit = state.selectedSplitField;
+                }
+            });
+
+            // Инициализируем модуль загрузки
+            pivotLoaderModule.init('timeSeriesChartContainer');
+            pivotLoaderModule.setData(rawPivotData, dataMapping);
+
+            // Заполняем селекты
+            pivotControlsModule.populateSelects();
+
+            // Создаем фильтры
+            pivotFiltersModule.createFilters(rawPivotData, dataMapping);
+
+            console.log('✅ Модули инициализированы');
+        }
+
+        function displayForecastInfo(info) {
+            const infoDiv = document.getElementById('forecastInfo');
+            
+            infoDiv.innerHTML = `
+                <div class="row">
+                    <div class="col-md-3">
+                        <p><strong>Модель:</strong> ${getModelDisplayName(info.model)}</p>
+                    </div>
+                    <div class="col-md-3">
+                        <p><strong>Метрика:</strong> ${info.metric}</p>
+                    </div>
+                    <div class="col-md-3">
+                        <p><strong>Фактических периодов:</strong> ${info.historical_periods}</p>
+                    </div>
+                    <div class="col-md-3">
+                        <p><strong>Прогнозных периодов:</strong> 
+                            <span class="forecast-badge">${info.forecast_periods}</span>
+                        </p>
+                    </div>
+                </div>
+                <div class="alert alert-warning mt-2">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    <strong>Прогнозные периоды отмечены желтым цветом</strong> на графике и в таблице
+                </div>
+            `;
+        }
+
+        function getModelDisplayName(modelName) {
+            const names = {
+                'arima': 'ARIMA',
+                'prophet': 'Prophet',
+                'random_forest': 'Random Forest'
+            };
+            return names[modelName] || modelName;
+        }
+
+        function exportResults() {
+            if (!currentSessionId) {
+                alert('Нет данных для экспорта');
+                return;
+            }
+            
+            // Экспорт в CSV
+            window.open(`/api/export_forecast/${currentSessionId}`, '_blank');
+        }
+        
+        // Заглушка для createAutoFilters (вызывается из pivot_table_system.js)
+        function createAutoFilters() {
+            console.log('✅ createAutoFilters вызвана из pivot_table_system.js');
+            // Фильтры уже созданы через модуль, просто возвращаем пустой массив
+            return [];
+        }
+        
+        function resetAllFilters() {
+            pivotFiltersModule.resetAll();
+        }
+
+        // Обертки для вызова модулей (для совместимости с HTML onclick)
+        function switchPivotMode(mode) {
+            pivotControlsModule.switchMode(mode);
+        }
+        
+        function toggleAllPrimaryFields(checkbox) {
+            pivotControlsModule.toggleAllPrimary(checkbox);
+        }
+        
+        function loadTimeSeriesData() {
+            console.log('🔥 === ФУНКЦИЯ loadTimeSeriesData() ВЫЗВАНА ===');
+            
+            if (!currentSessionId) {
+                console.error('Сессия не инициализирована');
+                alert('Ошибка: сессия не найдена');
+                return;
+            }
+            
+            if (!rawPivotData || !dataMapping) {
+                console.error('Данные не загружены');
+                alert('Ошибка: данные не загружены');
+                return;
+            }
+            
+            // Получаем текущее состояние из модуля управления
+            const controlsState = pivotControlsModule.getState();
+            console.log('📊 Состояние управления:', controlsState);
+            
+            // Проверяем выбранные метрики/срезы
+            const selectedFields = controlsState.currentMode === 'time-series' ? 
+                controlsState.selectedMetrics : controlsState.selectedSlices;
+            
+            if (selectedFields.length === 0) {
+                alert('Выберите хотя бы одно поле');
+                return;
+            }
+            
+            // Применяем фильтры через модуль
+            const filteredData = pivotFiltersModule.getFilteredData(rawPivotData);
+            console.log(`📊 Фильтрация: ${rawPivotData.length} → ${filteredData.length} строк`);
+            
+            // Рендерим сводную таблицу через модуль
+            pivotLoaderModule.render({
+                data: filteredData,
+                mapping: dataMapping,
+                mode: controlsState.currentMode,
+                splitField: controlsState.selectedSplitField
+            });
+        }
+    </script>
+</body>
+</html>
