@@ -2073,15 +2073,29 @@ function createPivotConfigFromMapping(mappingData, mode = 'normal', splitBySlice
         console.log('Обрабатываем колонку:', col);
         if (col.role === 'metric') {
             // Добавляем метрики на основе флага include или списка selectedMetrics
-            const shouldInclude = (mappingData.selectedMetrics && mappingData.selectedMetrics.includes(col.name)) || 
-                                  (col.include === true) ||
-                                  (col.include !== false && metricFields.length === 0); // fallback для первой метрики
+            let shouldInclude = false;
+            
+            // Приоритет 1: Проверяем selectedMetrics (если передан)
+            if (mappingData.selectedMetrics && mappingData.selectedMetrics.length > 0) {
+                shouldInclude = mappingData.selectedMetrics.includes(col.name);
+                console.log(`  Метрика ${col.name}: в selectedMetrics = ${shouldInclude}`);
+            }
+            // Приоритет 2: Проверяем флаг include (если selectedMetrics не передан)
+            else if (col.include === true) {
+                shouldInclude = true;
+                console.log(`  Метрика ${col.name}: include = true`);
+            }
+            // Приоритет 3: Fallback - первая метрика (если нет ни selectedMetrics, ни include)
+            else if (col.include !== false && metricFields.length === 0) {
+                shouldInclude = true;
+                console.log(`  Метрика ${col.name}: fallback (первая метрика)`);
+            }
             
             if (shouldInclude) {
                 metricFields.push(new PivotField(col.name, col.name, 'metric'));
-                console.log('Добавлена метрика:', col.name, 'include:', col.include);
+                console.log('✅ Добавлена метрика:', col.name);
             } else {
-                console.log('Метрика пропущена:', col.name, 'include:', col.include);
+                console.log('❌ Метрика пропущена:', col.name);
             }
         } else if (col.time_series && col.time_series !== '') {
             timeFields.push(new PivotField(col.name, col.name, 'time', col.nesting_level || 0));
