@@ -238,6 +238,9 @@
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
     <script src="/static/pivot_table_system.js"></script>
+    <script src="/static/pivot_filters.js"></script>
+    <script src="/static/pivot_controls.js"></script>
+    <script src="/static/pivot_loader.js"></script>
     <script>
         // Глобальные переменные
         let currentSessionId = null;
@@ -294,17 +297,8 @@
                     if (dataMapping) {
                         console.log('📊 Загружен маппинг:', dataMapping);
                         
-                        // Извлекаем информацию о колонках
-                        dataColumns = dataMapping.columns ? dataMapping.columns.map(c => c.name) : [];
-                        
-                        // Создаем dataInfo для совместимости
-                        dataInfo = {
-                            columns: dataColumns,
-                            sample_data: rawPivotData.slice(0, 10)
-                        };
-                        
-                        // Заполняем интерфейс
-                        populateTimeSeriesSelects();
+                        // Инициализируем модули
+                        initializeModules();
                         
                         // Автоматически загружаем данные
                         setTimeout(() => {
@@ -320,6 +314,40 @@
                 console.error('Ошибка:', error);
                 alert('Ошибка загрузки результатов: ' + error.message);
             }
+        }
+
+        function initializeModules() {
+            console.log('🔧 Инициализация модулей...');
+
+            // Инициализируем модуль фильтров
+            pivotFiltersModule.init('filtersContainer', () => {
+                console.log('🔍 Фильтры изменены, перезагружаем данные');
+                loadTimeSeriesData();
+            });
+
+            // Инициализируем модуль управления
+            pivotControlsModule.init({
+                dataMapping: dataMapping,
+                onStateChange: (state) => {
+                    console.log('🔄 Состояние изменено:', state);
+                    pivotState.currentMode = state.currentMode;
+                    pivotState.selectedMetrics = state.selectedMetrics;
+                    pivotState.selectedSlices = state.selectedSlices;
+                    selectedSliceForSplit = state.selectedSplitField;
+                }
+            });
+
+            // Инициализируем модуль загрузки
+            pivotLoaderModule.init('timeSeriesChartContainer');
+            pivotLoaderModule.setData(rawPivotData, dataMapping);
+
+            // Заполняем селекты
+            pivotControlsModule.populateSelects();
+
+            // Создаем фильтры
+            pivotFiltersModule.createFilters(rawPivotData, dataMapping);
+
+            console.log('✅ Модули инициализированы');
         }
 
         function displayForecastInfo(info) {
@@ -370,244 +398,22 @@
         
         // Заглушка для createAutoFilters (вызывается из pivot_table_system.js)
         function createAutoFilters() {
-            console.log('✅ createAutoFilters вызвана');
-            
-            if (!rawPivotData || !dataMapping) {
-                console.log('⚠️ Нет данных для создания фильтров');
-                return [];
-            }
-            
-            const filtersContainer = document.getElementById('filtersContainer');
-            if (!filtersContainer) {
-                console.error('❌ Контейнер фильтров не найден');
-                return [];
-            }
-            
-            filtersContainer.innerHTML = '';
-            currentFilters = [];
-            
-            // Создаем фильтры для dimension-колонок
-            const dimensionColumns = dataMapping.columns.filter(col => 
-                col.role === 'dimension' && col.include
-            );
-            
-            console.log('📊 Создаем фильтры для', dimensionColumns.length, 'колонок');
-            
-            dimensionColumns.forEach(col => {
-                const filter = createFilter(col.name, col.type);
-                if (filter) {
-                    currentFilters.push(filter);
-                }
-            });
-            
-            return currentFilters;
-        }
-        
-        function createFilter(columnName, columnType) {
-            // Получаем уникальные значения
-            const uniqueValues = [...new Set(rawPivotData.map(row => row[columnName]))].filter(v => v !== null && v !== undefined && v !== '');
-            
-            if (uniqueValues.length === 0) {
-                return null;
-            }
-            
-            const filterDiv = document.createElement('div');
-            filterDiv.className = 'filter-card';
-            filterDiv.innerHTML = `
-                <div class="filter-header">${columnName}</div>
-                <div class="filter-body" id="filter-${columnName}">
-                    ${uniqueValues.slice(0, 20).map(value => `
-                        <div class="filter-option">
-                            <input type="checkbox" id="filter-${columnName}-${value}" value="${value}" checked onchange="applyFilters()">
-                            <label for="filter-${columnName}-${value}">${value}</label>
-                        </div>
-                    `).join('')}
-                    ${uniqueValues.length > 20 ? `<p class="text-muted small">... и еще ${uniqueValues.length - 20}</p>` : ''}
-                </div>
-            `;
-            
-            document.getElementById('filtersContainer').appendChild(filterDiv);
-            
-            return {
-                field: columnName,
-                type: columnType,
-                values: uniqueValues
-            };
-        }
-        
-        function applyFilters() {
-            console.log('🔍 Применение фильтров...');
-            loadTimeSeriesData();
+            console.log('✅ createAutoFilters вызвана из pivot_table_system.js');
+            // Фильтры уже созданы через модуль, просто возвращаем пустой массив
+            return [];
         }
         
         function resetAllFilters() {
-            const checkboxes = document.querySelectorAll('#filtersContainer input[type="checkbox"]');
-            checkboxes.forEach(cb => cb.checked = true);
-            applyFilters();
-        }
-        
-        function getFilteredData() {
-            if (!rawPivotData) return [];
-            
-            let filtered = [...rawPivotData];
-            
-            currentFilters.forEach(filter => {
-                const selectedValues = [];
-                const checkboxes = document.querySelectorAll(`#filter-${filter.field} input[type="checkbox"]:checked`);
-                checkboxes.forEach(cb => selectedValues.push(cb.value));
-                
-                if (selectedValues.length > 0 && selectedValues.length < filter.values.length) {
-                    filtered = filtered.filter(row => selectedValues.includes(String(row[filter.field])));
-                }
-            });
-            
-            return filtered;
+            pivotFiltersModule.resetAll();
         }
 
-        // Копируем функции из marfor_interface.html
-        function populateTimeSeriesSelects() {
-            console.log('🚀 populateTimeSeriesSelects() вызвана, режим:', pivotState.currentPivotMode);
-            
-            const primaryFieldCheckboxes = document.getElementById('primaryFieldCheckboxes');
-            const primaryFieldDropdownText = document.getElementById('primaryFieldDropdownText');
-            const splitFieldRadioButtons = document.getElementById('splitFieldRadioButtons');
-            const splitFieldDropdownText = document.getElementById('splitFieldDropdownText');
-            
-            if (!primaryFieldCheckboxes) {
-                console.error('Элемент чекбоксов основного поля не найден');
-                return;
-            }
-            
-            primaryFieldCheckboxes.innerHTML = '';
-            splitFieldRadioButtons.innerHTML = '';
-            
-            let availablePrimaryFields = [];
-            let availableSplitFields = [];
-            
-            if (pivotState.currentPivotMode === 'time-series') {
-                // Режим временных рядов: метрики в основном поле, срезы для разбивки
-                availablePrimaryFields = dataMapping.columns.filter(col => col.role === 'metric' && col.include);
-                availableSplitFields = dataMapping.columns.filter(col => col.role === 'dimension' && !col.time_series && col.include);
-                
-                document.getElementById('primaryFieldLabel').textContent = 'Метрики';
-                document.getElementById('splitFieldLabel').textContent = 'Разбивка по столбцам';
-                document.getElementById('noSplitFieldText').textContent = 'Только временные ряды';
-            } else {
-                // Режим срезов: срезы в основном поле, временные ряды для разбивки
-                availablePrimaryFields = dataMapping.columns.filter(col => col.role === 'dimension' && !col.time_series && col.include);
-                availableSplitFields = dataMapping.columns.filter(col => col.time_series && col.include);
-                
-                document.getElementById('primaryFieldLabel').textContent = 'Срезы';
-                document.getElementById('splitFieldLabel').textContent = 'Разбивка по времени';
-                document.getElementById('noSplitFieldText').textContent = 'Только срезы';
-            }
-            
-            // Заполняем чекбоксы основного поля
-            availablePrimaryFields.forEach(field => {
-                const li = document.createElement('li');
-                li.className = 'dropdown-item-text';
-                li.innerHTML = `
-                    <div class="form-check">
-                        <input class="form-check-input" type="checkbox" id="primary-${field.name}" value="${field.name}" onchange="updateSelectedMetrics()">
-                        <label class="form-check-label" for="primary-${field.name}">
-                            ${field.name}
-                        </label>
-                    </div>
-                `;
-                primaryFieldCheckboxes.appendChild(li);
-            });
-            
-            // Заполняем радиокнопки разбивки
-            availableSplitFields.forEach(field => {
-                const li = document.createElement('li');
-                li.className = 'dropdown-item-text';
-                li.innerHTML = `
-                    <div class="form-check">
-                        <input class="form-check-input" type="radio" name="splitFieldSelection" id="split-${field.name}" value="${field.name}" onchange="updateSelectedSplitField()">
-                        <label class="form-check-label" for="split-${field.name}">
-                            ${field.name}
-                        </label>
-                    </div>
-                `;
-                splitFieldRadioButtons.appendChild(li);
-            });
-            
-            // Выбираем первую метрику по умолчанию
-            if (availablePrimaryFields.length > 0) {
-                const firstCheckbox = document.getElementById(`primary-${availablePrimaryFields[0].name}`);
-                if (firstCheckbox) {
-                    firstCheckbox.checked = true;
-                    updateSelectedMetrics();
-                }
-            }
-        }
-        
-        function updateSelectedMetrics() {
-            const checkboxes = document.querySelectorAll('#primaryFieldCheckboxes input[type="checkbox"]');
-            const selectedMetrics = [];
-            const primaryFieldDropdownText = document.getElementById('primaryFieldDropdownText');
-            
-            checkboxes.forEach(checkbox => {
-                if (checkbox.checked) {
-                    selectedMetrics.push(checkbox.value);
-                }
-            });
-            
-            if (selectedMetrics.length === 0) {
-                primaryFieldDropdownText.textContent = 'Выберите метрики';
-            } else if (selectedMetrics.length === 1) {
-                primaryFieldDropdownText.textContent = selectedMetrics[0];
-            } else {
-                primaryFieldDropdownText.textContent = 'Выбрано: ' + selectedMetrics.length;
-            }
-            
-            window.selectedMetrics = selectedMetrics;
-            pivotState.selectedMetrics = selectedMetrics;
-        }
-        
-        function updateSelectedSplitField() {
-            const selectedRadio = document.querySelector('input[name="splitFieldSelection"]:checked');
-            const selectedField = selectedRadio ? selectedRadio.value : '';
-            const splitFieldDropdownText = document.getElementById('splitFieldDropdownText');
-            
-            if (selectedField) {
-                splitFieldDropdownText.textContent = `Разбивка: ${selectedField}`;
-            } else {
-                if (pivotState.currentPivotMode === 'time-series') {
-                    splitFieldDropdownText.textContent = 'Только временные ряды';
-                } else {
-                    splitFieldDropdownText.textContent = 'Только срезы';
-                }
-            }
-            
-            selectedSliceForSplit = selectedField;
-            pivotState.selectedSplitField = selectedField;
+        // Обертки для вызова модулей (для совместимости с HTML onclick)
+        function switchPivotMode(mode) {
+            pivotControlsModule.switchMode(mode);
         }
         
         function toggleAllPrimaryFields(checkbox) {
-            const checkboxes = document.querySelectorAll('#primaryFieldCheckboxes input[type="checkbox"]');
-            checkboxes.forEach(cb => cb.checked = checkbox.checked);
-            updateSelectedMetrics();
-        }
-        
-        function switchPivotMode(mode) {
-            console.log('🔄 switchPivotMode вызвана с режимом:', mode);
-            pivotState.currentPivotMode = mode;
-            
-            // Обновляем активную кнопку
-            document.getElementById('timeSeriesModeBtn').classList.toggle('active', mode === 'time-series');
-            document.getElementById('slicesModeBtn').classList.toggle('active', mode === 'slices');
-            
-            // Обновляем заголовок
-            const titleElement = document.getElementById('pivotModeTitle');
-            if (mode === 'time-series') {
-                titleElement.innerHTML = '<i class="fas fa-clock me-2"></i>Режим отображения: Временные ряды';
-            } else {
-                titleElement.innerHTML = '<i class="fas fa-layer-group me-2"></i>Режим отображения: Срезы';
-            }
-            
-            // Обновляем селекты
-            populateTimeSeriesSelects();
+            pivotControlsModule.toggleAllPrimary(checkbox);
         }
         
         function loadTimeSeriesData() {
@@ -625,38 +431,30 @@
                 return;
             }
             
-            // Получаем выбранные метрики
-            const selectedMetrics = pivotState.selectedMetrics.length > 0 ? 
-                pivotState.selectedMetrics : 
-                [dataMapping.columns.find(c => c.role === 'metric')?.name].filter(Boolean);
+            // Получаем текущее состояние из модуля управления
+            const controlsState = pivotControlsModule.getState();
+            console.log('📊 Состояние управления:', controlsState);
             
-            if (selectedMetrics.length === 0) {
-                alert('Выберите хотя бы одну метрику');
+            // Проверяем выбранные метрики/срезы
+            const selectedFields = controlsState.currentMode === 'time-series' ? 
+                controlsState.selectedMetrics : controlsState.selectedSlices;
+            
+            if (selectedFields.length === 0) {
+                alert('Выберите хотя бы одно поле');
                 return;
             }
             
-            console.log('📊 Выбранные метрики:', selectedMetrics);
-            console.log('📊 Режим:', pivotState.currentPivotMode);
-            console.log('📊 Разбивка:', selectedSliceForSplit);
+            // Применяем фильтры через модуль
+            const filteredData = pivotFiltersModule.getFilteredData(rawPivotData);
+            console.log(`📊 Фильтрация: ${rawPivotData.length} → ${filteredData.length} строк`);
             
-            // Применяем фильтры
-            const filteredData = getFilteredData();
-            console.log('📊 Отфильтровано строк:', filteredData.length);
-            
-            // Определяем режим разбивки
-            const splitMode = selectedSliceForSplit ? 'split-columns' : pivotState.currentPivotMode;
-            
-            // Рендерим сводную таблицу
-            if (typeof renderNewPivotTable === 'function') {
-                renderNewPivotTable(
-                    filteredData,
-                    dataMapping,
-                    pivotState.currentPivotMode,
-                    selectedSliceForSplit
-                );
-            } else {
-                console.error('❌ Функция renderNewPivotTable не найдена!');
-            }
+            // Рендерим сводную таблицу через модуль
+            pivotLoaderModule.render({
+                data: filteredData,
+                mapping: dataMapping,
+                mode: controlsState.currentMode,
+                splitField: controlsState.selectedSplitField
+            });
         }
     </script>
 </body>
