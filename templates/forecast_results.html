@@ -8,6 +8,19 @@
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
+        /* Стили для прогнозных данных */
+        .forecast-row {
+            background-color: #fff3cd !important;
+        }
+        
+        .forecast-badge {
+            background-color: #ffc107;
+            color: #000;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: bold;
+        }
+        
         /* Мятный цвет для всех кнопок */
         .btn-primary {
             background-color: #81db99 !important;
@@ -1650,6 +1663,12 @@
                 showProcessedDataPreview(processedData, dataMapping);
                 
                 console.log('✅ Интерфейс инициализирован');
+                
+                // Автоматически загружаем и отображаем данные прогноза
+                setTimeout(() => {
+                    console.log('🚀 Автоматическая загрузка данных прогноза...');
+                    loadTimeSeriesData();
+                }, 1000);
                 
             } catch (error) {
                 console.error('❌ Ошибка загрузки результатов:', error);
