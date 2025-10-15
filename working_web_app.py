@@ -2421,6 +2421,23 @@ def generate_forecast():
         metric = settings['metric']
         forecast_periods = settings['forecast_periods']
         
+        # Получаем маппинг из forecast_app
+        mapping_config = None
+        if hasattr(forecast_app, 'mapping_config'):
+            mapping_config = forecast_app.mapping_config
+        else:
+            # Пытаемся загрузить из проекта
+            import json
+            project_file = f'projects/{session_id}.json'
+            if os.path.exists(project_file):
+                with open(project_file, 'r', encoding='utf-8') as f:
+                    project_data = json.load(f)
+                    mapping_config = project_data.get('data_mapping', {})
+        
+        if not mapping_config:
+            print("   ⚠️ Маппинг не найден, будет использован базовый набор метрик")
+            mapping_config = {'columns': []}
+        
         print(f"\n🚀 ГЕНЕРАЦИЯ ПРОГНОЗА:")
         print(f"   Модель: {selected_model}")
         print(f"   Метрика: {metric}")
