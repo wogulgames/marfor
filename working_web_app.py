@@ -2484,7 +2484,7 @@ def generate_forecast():
         
         print(f"   ✅ Прогноз построен: {len(forecast_df)} периодов")
         
-        # Сохраняем результаты прогноза
+        # Сохраняем результаты прогноза в память
         if not hasattr(forecast_app, 'forecast_results'):
             forecast_app.forecast_results = {}
         
@@ -2497,9 +2497,40 @@ def generate_forecast():
             'forecast_periods': len(forecast_df)
         }
         
+        # Физическое сохранение в файлы
+        try:
+            # Создаем папку для результатов прогноза если её нет
+            forecast_dir = 'results'
+            if not os.path.exists(forecast_dir):
+                os.makedirs(forecast_dir)
+            
+            # Сохраняем объединенные данные (факт + прогноз)
+            combined_filename = f'forecast_combined_{session_id}.csv'
+            combined_path = os.path.join(forecast_dir, combined_filename)
+            combined_df.to_csv(combined_path, index=False, encoding='utf-8')
+            print(f"   💾 Сохранен объединенный файл: {combined_path}")
+            
+            # Сохраняем только прогнозные данные
+            forecast_filename = f'forecast_only_{session_id}.csv'
+            forecast_path = os.path.join(forecast_dir, forecast_filename)
+            forecast_df.to_csv(forecast_path, index=False, encoding='utf-8')
+            print(f"   💾 Сохранен файл прогноза: {forecast_path}")
+            
+            # Обновляем информацию в forecast_results
+            forecast_app.forecast_results[session_id]['combined_file'] = combined_path
+            forecast_app.forecast_results[session_id]['forecast_file'] = forecast_path
+            
+        except Exception as e:
+            print(f"   ⚠️ Ошибка сохранения файлов: {e}")
+            # Продолжаем работу даже если сохранение не удалось
+        
         return jsonify({
             'success': True,
-            'message': 'Прогноз успешно построен'
+            'message': 'Прогноз успешно построен',
+            'files': {
+                'combined': combined_filename if 'combined_filename' in locals() else None,
+                'forecast_only': forecast_filename if 'forecast_filename' in locals() else None
+            }
         })
         
     except Exception as e:
@@ -2526,9 +2557,35 @@ def get_forecast_results(session_id):
                 'model': results['model'],
                 'metric': results['metric'],
                 'historical_periods': results['historical_periods'],
-                'forecast_periods': results['forecast_periods']
+                'forecast_periods': results['forecast_periods'],
+                'files': {
+                    'combined': results.get('combined_file'),
+                    'forecast_only': results.get('forecast_file')
+                }
             }
         })
+        
+    except Exception as e:
+        return jsonify({'success': False, 'message': f'Ошибка: {str(e)}'})
+
+@app.route('/api/export_forecast/<session_id>')
+def export_forecast(session_id):
+    """Экспорт результатов прогноза в CSV"""
+    try:
+        if not hasattr(forecast_app, 'forecast_results') or session_id not in forecast_app.forecast_results:
+            return jsonify({'success': False, 'message': 'Результаты прогноза не найдены'})
+        
+        results = forecast_app.forecast_results[session_id]
+        
+        # Проверяем наличие сохраненного файла
+        if 'combined_file' in results and os.path.exists(results['combined_file']):
+            return send_file(
+                results['combined_file'],
+                as_attachment=True,
+                download_name=f"forecast_results_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
+            )
+        else:
+            return jsonify({'success': False, 'message': 'Файл прогноза не найден'})
         
     except Exception as e:
         return jsonify({'success': False, 'message': f'Ошибка: {str(e)}'})
