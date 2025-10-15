@@ -1979,9 +1979,32 @@
             // Небольшая задержка для визуального эффекта
             setTimeout(() => {
                 if (typeof renderNewPivotTable === 'function') {
-                    console.log('🎨 Вызываем renderNewPivotTable с модифицированным маппингом');
-                    renderNewPivotTable(rawPivotData, modifiedMapping, mode, splitField);
+                    console.log('🎨 Вызываем renderNewPivotTable с параметрами:');
+                    console.log('   - Данные:', rawPivotData.length, 'строк');
+                    console.log('   - Режим:', mode);
+                    console.log('   - Разбивка:', splitField);
+                    console.log('   - Метрики в маппинге (include=true):', 
+                        modifiedMapping.columns.filter(c => c.role === 'metric' && c.include).map(c => c.name)
+                    );
+                    
+                    const result = renderNewPivotTable(rawPivotData, modifiedMapping, mode, splitField);
+                    
+                    console.log('✅ renderNewPivotTable вернула:', result);
                     console.log('✅ Сводная таблица отрисована');
+                    
+                    // Проверяем, создался ли новый график
+                    setTimeout(() => {
+                        const newCanvas = document.querySelector('#pivotChart');
+                        if (newCanvas) {
+                            const newChartInstance = Chart.getChart(newCanvas);
+                            console.log('✅ Новый график создан:', !!newChartInstance);
+                            if (newChartInstance) {
+                                console.log('📊 Датасеты в графике:', newChartInstance.data.datasets.map(d => d.label));
+                            }
+                        } else {
+                            console.error('❌ Canvas #pivotChart не найден после рендеринга!');
+                        }
+                    }, 500);
                 } else {
                     console.error('❌ Функция renderNewPivotTable не найдена!');
                 }
