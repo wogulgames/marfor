@@ -2472,15 +2472,32 @@ def generate_forecast():
         forecast_df[metric] = forecast_values
         forecast_df['is_forecast'] = True
         
+        # Добавляем Quarter и Halfyear для прогнозных данных
+        forecast_df['Quarter'] = forecast_df['month'].apply(lambda m: f'Q{(m-1)//3 + 1}')
+        forecast_df['Halfyear'] = forecast_df['month'].apply(lambda m: 'H1' if m <= 6 else 'H2')
+        
+        # Переименовываем колонки для соответствия исходным данным
+        forecast_df = forecast_df.rename(columns={'year': year_col, 'month': month_col})
+        
         # Объединяем фактические и прогнозные данные
         df_agg['is_forecast'] = False
+        
+        # Добавляем Quarter и Halfyear к фактическим данным если их нет
+        if 'Quarter' not in df_agg.columns:
+            df_agg['Quarter'] = df_agg[month_col].apply(lambda m: f'Q{(m-1)//3 + 1}')
+        if 'Halfyear' not in df_agg.columns:
+            df_agg['Halfyear'] = df_agg[month_col].apply(lambda m: 'H1' if m <= 6 else 'H2')
+        
         combined_df = pd.concat([df_agg, forecast_df], ignore_index=True)
         
-        # Добавляем остальные колонки из маппинга (заполняем значениями по умолчанию)
+        # Добавляем остальные колонки из исходных данных
         for col in df.columns:
-            if col not in combined_df.columns and col != metric:
-                # Для прогнозных строк используем значения по умолчанию
-                combined_df[col] = ''
+            if col not in combined_df.columns:
+                # Для прогнозных строк используем пустые значения
+                combined_df[col] = combined_df.apply(
+                    lambda row: '' if row.get('is_forecast', False) else df[col].iloc[0] if len(df) > 0 else '',
+                    axis=1
+                )
         
         print(f"   ✅ Прогноз построен: {len(forecast_df)} периодов")
         
