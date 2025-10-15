@@ -3374,11 +3374,8 @@
                 }
             }
             
-            console.log('loadTimeSeriesData вызвана:', {
-                timeColumn: timeColumn,
-                metricsSelect: metricsSelect,
-                currentSessionId: currentSessionId
-            });
+            console.log('📊 Временная ось определена:', timeColumn);
+            console.log('🆔 Сессия:', currentSessionId);
             
             if (!timeColumn) {
                 alert('Не найдена временная ось в настройках маппинга');
