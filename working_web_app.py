@@ -850,10 +850,24 @@ def get_time_series_data(session_id):
         if not session_id or forecast_app.session_id != session_id:
             return jsonify({'success': False, 'message': 'Сессия не найдена'})
         
-        if forecast_app.df is None:
-            return jsonify({'success': False, 'message': 'Данные не загружены'})
+        # Проверяем, нужно ли использовать прогнозные данные
+        use_forecast = request.args.get('use_forecast', 'false').lower() == 'true'
         
-        df = forecast_app.df.copy()
+        if use_forecast:
+            # Используем прогнозные данные (факт + прогноз)
+            if not hasattr(forecast_app, 'forecast_results') or session_id not in forecast_app.forecast_results:
+                return jsonify({'success': False, 'message': 'Прогнозные данные не найдены'})
+            
+            combined_data = forecast_app.forecast_results[session_id]['combined_data']
+            df = pd.DataFrame(combined_data)
+            print(f"DEBUG: Используем прогнозные данные: {len(df)} строк (факт + прогноз)")
+        else:
+            # Используем обычные данные
+            if forecast_app.df is None:
+                return jsonify({'success': False, 'message': 'Данные не загружены'})
+            
+            df = forecast_app.df.copy()
+            print(f"DEBUG: Используем обычные данные: {len(df)} строк")
         
         # Отладочная информация
         print(f"DEBUG: Загружено {len(df)} строк данных")

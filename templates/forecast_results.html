@@ -1919,20 +1919,23 @@
         
         function loadForecastData() {
             console.log('🚀 === ФУНКЦИЯ loadForecastData() ВЫЗВАНА ===');
-            console.log('📊 rawPivotData:', rawPivotData ? rawPivotData.length : 'не определено');
+            console.log('📊 currentSessionId:', currentSessionId);
             console.log('📊 dataMapping:', dataMapping);
             console.log('📊 window.selectedMetrics:', window.selectedMetrics);
-            console.log('📊 pivotState.selectedMetrics:', pivotState.selectedMetrics);
+            console.log('📊 window.selectedSlices:', window.selectedSlices);
+            console.log('📊 pivotState.currentPivotMode:', pivotState.currentPivotMode);
             
-            if (!rawPivotData || !dataMapping) {
-                console.error('❌ Нет данных для отображения');
+            if (!currentSessionId) {
+                console.error('❌ Сессия не инициализирована');
+                alert('Ошибка: сессия не найдена');
                 return;
             }
             
-            // Проверяем наличие прогнозных данных
-            const forecastRows = rawPivotData.filter(row => row.is_forecast === true);
-            const factRows = rawPivotData.filter(row => row.is_forecast === false);
-            console.log(`📊 Отображаем: ${factRows.length} фактических + ${forecastRows.length} прогнозных строк`);
+            if (!dataMapping) {
+                console.error('❌ Маппинг не загружен');
+                alert('Ошибка: маппинг не найден');
+                return;
+            }
             
             // Проверяем наличие выбранных полей в зависимости от режима
             const mode = pivotState.currentPivotMode || 'time-series';
@@ -1993,69 +1996,128 @@
                 console.log('✅ Срезы для отображения:', selectedSlices);
             }
             
-            // Используем напрямую renderNewPivotTable с данными из памяти
-            // mode уже объявлен выше (строка 1926)
-            const splitField = selectedSliceForSplit || '';
-            
-            console.log('🎨 Рендерим сводную таблицу:', {
-                mode: mode,
-                splitField: splitField,
-                dataRows: rawPivotData.length,
-                selectedMetrics: selectedMetrics
-            });
-            
-            // ВАЖНО: Очищаем контейнер и уничтожаем старый график
-            const container = document.getElementById('timeSeriesChartContainer');
-            if (container) {
-                console.log('🧹 Очищаем контейнер перед рендерингом');
+            // Определяем временную колонку из маппинга
+            let timeColumn = '';
+            if (dataMapping.columns) {
+                const timeSeriesCols = dataMapping.columns
+                    .filter(col => col.time_series && col.time_series !== '')
+                    .sort((a, b) => (a.nesting_level || 0) - (b.nesting_level || 0));
                 
-                // Уничтожаем старый график Chart.js если он существует
-                const oldCanvas = container.querySelector('#pivotChart');
-                if (oldCanvas) {
-                    const chartInstance = Chart.getChart(oldCanvas);
-                    if (chartInstance) {
-                        console.log('🗑️ Уничтожаем старый экземпляр графика');
-                        chartInstance.destroy();
-                    }
+                if (timeSeriesCols.length > 0) {
+                    timeColumn = timeSeriesCols[0].name;
                 }
-                
-                // Очищаем весь контейнер
-                container.innerHTML = '<div class="text-center"><div class="spinner-border text-primary" role="status"></div><p class="mt-2">Обновление данных...</p></div>';
             }
             
-            // Небольшая задержка для визуального эффекта
-            setTimeout(() => {
-                if (typeof renderNewPivotTable === 'function') {
-                    console.log('🎨 Вызываем renderNewPivotTable с параметрами:');
-                    console.log('   - Данные:', rawPivotData.length, 'строк');
-                    console.log('   - Режим:', mode);
-                    console.log('   - Разбивка:', splitField);
-                    console.log('   - Метрики в маппинге (include=true):', 
-                        modifiedMapping.columns.filter(c => c.role === 'metric' && c.include).map(c => c.name)
-                    );
-                    
-                    const result = renderNewPivotTable(rawPivotData, modifiedMapping, mode, splitField);
-                    
-                    console.log('✅ renderNewPivotTable вернула:', result);
-                    console.log('✅ Сводная таблица отрисована');
-                    
-                    // Проверяем, создался ли новый график
-                    setTimeout(() => {
-                        const newCanvas = document.querySelector('#pivotChart');
-                        if (newCanvas) {
-                            const newChartInstance = Chart.getChart(newCanvas);
-                            console.log('✅ Новый график создан:', !!newChartInstance);
-                            if (newChartInstance) {
-                                console.log('📊 Датасеты в графике:', newChartInstance.data.datasets.map(d => d.label));
-                            }
-                        } else {
-                            console.error('❌ Canvas #pivotChart не найден после рендеринга!');
-                        }
-                    }, 500);
-                } else {
-                    console.error('❌ Функция renderNewPivotTable не найдена!');
+            console.log('📊 Временная ось определена:', timeColumn);
+            
+            if (!timeColumn) {
+                alert('Не найдена временная ось в настройках маппинга');
+                return;
+            }
+            
+            // Показываем загрузку
+            const chartContainer = document.getElementById('timeSeriesChartContainer');
+            chartContainer.innerHTML = '<div class="text-center"><div class="spinner-border text-primary" role="status"></div><p class="mt-2">Загрузка данных...</p></div>';
+            
+            // Формируем URL для запроса (используем API, как на странице Анализ)
+            const params = new URLSearchParams();
+            params.append('time_column', timeColumn);
+            params.append('use_forecast', 'true'); // ВАЖНО: используем прогнозные данные!
+            
+            // Добавляем поля в зависимости от режима
+            if (mode === 'time-series') {
+                console.log('📊 window.selectedMetrics при загрузке:', window.selectedMetrics);
+                if (window.selectedMetrics && window.selectedMetrics.length > 0) {
+                    window.selectedMetrics.forEach(metric => params.append('metrics', metric));
                 }
-            }, 100);
+            } else {
+                console.log('📊 window.selectedSlices при загрузке:', window.selectedSlices);
+                if (window.selectedSlices && window.selectedSlices.length > 0) {
+                    window.selectedSlices.forEach(slice => params.append('slices', slice));
+                }
+            }
+            
+            // Всегда показываем сводную таблицу
+            params.append('show_pivot', 'true');
+            params.append('pivot_mode', mode);
+            
+            // Передаем параметр разбивки
+            let splitValue = '';
+            if (mode === 'time-series') {
+                splitValue = window.selectedSlice || '';
+            } else {
+                splitValue = window.selectedTimeSeries || '';
+            }
+            if (!splitValue) {
+                const radioButtons = document.querySelectorAll('input[name="splitFieldSelection"]');
+                radioButtons.forEach(radio => {
+                    if (radio.checked) {
+                        splitValue = radio.value;
+                    }
+                });
+            }
+            if (splitValue) {
+                params.append('split_by_slice', splitValue);
+                console.log('Добавлен параметр split_by_slice:', splitValue);
+            }
+            
+            // Передаем маппинг с учетом выбранных полей
+            if (mode === 'time-series') {
+                modifiedMapping.columns.forEach(col => {
+                    if (col.role === 'metric') {
+                        col.include = selectedMetrics.includes(col.name);
+                    }
+                });
+                modifiedMapping.selectedMetrics = selectedMetrics;
+            } else {
+                modifiedMapping.selectedSlices = selectedSlices;
+            }
+            
+            params.append('mapping_data', JSON.stringify(modifiedMapping));
+            console.log('✅ Передаем маппинг:', modifiedMapping.columns.length, 'колонок');
+            
+            console.log('📡 Отправляем запрос к API...');
+            
+            // Используем API (как на странице Анализ) вместо прямого вызова renderNewPivotTable
+            fetch(`/api/get_time_series_data/${currentSessionId}?${params}`)
+                .then(response => response.json())
+                .then(data => {
+                    console.log('📦 Получены данные от API:', data);
+                    
+                    if (data.success && data.data.pivot_table) {
+                        console.log('✅ Обрабатываем сводную таблицу');
+                        
+                        // Сохраняем данные
+                        window.rawPivotData = data.data.pivot_table.raw_data;
+                        window.currentPivotData = data.data.pivot_table.raw_data;
+                        
+                        const mappingData = modifiedMapping;
+                        
+                        // Вызываем renderNewPivotTable с теми же параметрами, что и на странице Анализ
+                        setTimeout(() => {
+                            renderNewPivotTable(
+                                window.currentPivotData,
+                                mappingData,
+                                mode,
+                                splitValue,
+                                mode // originalMode
+                            );
+                        }, 100);
+                    } else {
+                        console.error('❌ Ошибка от API:', data.message);
+                        alert('Ошибка загрузки данных: ' + data.message);
+                        if (chartContainer) {
+                            chartContainer.innerHTML = '<div class="alert alert-danger">Ошибка загрузки данных</div>';
+                        }
+                    }
+                })
+                .catch(error => {
+                    console.error('❌ Ошибка запроса:', error);
+                    alert('Ошибка при загрузке данных: ' + error.message);
+                    if (chartContainer) {
+                        chartContainer.innerHTML = '<div class="alert alert-danger">Ошибка загрузки данных</div>';
+                    }
+                });
         }
 
         async function loadProjectFromUrl(projectId) {
