@@ -1994,7 +1994,7 @@
             }
             
             // Используем напрямую renderNewPivotTable с данными из памяти
-            const mode = pivotState.currentPivotMode || 'time-series';
+            // mode уже объявлен выше (строка 1926)
             const splitField = selectedSliceForSplit || '';
             
             console.log('🎨 Рендерим сводную таблицу:', {
