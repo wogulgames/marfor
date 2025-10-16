@@ -9,7 +9,7 @@ class BreadcrumbsModule {
             {
                 id: 1,
                 name: 'Загрузка данных',
-                shortName: 'Данные',
+                shortName: 'Загрузка',
                 url: '/',
                 icon: '📁'
             },
@@ -22,20 +22,27 @@ class BreadcrumbsModule {
             },
             {
                 id: 3,
+                name: 'Анализ данных',
+                shortName: 'Анализ',
+                url: '/forecast',
+                icon: '📈'
+            },
+            {
+                id: 4,
                 name: 'Настройка прогноза',
                 shortName: 'Настройка',
                 url: '/forecast/settings',
                 icon: '⚙️'
             },
             {
-                id: 4,
+                id: 5,
                 name: 'Обучение моделей',
                 shortName: 'Обучение',
                 url: '/forecast/training',
                 icon: '🎓'
             },
             {
-                id: 5,
+                id: 6,
                 name: 'Результаты прогноза',
                 shortName: 'Результаты',
                 url: '/forecast/results',
@@ -125,21 +132,26 @@ class BreadcrumbsModule {
 
     /**
      * Получение текущего шага на основе URL
-     * @returns {number} Номер шага (1-5)
+     * @returns {number} Номер шага (1-6)
      */
     getCurrentStepFromUrl() {
         const path = window.location.pathname;
         
+        // Проверяем наличие обработанных данных для различения шагов 1 и 3
+        const hasProcessedData = sessionStorage.getItem('dataMapping') !== null;
+        
         if (path === '/' || path === '/forecast') {
-            return 1;
+            // Если данные обработаны (маппинг применен) - это шаг 3 (Анализ)
+            // Если нет - это шаг 1 (Загрузка)
+            return hasProcessedData ? 3 : 1;
         } else if (path.includes('/mapping')) {
             return 2;
         } else if (path.includes('/settings')) {
-            return 3;
-        } else if (path.includes('/training')) {
             return 4;
-        } else if (path.includes('/results')) {
+        } else if (path.includes('/training')) {
             return 5;
+        } else if (path.includes('/results')) {
+            return 6;
         }
         
         return 1;
