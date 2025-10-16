@@ -2100,10 +2100,32 @@ function createPivotConfigFromMapping(mappingData, mode = 'normal', splitBySlice
         } else if (col.time_series && col.time_series !== '') {
             timeFields.push(new PivotField(col.name, col.name, 'time', col.nesting_level || 0));
             console.log('Добавлено временное поле:', col.name);
-        } else if (col.role === 'dimension' && col.include) {
-            // Добавляем измерения как срезы
+        } else if (col.role === 'dimension' && col.time_series === '') {
+            // Добавляем измерения (срезы) на основе флага include или списка selectedSlices
+            let shouldInclude = false;
+            
+            // Приоритет 1: Проверяем selectedSlices (если передан)
+            if (mappingData.selectedSlices && mappingData.selectedSlices.length > 0) {
+                shouldInclude = mappingData.selectedSlices.includes(col.name);
+                console.log(`  Срез ${col.name}: в selectedSlices = ${shouldInclude}`);
+            }
+            // Приоритет 2: Проверяем флаг include (если selectedSlices не передан)
+            else if (col.include === true) {
+                shouldInclude = true;
+                console.log(`  Срез ${col.name}: include = true`);
+            }
+            // Приоритет 3: Fallback - все срезы (если нет явного выбора)
+            else if (col.include !== false) {
+                shouldInclude = true;
+                console.log(`  Срез ${col.name}: fallback (добавлен по умолчанию)`);
+            }
+            
+            if (shouldInclude) {
             sliceFields.push(new PivotField(col.name, col.name, 'slice', col.nesting_level || 0));
-            console.log('Добавлено поле среза:', col.name);
+                console.log('✅ Добавлено поле среза:', col.name);
+            } else {
+                console.log('❌ Поле среза пропущено:', col.name);
+            }
         }
     });
     
