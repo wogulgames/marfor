@@ -2443,18 +2443,9 @@
                     // Получаем срезы для разбивки
                     availableSplitFields = getSlicesFromDataInfo(processedData || {});
                 } else {
-                    // Режим "Срезы" - первичное поле = метрики (для значений), разбивка = временные ряды
-                    processedData.columns.forEach((col, index) => {
-                // Метрики - только колонки с ролью "metric"
-                const columnMapping = mappingConfig.columns?.find(c => c.name === col);
-                if (columnMapping && columnMapping.role === 'metric') {
-                            availablePrimaryFields.push(col);
-                        } else if (!mappingConfig.columns && processedData.dtypes[col] && 
-                            (processedData.dtypes[col].includes('int') || processedData.dtypes[col].includes('float'))) {
-                    // Fallback: если нет маппинга, используем числовые колонки
-                            availablePrimaryFields.push(col);
-                        }
-                    });
+                    // Режим "Срезы" - первичное поле = срезы (region_to, category, subdivision), разбивка = временные ряды
+                    availablePrimaryFields = getSlicesFromDataInfo(processedData || {});
+                    console.log('Режим slices - доступные срезы для основного поля:', availablePrimaryFields);
                     
                     // Получаем временные ряды для разбивки
                     availableSplitFields = getTimeSeriesFromDataInfo(processedData || {});
@@ -2462,12 +2453,21 @@
                 }
             }
             
-            // Создаем чекбоксы для основного поля (всегда метрики)
-            createMetricsCheckboxes(availablePrimaryFields);
-            
-            // Выбираем первую метрику по умолчанию
-            if (availablePrimaryFields.length > 0) {
-                selectFirstMetric(availablePrimaryFields[0]);
+            // Создаем чекбоксы для основного поля
+            if (pivotState.currentPivotMode === 'time-series') {
+                // Режим временных рядов: основное поле = метрики
+                createMetricsCheckboxes(availablePrimaryFields);
+                // Выбираем первую метрику по умолчанию
+                if (availablePrimaryFields.length > 0) {
+                    selectFirstMetric(availablePrimaryFields[0]);
+                }
+            } else {
+                // Режим срезов: основное поле = срезы
+                createSlicesCheckboxes(availablePrimaryFields);
+                // Выбираем первый срез по умолчанию
+                if (availablePrimaryFields.length > 0) {
+                    selectFirstSlice(availablePrimaryFields[0]);
+                }
             }
             
             // Создаем радиокнопки для разбивки
