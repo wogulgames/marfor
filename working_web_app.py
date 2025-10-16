@@ -893,8 +893,13 @@ def get_time_series_data(session_id):
                 'message': 'Критическая ошибка: маппинг данных не настроен или пустой. Пожалуйста, настройте маппинг колонок перед созданием сводной таблицы.'
             })
         
-        if not time_column or not metric_columns:
-            return jsonify({'success': False, 'message': 'Не указаны временная колонка или метрики'})
+        # Проверка параметров в зависимости от режима
+        if pivot_mode == 'time-series':
+            if not time_column or not metric_columns:
+                return jsonify({'success': False, 'message': 'Не указаны временная колонка или метрики'})
+        else:  # pivot_mode == 'slices'
+            if not time_column or not slice_columns:
+                return jsonify({'success': False, 'message': 'Не указаны временная колонка или срезы'})
         
         # Проверяем существование колонок
         if time_column not in df.columns:
