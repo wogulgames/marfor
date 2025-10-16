@@ -1585,17 +1585,24 @@
 
         // Загрузка результатов прогноза при загрузке страницы
         window.addEventListener('DOMContentLoaded', async function() {
+            console.log('🔥🔥🔥 === СТРАНИЦА РЕЗУЛЬТАТОВ ПРОГНОЗА ЗАГРУЖЕНА ===');
             console.log('🔧 ВЕРСИЯ: Результаты прогноза v1.0.0');
             console.log('DOMContentLoaded вызван');
+            console.log('📍 URL:', window.location.href);
             
-            // Рендерим хлебные крошки (шаг 5 - Результаты прогноза)
-            breadcrumbsModule.render(6); // Шаг 6 - Результаты прогноза
+            // Рендерим хлебные крошки (шаг 6 - Результаты прогноза)
+            breadcrumbsModule.render(6);
             
             // Получаем session_id из URL
             const urlParams = new URLSearchParams(window.location.search);
             currentSessionId = urlParams.get('session_id') || sessionStorage.getItem('currentSessionId');
             
+            console.log('🆔 session_id из URL:', urlParams.get('session_id'));
+            console.log('🆔 session_id из sessionStorage:', sessionStorage.getItem('currentSessionId'));
+            console.log('🆔 currentSessionId итоговый:', currentSessionId);
+            
             if (!currentSessionId) {
+                console.error('❌ Ошибка: session_id не найден!');
                 alert('Ошибка: не указан session_id');
                 window.location.href = '/';
                 return;
@@ -1616,12 +1623,17 @@
         async function loadForecastResults() {
             try {
                 console.log('🔄 Загрузка результатов прогноза...');
+                console.log('🔄 Запрос к API:', `/api/get_forecast_results/${currentSessionId}`);
                 
                 // Получаем результаты прогноза
                 const response = await fetch(`/api/get_forecast_results/${currentSessionId}`);
+                console.log('📡 Ответ сервера получен, status:', response.status);
+                
                 const result = await response.json();
+                console.log('📦 Распарсен JSON:', result);
                 
                 if (!result.success) {
+                    console.error('❌ API вернул ошибку:', result.message);
                     alert('Ошибка загрузки результатов: ' + result.message);
                     return;
                 }
