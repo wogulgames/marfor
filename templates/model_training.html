@@ -608,9 +608,11 @@
             // Подготавливаем данные для сводной таблицы
             const detailedData = modelData.detailed_validation;
             const sliceCols = modelData.slice_cols || [];
+            const metricName = forecastSettings.metric;  // Берем имя метрики из настроек
             
             console.log('Детализированные данные:', detailedData.length, 'строк');
             console.log('Срезы:', sliceCols);
+            console.log('Метрика:', metricName);
             console.log('Первая строка:', detailedData[0]);
             
             // Создаем конфигурацию для pivot table с правильными типами
@@ -630,7 +632,7 @@
             
             // Метрика - это значение revenue (будет одна колонка с названием метрики)
             const metricFields = [
-                new PivotField(metric, metric, 'metric')
+                new PivotField(metricName, metricName, 'metric')
             ];
             
             const pivotConfig = new PivotConfig(rowFields, metricFields, timeField, 'time-series');
