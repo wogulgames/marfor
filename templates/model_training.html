@@ -923,6 +923,11 @@
             );
             
             console.log('📊 Модифицированный маппинг для валидации:', validationMapping);
+            console.log('📊 Параметры рендеринга:');
+            console.log('   - mode:', validationPivotMode);
+            console.log('   - splitBySlice:', validationSplitField || '(нет разбивки)');
+            console.log('   - selectedMetrics:', validationSelectedMetrics);
+            console.log('   - данных:', detailedData.length);
             
             // Используем renderNewPivotTable
             const container = document.getElementById('timeSeriesChartContainer');
@@ -935,13 +940,14 @@
             setTimeout(() => {
                 try {
                     if (typeof renderNewPivotTable === 'function') {
-                        renderNewPivotTable(detailedData, validationMapping, validationPivotMode, validationSplitField || '');
-                        console.log('✅ Таблица валидации отрендерена');
+                        const result = renderNewPivotTable(detailedData, validationMapping, validationPivotMode, validationSplitField || '');
+                        console.log('✅ Таблица валидации отрендерена, результат:', result);
                     } else {
                         container.innerHTML = '<div class="alert alert-danger">Ошибка: функция renderNewPivotTable не найдена</div>';
                     }
                 } catch (error) {
                     console.error('❌ Ошибка:', error);
+                    console.error('Stack trace:', error.stack);
                     container.innerHTML = `<div class="alert alert-danger">Ошибка: ${error.message}</div>`;
                 }
             }, 100);
