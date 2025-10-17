@@ -861,6 +861,12 @@ def get_time_series_data(session_id):
             combined_data = forecast_app.forecast_results[session_id]['combined_data']
             df = pd.DataFrame(combined_data)
             print(f"DEBUG: Используем прогнозные данные: {len(df)} строк (факт + прогноз)")
+            print(f"DEBUG: Колонки прогнозных данных: {list(df.columns)}")
+            if 'is_forecast' in df.columns:
+                forecast_count = df['is_forecast'].sum()
+                print(f"DEBUG: Прогнозных строк: {forecast_count}, фактических: {len(df) - forecast_count}")
+            else:
+                print(f"WARNING: Колонка 'is_forecast' отсутствует в прогнозных данных!")
         else:
             # Используем обычные данные
             if forecast_app.df is None:
