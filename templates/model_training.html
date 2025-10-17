@@ -608,17 +608,29 @@
             // Подготавливаем данные для сводной таблицы
             const detailedData = modelData.detailed_validation;
             const sliceCols = modelData.slice_cols || [];
-            const metric = forecastSettings.metric;
             
-            // Создаем конфигурацию для pivot table
-            const pivotConfig = {
-                rows: [...sliceCols, { name: 'period', displayName: 'Период' }],
-                metrics: [
-                    { name: 'actual', displayName: 'Факт' },
-                    { name: 'predicted', displayName: 'Прогноз' }
-                ],
-                mode: 'slices'
-            };
+            console.log('Детализированные данные:', detailedData.length, 'строк');
+            console.log('Срезы:', sliceCols);
+            console.log('Первая строка:', detailedData[0]);
+            
+            // Создаем конфигурацию для pivot table с правильными типами
+            const rowFields = [];
+            
+            // Добавляем поля срезов
+            sliceCols.forEach((sliceCol, index) => {
+                rowFields.push(new PivotField(sliceCol, sliceCol, 'slice', index));
+            });
+            
+            // Добавляем период
+            rowFields.push(new PivotField('period', 'Период', 'slice', sliceCols.length));
+            
+            // Создаем поля метрик
+            const metricFields = [
+                new PivotField('actual', 'Факт', 'metric'),
+                new PivotField('predicted', 'Прогноз', 'metric')
+            ];
+            
+            const pivotConfig = new PivotConfig(rowFields, metricFields, null, 'slices');
             
             // Рендерим таблицу
             container.innerHTML = '<div class="text-center"><p>Загрузка...</p></div>';
@@ -628,9 +640,10 @@
                     const pivotData = new PivotData(detailedData, pivotConfig);
                     const renderer = new PivotRenderer(pivotData, pivotConfig);
                     container.innerHTML = renderer.createPivotTableHTML();
+                    console.log('✅ Таблица валидации отрендерена успешно');
                 } catch (error) {
                     console.error('Ошибка рендеринга таблицы:', error);
-                    container.innerHTML = '<div class="alert alert-danger">Ошибка отображения таблицы</div>';
+                    container.innerHTML = `<div class="alert alert-danger">Ошибка отображения таблицы: ${error.message}</div>`;
                 }
             }, 100);
         }
