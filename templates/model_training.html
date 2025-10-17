@@ -710,8 +710,8 @@
                     slicesBtn.classList.add('active');
                     timeSeriesBtn.classList.remove('active');
                 }
-                document.getElementById('validationPrimaryFieldLabel').textContent = 'Срезы';
-                document.getElementById('validationSplitFieldLabel').textContent = 'Разбивка по времени';
+                document.getElementById('validationPrimaryFieldLabel').textContent = 'Метрики';  // Остаются метрики!
+                document.getElementById('validationSplitFieldLabel').textContent = 'Разбивка по временным рядам';
             }
             
             populateValidationSelects();
@@ -769,31 +769,46 @@
                 
                 validationSelectedMetrics = [`${metricName}_fact`, `${metricName}_predicted`];
             } else {
-                // Режим "Срезы": первичное поле = срезы
-                let primaryHTML = '';
-                sliceCols.forEach(slice => {
-                    primaryHTML += `
-                        <li class="dropdown-item">
-                            <div class="form-check">
-                                <input class="form-check-input" type="checkbox" value="${slice}" id="validation_slice_${slice}" checked onchange="updateValidationSelectedSlices()">
-                                <label class="form-check-label" for="validation_slice_${slice}">${slice}</label>
-                            </div>
-                        </li>
-                    `;
-                });
-                primaryCheckboxes.innerHTML = primaryHTML;
+                const metricName = forecastSettings.metric;
                 
-                // Разбивка = период
-                splitRadios.innerHTML = `
+                // Режим "Срезы": первичное поле = метрики (остаются!), разбивка = временные ряды
+                primaryCheckboxes.innerHTML = `
                     <li class="dropdown-item">
                         <div class="form-check">
-                            <input class="form-check-input" type="radio" name="validationSplitFieldSelection" value="period" id="validation_split_period" onchange="updateValidationSelectedSplitField()">
-                            <label class="form-check-label" for="validation_split_period">Период</label>
+                            <input class="form-check-input" type="checkbox" value="${metricName}_fact" id="validation_metric_fact_slices" checked onchange="updateValidationSelectedMetrics()">
+                            <label class="form-check-label" for="validation_metric_fact_slices">${metricName} (Факт)</label>
+                        </div>
+                    </li>
+                    <li class="dropdown-item">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" value="${metricName}_predicted" id="validation_metric_predicted_slices" checked onchange="updateValidationSelectedMetrics()">
+                            <label class="form-check-label" for="validation_metric_predicted_slices">${metricName} (Прогноз)</label>
                         </div>
                     </li>
                 `;
                 
-                validationSelectedSlices = sliceCols.slice();
+                // Разбивка = временные ряды (year, halfyear, quarter, month)
+                const timeFields = [
+                    { value: 'year', label: 'Год' },
+                    { value: 'Halfyear', label: 'Полугодие' },
+                    { value: 'Quarter', label: 'Квартал' },
+                    { value: 'month', label: 'Месяц' }
+                ];
+                
+                let splitHTML = '';
+                timeFields.forEach(field => {
+                    splitHTML += `
+                        <li class="dropdown-item">
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="validationSplitFieldSelection" value="${field.value}" id="validation_split_${field.value}" onchange="updateValidationSelectedSplitField()">
+                                <label class="form-check-label" for="validation_split_${field.value}">${field.label}</label>
+                            </div>
+                        </li>
+                    `;
+                });
+                splitRadios.innerHTML = splitHTML;
+                
+                validationSelectedMetrics = [`${metricName}_fact`, `${metricName}_predicted`];
             }
             
             updateValidationDropdownText();
@@ -807,13 +822,6 @@
             updateValidationDropdownText();
         }
         
-        function updateValidationSelectedSlices() {
-            validationSelectedSlices = [];
-            document.querySelectorAll('#validationPrimaryFieldCheckboxes input[type="checkbox"]:checked').forEach(cb => {
-                validationSelectedSlices.push(cb.value);
-            });
-            updateValidationDropdownText();
-        }
         
         function updateValidationSelectedSplitField() {
             const selected = document.querySelector('input[name="validationSplitFieldSelection"]:checked');
@@ -825,23 +833,28 @@
             const primaryText = document.getElementById('validationPrimaryFieldDropdownText');
             const splitText = document.getElementById('validationSplitFieldDropdownText');
             
+            // В обоих режимах первичное поле = метрики
+            const count = validationSelectedMetrics.length;
+            primaryText.textContent = count > 0 ? `Выбрано метрик: ${count}` : 'Выберите метрики';
+            
             if (validationPivotMode === 'time-series') {
-                const count = validationSelectedMetrics.length;
-                primaryText.textContent = count > 0 ? `Выбрано метрик: ${count}` : 'Выберите метрики';
-                
                 if (validationSplitField) {
                     splitText.textContent = validationSplitField;
                 } else {
                     splitText.textContent = 'Только временные ряды';
                 }
             } else {
-                const count = validationSelectedSlices.length;
-                primaryText.textContent = count > 0 ? `Выбрано срезов: ${count}` : 'Выберите срезы';
-                
+                // Режим "Срезы": разбивка по временным рядам
                 if (validationSplitField) {
-                    splitText.textContent = validationSplitField;
+                    const labels = {
+                        'year': 'Год',
+                        'Halfyear': 'Полугодие',
+                        'Quarter': 'Квартал',
+                        'month': 'Месяц'
+                    };
+                    splitText.textContent = labels[validationSplitField] || validationSplitField;
                 } else {
-                    splitText.textContent = 'Без разбивки';
+                    splitText.textContent = 'Выберите временной ряд';
                 }
             }
         }
@@ -849,12 +862,7 @@
         function toggleAllValidationPrimaryFields(checkbox) {
             const checkboxes = document.querySelectorAll('#validationPrimaryFieldCheckboxes input[type="checkbox"]');
             checkboxes.forEach(cb => cb.checked = checkbox.checked);
-            
-            if (validationPivotMode === 'time-series') {
-                updateValidationSelectedMetrics();
-            } else {
-                updateValidationSelectedSlices();
-            }
+            updateValidationSelectedMetrics();
         }
         
         function resetValidationFilters() {
