@@ -2610,11 +2610,20 @@ def train_models():
         if not hasattr(forecast_app, 'training_results'):
             forecast_app.training_results = {}
         
+        # Сохраняем полные результаты (с моделями) для генерации прогноза
         forecast_app.training_results[session_id] = results
+        
+        # Создаем копию для отправки клиенту (без объектов модели)
+        results_for_client = {}
+        for model_name, model_data in results.items():
+            results_for_client[model_name] = {
+                'metrics': model_data['metrics'],
+                'validation_data': model_data['validation_data']
+            }
         
         return jsonify({
             'success': True,
-            'results': results
+            'results': results_for_client
         })
         
     except Exception as e:
