@@ -334,7 +334,7 @@
                                     </button>
                                 </div>
                                 <div class="mt-3">
-                                    <div id="validationPivotTableContainer"></div>
+                                    <div id="timeSeriesChartContainer"></div>
                                 </div>
                             </div>
                         </div>
@@ -880,7 +880,11 @@
             }
             
             // Используем renderNewPivotTable
-            const container = document.getElementById('validationPivotTableContainer');
+            const container = document.getElementById('timeSeriesChartContainer');
+            if (!container) {
+                alert('Ошибка: контейнер не найден');
+                return;
+            }
             container.innerHTML = '<div class="text-center"><div class="spinner-border" role="status"></div><p>Загрузка...</p></div>';
             
             setTimeout(() => {
