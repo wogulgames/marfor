@@ -111,9 +111,13 @@ class FeatureBuilder:
         for month in range(1, 13):
             self.df[f'is_month_{month}'] = (self.df[self.time_col] == month).astype(int)
         
-        # 3. Автоматическое определение пиковых месяцев
-        if auto_detect_peaks:
-            # Вычисляем среднее значение по каждому месяцу
+        # 3. Пиковые месяцы
+        # Если уже заданы извне (при прогнозе) - используем их
+        if hasattr(self, 'peak_months') and self.peak_months:
+            peak_months = self.peak_months
+            print(f"      ✅ Используются предопределенные пиковые месяцы: {peak_months}", flush=True)
+        elif auto_detect_peaks:
+            # Автоматическое определение из данных
             month_avg = self.df.groupby(self.time_col)[self.metric].mean()
             overall_avg = self.df[self.metric].mean()
             
@@ -122,18 +126,19 @@ class FeatureBuilder:
             
             if peak_months:
                 print(f"      📈 Автоматически определены пиковые месяцы: {peak_months}", flush=True)
-                print(f"      📊 Средние по месяцам: {dict(month_avg)}", flush=True)
+                print(f"      📊 Средние по месяцам: {dict(month_avg.round(0))}", flush=True)
             else:
                 # Fallback на стандартные праздники
                 peak_months = [2, 3, 5, 11, 12]
                 print(f"      ⚠️ Пиковые месяцы не определены, используем стандартные: {peak_months}", flush=True)
+            
+            # Сохраняем для использования при прогнозе
+            self.peak_months = peak_months
         else:
             peak_months = [2, 3, 5, 11, 12]
+            self.peak_months = peak_months
         
         self.df['is_peak_month'] = self.df[self.time_col].isin(peak_months).astype(int)
-        
-        # Сохраняем пиковые месяцы для использования при прогнозе
-        self.peak_months = peak_months
         
         # 4. Квартал (Q4 обычно самый сильный)
         self.df['is_q4'] = ((self.df[self.time_col] >= 10) & (self.df[self.time_col] <= 12)).astype(int)

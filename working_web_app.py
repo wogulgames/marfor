@@ -280,6 +280,20 @@ def train_random_forest_hierarchy(df_agg, metric, year_col, month_col, slice_col
     
     print(f"   🔧 Построение расширенных признаков...", flush=True)
     
+    # Сначала определяем общие пиковые месяцы по всему датасету
+    print(f"   📈 Определение пиковых месяцев по всему датасету...", flush=True)
+    month_avg = df_model.groupby(month_col)[metric].mean()
+    overall_avg = df_model[metric].mean()
+    peak_threshold = 1.2
+    global_peak_months = [int(month) for month, avg in month_avg.items() if avg > overall_avg * peak_threshold]
+    
+    if global_peak_months:
+        print(f"      ✅ Пиковые месяцы: {global_peak_months}", flush=True)
+        print(f"      📊 Средние по месяцам: {dict(month_avg.round(0))}", flush=True)
+    else:
+        global_peak_months = [2, 3, 5, 11, 12]
+        print(f"      ⚠️ Используем стандартные пиковые месяцы: {global_peak_months}", flush=True)
+    
     # Используем FeatureBuilder для создания признаков
     # Важно: создаем признаки для каждой комбинации срезов отдельно
     all_data = []
@@ -302,6 +316,8 @@ def train_random_forest_hierarchy(df_agg, metric, year_col, month_col, slice_col
         
         # Строим признаки для этого временного ряда
         fb = FeatureBuilder(df_slice, metric, month_col, year_col)
+        # Передаем глобальные пиковые месяцы (отключаем auto_detect)
+        fb.peak_months = global_peak_months  # Устанавливаем вручную перед вызовом
         df_with_features, _ = fb.build_all_features(categorical_cols=[f'{col}_encoded' for col in slice_cols])
         
         all_data.append(df_with_features)
@@ -407,7 +423,7 @@ def train_random_forest_hierarchy(df_agg, metric, year_col, month_col, slice_col
         'model': model,
         'label_encoders': label_encoders,
         'feature_cols': feature_cols,
-        'feature_builder': None,  # Можно сохранить для использования при прогнозе
+        'peak_months': global_peak_months,  # Сохраняем для использования при прогнозе
         'metrics_before_reconciliation': metrics_before,
         'reconciliation_improvement': metrics_before['mape'] - metrics_after['mape']
     }
@@ -561,11 +577,13 @@ def generate_random_forest_hierarchy_forecast_detailed(df_agg, metric, year_col,
     model = trained_model_data.get('model')
     label_encoders = trained_model_data.get('label_encoders', {})
     feature_cols = trained_model_data.get('feature_cols', [])
+    peak_months = trained_model_data.get('peak_months', [2, 3, 5, 11, 12])  # Используем сохраненные пиковые месяцы
     
     if not model or not feature_cols:
         raise ValueError("Модель или список признаков не найдены")
     
     print(f"   📊 Используем {len(feature_cols)} признаков для прогноза", flush=True)
+    print(f"   📈 Пиковые месяцы из обучения: {peak_months}", flush=True)
     
     # Подготавливаем данные: строим признаки для каждой комбинации срезов
     all_forecasts = []
@@ -599,6 +617,7 @@ def generate_random_forest_hierarchy_forecast_detailed(df_agg, metric, year_col,
         
         # Строим признаки для исторических данных
         fb = FeatureBuilder(df_slice, metric, month_col, year_col)
+        fb.peak_months = peak_months  # Используем пиковые месяцы из обучения
         df_with_features, _ = fb.build_all_features(categorical_cols=[f'{col}_encoded' for col in slice_cols])
         
         # Для каждого будущего периода
@@ -638,8 +657,7 @@ def generate_random_forest_hierarchy_forecast_detailed(df_agg, metric, year_col,
             for month in range(1, 13):
                 forecast_row[f'is_month_{month}'] = 1 if fm['month'] == month else 0
             
-            # 3. Пиковые месяцы
-            peak_months = [2, 3, 5, 11, 12]
+            # 3. Пиковые месяцы (используем те, что определены при обучении)
             forecast_row['is_peak_month'] = 1 if fm['month'] in peak_months else 0
             
             # 4. Q4
