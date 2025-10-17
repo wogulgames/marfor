@@ -638,8 +638,8 @@
             setTimeout(() => {
                 try {
                     const pivotData = new PivotData(detailedData, pivotConfig);
-                    const renderer = new PivotRenderer(pivotData, pivotConfig);
-                    container.innerHTML = renderer.createPivotTableHTML();
+                    const renderer = new PivotRenderer('validationPivotTableContainer');
+                    const tableHTML = renderer.render(pivotData, pivotConfig);
                     console.log('✅ Таблица валидации отрендерена успешно');
                 } catch (error) {
                     console.error('Ошибка рендеринга таблицы:', error);
