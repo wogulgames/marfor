@@ -735,18 +735,20 @@
             if (!primaryCheckboxes || !splitRadios) return;
             
             if (validationPivotMode === 'time-series') {
+                const metricName = forecastSettings.metric;
+                
                 // Режим "Временные ряды": первичное поле = метрики (Факт, Прогноз)
                 primaryCheckboxes.innerHTML = `
                     <li class="dropdown-item">
                         <div class="form-check">
-                            <input class="form-check-input" type="checkbox" value="actual" id="validation_metric_actual" checked onchange="updateValidationSelectedMetrics()">
-                            <label class="form-check-label" for="validation_metric_actual">Факт</label>
+                            <input class="form-check-input" type="checkbox" value="${metricName}_fact" id="validation_metric_fact" checked onchange="updateValidationSelectedMetrics()">
+                            <label class="form-check-label" for="validation_metric_fact">${metricName} (Факт)</label>
                         </div>
                     </li>
                     <li class="dropdown-item">
                         <div class="form-check">
-                            <input class="form-check-input" type="checkbox" value="predicted" id="validation_metric_predicted" checked onchange="updateValidationSelectedMetrics()">
-                            <label class="form-check-label" for="validation_metric_predicted">Прогноз</label>
+                            <input class="form-check-input" type="checkbox" value="${metricName}_predicted" id="validation_metric_predicted" checked onchange="updateValidationSelectedMetrics()">
+                            <label class="form-check-label" for="validation_metric_predicted">${metricName} (Прогноз)</label>
                         </div>
                     </li>
                 `;
@@ -765,7 +767,7 @@
                 });
                 splitRadios.innerHTML = splitHTML;
                 
-                validationSelectedMetrics = ['actual', 'predicted'];
+                validationSelectedMetrics = [`${metricName}_fact`, `${metricName}_predicted`];
             } else {
                 // Режим "Срезы": первичное поле = срезы
                 let primaryHTML = '';
@@ -894,22 +896,17 @@
                 return (col.role === 'dimension') || (col.time_series && col.time_series !== '');
             });
             
-            // Добавляем metric_type как срез (для разделения Факт/Прогноз)
-            if (validationPivotMode === 'time-series') {
-                validationMapping.columns.push({
-                    name: 'metric_type',
-                    role: 'dimension',
-                    time_series: '',
-                    nesting_level: sliceCols.length,
-                    include: true
-                });
-            }
-            
-            // Добавляем метрику revenue с данными
+            // Добавляем две метрики: факт и прогноз
             validationMapping.columns.push({
-                name: metricName,
+                name: `${metricName}_fact`,
                 role: 'metric',
-                include: true
+                include: validationSelectedMetrics.includes(`${metricName}_fact`)
+            });
+            
+            validationMapping.columns.push({
+                name: `${metricName}_predicted`,
+                role: 'metric',
+                include: validationSelectedMetrics.includes(`${metricName}_predicted`)
             });
             
             // Добавляем period как временное поле если его нет
@@ -923,11 +920,9 @@
             }
             
             // Устанавливаем selectedMetrics
-            if (validationPivotMode === 'time-series') {
-                validationMapping.selectedMetrics = validationSelectedMetrics.includes('actual') && validationSelectedMetrics.includes('predicted') 
-                    ? [metricName]  // Если выбраны обе метрики, показываем revenue (он содержит и факт и прогноз через metric_type)
-                    : [metricName];
-            }
+            validationMapping.selectedMetrics = validationSelectedMetrics.filter(m => 
+                validationMapping.columns.find(col => col.name === m && col.role === 'metric')
+            );
             
             console.log('📊 Модифицированный маппинг для валидации:', validationMapping);
             

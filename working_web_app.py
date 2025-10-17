@@ -222,27 +222,12 @@ def train_random_forest_with_slices(df_agg, metric, year_col, month_col, slice_c
     }).reset_index()
     
     # Подготавливаем детализированные данные для сводной таблицы
-    # Нужно трансформировать: одна строка → две строки (факт и прогноз как отдельные метрики)
-    detailed_rows = []
-    for _, row in test_df_copy.iterrows():
-        # Базовые поля для обеих строк
-        base_row = {year_col: row[year_col], month_col: row[month_col], 'period': row['period']}
-        for slice_col in slice_cols:
-            base_row[slice_col] = row[slice_col]
-        
-        # Строка с фактическими данными
-        fact_row = base_row.copy()
-        fact_row['metric_type'] = 'Факт'
-        fact_row[metric] = row[metric]
-        detailed_rows.append(fact_row)
-        
-        # Строка с прогнозными данными
-        pred_row = base_row.copy()
-        pred_row['metric_type'] = 'Прогноз'
-        pred_row[metric] = row['predicted']
-        detailed_rows.append(pred_row)
+    # Создаем отдельные колонки для факта и прогноза
+    detailed_validation = test_df_copy[[year_col, month_col] + slice_cols + ['period']].copy()
     
-    detailed_validation = pd.DataFrame(detailed_rows)
+    # Создаем две колонки метрик: факт и прогноз
+    detailed_validation[f'{metric}_fact'] = test_df_copy[metric]
+    detailed_validation[f'{metric}_predicted'] = test_df_copy['predicted']
     
     print(f"   📊 Детализированная валидация: {len(detailed_validation)} строк", flush=True)
     print(f"   📊 Колонки: {list(detailed_validation.columns)}", flush=True)
