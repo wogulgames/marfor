@@ -630,10 +630,20 @@ def generate_random_forest_hierarchy_forecast_detailed(df_agg, metric, year_col,
             forecast_row['time_index_squared'] = time_index ** 2
             
             # Сезонные признаки
+            # 1. Синусоиды
             forecast_row['month_sin'] = np.sin(2 * np.pi * fm['month'] / 12)
             forecast_row['month_cos'] = np.cos(2 * np.pi * fm['month'] / 12)
-            forecast_row['quarter_sin'] = np.sin(2 * np.pi * ((fm['month'] - 1) // 3) / 4)
-            forecast_row['quarter_cos'] = np.cos(2 * np.pi * ((fm['month'] - 1) // 3) / 4)
+            
+            # 2. One-hot для месяцев
+            for month in range(1, 13):
+                forecast_row[f'is_month_{month}'] = 1 if fm['month'] == month else 0
+            
+            # 3. Пиковые месяцы
+            peak_months = [2, 3, 5, 11, 12]
+            forecast_row['is_peak_month'] = 1 if fm['month'] in peak_months else 0
+            
+            # 4. Q4
+            forecast_row['is_q4'] = 1 if fm['month'] >= 10 else 0
             
             # Лаги и rolling - берем из последних данных
             # Это упрощенная версия - в реальности нужно рекурсивно обновлять

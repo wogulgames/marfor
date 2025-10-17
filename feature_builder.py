@@ -47,8 +47,16 @@ class FeatureBuilder:
         for lag in lags:
             self.df[f'{self.metric}_lag_{lag}'] = self.df[self.metric].shift(lag)
         
+        # Специальные признаки на основе lag_12 (годовая сезонность)
+        if 12 in lags:
+            # Отношение текущего значения к тому же месяцу прошлого года
+            self.df[f'{self.metric}_yoy_ratio'] = self.df[self.metric] / (self.df[f'{self.metric}_lag_12'] + 1)
+            
+            # Разница с прошлым годом
+            self.df[f'{self.metric}_yoy_diff'] = self.df[self.metric] - self.df[f'{self.metric}_lag_12']
+        
         # Количество добавленных признаков
-        added_count = len(lags)
+        added_count = len(lags) + (2 if 12 in lags else 0)
         print(f"   ✅ Добавлено лаговых признаков: {added_count}", flush=True)
         
         return self
@@ -82,23 +90,31 @@ class FeatureBuilder:
     
     def add_seasonal_features(self):
         """
-        Добавляет сезонные признаки (синусоиды)
+        Добавляет сезонные признаки
         
         Создает:
-        - sin/cos для месяца (годовая сезонность)
-        - sin/cos для квартала (квартальная сезонность)
+        - sin/cos для месяца (годовая сезонность) - для плавной сезонности
+        - month dummy variables - для учета специфики каждого месяца
+        - is_high_season - бинарный признак для пиковых месяцев (ноябрь, декабрь, февраль, март, май)
         """
-        print(f"   📊 Добавление сезонных признаков (синусоиды)", flush=True)
+        print(f"   📊 Добавление сезонных признаков", flush=True)
         
-        # Годовая сезонность (месяц)
+        # 1. Синусоиды для плавной сезонности
         self.df['month_sin'] = np.sin(2 * np.pi * self.df[self.time_col] / 12)
         self.df['month_cos'] = np.cos(2 * np.pi * self.df[self.time_col] / 12)
         
-        # Квартальная сезонность
-        self.df['quarter_sin'] = np.sin(2 * np.pi * ((self.df[self.time_col] - 1) // 3) / 4)
-        self.df['quarter_cos'] = np.cos(2 * np.pi * ((self.df[self.time_col] - 1) // 3) / 4)
+        # 2. One-hot encoding для месяцев (более точный учет сезонности)
+        for month in range(1, 13):
+            self.df[f'is_month_{month}'] = (self.df[self.time_col] == month).astype(int)
         
-        print(f"   ✅ Добавлено сезонных признаков: 4", flush=True)
+        # 3. Пиковые месяцы (ноябрь, декабрь, февраль, март, май - праздники и сезоны)
+        peak_months = [2, 3, 5, 11, 12]  # Февраль (14 фев), Март (8 марта), Май (9 мая), Ноябрь/Декабрь (НГ)
+        self.df['is_peak_month'] = self.df[self.time_col].isin(peak_months).astype(int)
+        
+        # 4. Квартал (Q4 обычно самый сильный)
+        self.df['is_q4'] = ((self.df[self.time_col] >= 10) & (self.df[self.time_col] <= 12)).astype(int)
+        
+        print(f"   ✅ Добавлено сезонных признаков: 18 (2 синусоиды + 12 месяцев + 2 пиковых + 2 квартал)", flush=True)
         
         return self
     
@@ -206,10 +222,20 @@ class FeatureBuilder:
             row['time_index'] = (period['year'] - self.df[self.year_col].min()) * 12 + period['month']
             
             # Сезонные признаки
+            # 1. Синусоиды
             row['month_sin'] = np.sin(2 * np.pi * period['month'] / 12)
             row['month_cos'] = np.cos(2 * np.pi * period['month'] / 12)
-            row['quarter_sin'] = np.sin(2 * np.pi * ((period['month'] - 1) // 3) / 4)
-            row['quarter_cos'] = np.cos(2 * np.pi * ((period['month'] - 1) // 3) / 4)
+            
+            # 2. One-hot encoding для месяцев
+            for month in range(1, 13):
+                row[f'is_month_{month}'] = 1 if period['month'] == month else 0
+            
+            # 3. Пиковые месяцы
+            peak_months = [2, 3, 5, 11, 12]
+            row['is_peak_month'] = 1 if period['month'] in peak_months else 0
+            
+            # 4. Q4 признак
+            row['is_q4'] = 1 if period['month'] >= 10 else 0
             
             # Трендовые признаки
             row['time_index_squared'] = row['time_index'] ** 2
