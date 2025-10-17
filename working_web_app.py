@@ -45,12 +45,22 @@ def calculate_metrics(actual, predicted):
     rmse = np.sqrt(np.mean((actual - predicted) ** 2))
     
     # MAPE - средняя абсолютная процентная ошибка
-    mape = np.mean(np.abs((actual - predicted) / actual)) * 100
+    # Исключаем нули из расчета MAPE чтобы избежать inf
+    mask = actual != 0
+    if mask.sum() > 0:
+        mape = np.mean(np.abs((actual[mask] - predicted[mask]) / actual[mask])) * 100
+    else:
+        mape = 0.0  # Если все значения нули
+    
+    # Заменяем inf и nan на 0
+    mae = 0.0 if (np.isnan(mae) or np.isinf(mae)) else float(mae)
+    rmse = 0.0 if (np.isnan(rmse) or np.isinf(rmse)) else float(rmse)
+    mape = 0.0 if (np.isnan(mape) or np.isinf(mape)) else float(mape)
     
     return {
-        'mae': float(mae),
-        'rmse': float(rmse),
-        'mape': float(mape)
+        'mae': mae,
+        'rmse': rmse,
+        'mape': mape
     }
 
 def train_arima_model(train_df, test_df, metric):
