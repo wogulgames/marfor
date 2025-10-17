@@ -923,8 +923,19 @@
             );
             
             console.log('📊 Модифицированный маппинг для валидации:', validationMapping);
+            
+            // Определяем режим: если есть разбивка - используем split-columns
+            let renderMode = validationPivotMode;
+            let originalMode = validationPivotMode;
+            
+            if (validationSplitField && validationSplitField !== '') {
+                renderMode = 'split-columns';
+                console.log('🔄 Выбрана разбивка - переключаем режим на split-columns');
+            }
+            
             console.log('📊 Параметры рендеринга:');
-            console.log('   - mode:', validationPivotMode);
+            console.log('   - renderMode:', renderMode);
+            console.log('   - originalMode:', originalMode);
             console.log('   - splitBySlice:', validationSplitField || '(нет разбивки)');
             console.log('   - selectedMetrics:', validationSelectedMetrics);
             console.log('   - данных:', detailedData.length);
@@ -940,7 +951,8 @@
             setTimeout(() => {
                 try {
                     if (typeof renderNewPivotTable === 'function') {
-                        const result = renderNewPivotTable(detailedData, validationMapping, validationPivotMode, validationSplitField || '');
+                        // Передаем 5 параметров: data, mapping, mode, splitBySlice, originalMode
+                        const result = renderNewPivotTable(detailedData, validationMapping, renderMode, validationSplitField || '', originalMode);
                         console.log('✅ Таблица валидации отрендерена, результат:', result);
                     } else {
                         container.innerHTML = '<div class="alert alert-danger">Ошибка: функция renderNewPivotTable не найдена</div>';
