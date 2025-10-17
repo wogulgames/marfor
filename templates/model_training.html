@@ -152,22 +152,15 @@
                         </h6>
                     </div>
                     <div class="card-body">
+                        <div class="alert alert-info mb-3">
+                            <i class="fas fa-info-circle me-2"></i>
+                            <strong>Оптимизированное обучение:</strong> Модели обучаются на всех данных сразу, 
+                            используя срезы (регионы, категории, подразделения) как признаки. Это быстрее и точнее!
+                        </div>
+                        
                         <div class="row">
-                            <!-- ARIMA -->
-                            <div class="col-md-4">
-                                <div class="model-card" onclick="toggleModel('arima')">
-                                    <div class="form-check">
-                                        <input class="form-check-input" type="checkbox" id="model_arima" checked>
-                                        <label class="form-check-label fw-bold" for="model_arima">
-                                            <i class="fas fa-chart-line me-2"></i>ARIMA
-                                        </label>
-                                    </div>
-                                    <small class="text-muted">Классический метод временных рядов. Хорош для трендов и сезонности.</small>
-                                </div>
-                            </div>
-                            
                             <!-- Prophet -->
-                            <div class="col-md-4">
+                            <div class="col-md-6">
                                 <div class="model-card" onclick="toggleModel('prophet')">
                                     <div class="form-check">
                                         <input class="form-check-input" type="checkbox" id="model_prophet" checked>
@@ -175,12 +168,12 @@
                                             <i class="fas fa-magic me-2"></i>Prophet
                                         </label>
                                     </div>
-                                    <small class="text-muted">Модель от Facebook. Автоматически учитывает тренды и праздники.</small>
+                                    <small class="text-muted">Модель от Facebook с регрессорами. Учитывает тренды, сезонность и срезы.</small>
                                 </div>
                             </div>
                             
                             <!-- Random Forest -->
-                            <div class="col-md-4">
+                            <div class="col-md-6">
                                 <div class="model-card" onclick="toggleModel('random_forest')">
                                     <div class="form-check">
                                         <input class="form-check-input" type="checkbox" id="model_random_forest" checked>
@@ -188,7 +181,7 @@
                                             <i class="fas fa-tree me-2"></i>Random Forest
                                         </label>
                                     </div>
-                                    <small class="text-muted">Ансамбль деревьев решений. Устойчив к выбросам.</small>
+                                    <small class="text-muted">Ансамбль деревьев решений. Отлично работает с категориальными признаками.</small>
                                 </div>
                             </div>
                         </div>
