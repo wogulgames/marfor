@@ -223,7 +223,16 @@ def train_random_forest_with_slices(df_agg, metric, year_col, month_col, slice_c
     
     # Подготавливаем детализированные данные для сводной таблицы
     # Создаем отдельные колонки для факта и прогноза
-    detailed_validation = test_df_copy[[year_col, month_col] + slice_cols + ['period']].copy()
+    
+    # Добавляем Quarter и Halfyear если их нет
+    if 'Quarter' not in test_df_copy.columns:
+        test_df_copy['Quarter'] = test_df_copy[month_col].apply(lambda m: f'Q{(int(m)-1)//3 + 1}')
+    if 'Halfyear' not in test_df_copy.columns:
+        test_df_copy['Halfyear'] = test_df_copy[month_col].apply(lambda m: 'H1' if int(m) <= 6 else 'H2')
+    
+    # Выбираем нужные колонки
+    base_cols = [year_col, 'Halfyear', 'Quarter', month_col] + slice_cols
+    detailed_validation = test_df_copy[base_cols].copy()
     
     # Создаем две колонки метрик: факт и прогноз
     detailed_validation[f'{metric}_fact'] = test_df_copy[metric]

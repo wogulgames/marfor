@@ -909,16 +909,6 @@
                 include: validationSelectedMetrics.includes(`${metricName}_predicted`)
             });
             
-            // Добавляем period как временное поле если его нет
-            if (!validationMapping.columns.find(col => col.name === 'period')) {
-                validationMapping.columns.push({
-                    name: 'period',
-                    role: 'dimension',
-                    time_series: 'period',
-                    include: true
-                });
-            }
-            
             // Устанавливаем selectedMetrics
             validationMapping.selectedMetrics = validationSelectedMetrics.filter(m => 
                 validationMapping.columns.find(col => col.name === m && col.role === 'metric')
