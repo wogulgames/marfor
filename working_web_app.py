@@ -3129,8 +3129,76 @@ def generate_forecast():
                     traceback.print_exc()
                     return jsonify({'success': False, 'message': f'Ошибка: {str(e)}'})
             
+            elif selected_model == 'random_forest':
+                # Random Forest тоже использует обученную модель со всеми срезами
+                print(f"   🌲 Используется Random Forest - генерируем прогноз для всех срезов", flush=True)
+                
+                if not hasattr(forecast_app, 'training_results') or session_id not in forecast_app.training_results:
+                    return jsonify({'success': False, 'message': 'Модель не обучена. Сначала обучите модель.'})
+                
+                trained_model_data = forecast_app.training_results[session_id].get('random_forest')
+                if not trained_model_data:
+                    return jsonify({'success': False, 'message': 'Random Forest не обучена'})
+                
+                model = trained_model_data.get('model')
+                label_encoders = trained_model_data.get('label_encoders', {})
+                
+                if not model:
+                    return jsonify({'success': False, 'message': 'Обученная модель не найдена'})
+                
+                # Генерируем прогноз для каждой комбинации срезов
+                for slice_combination in unique_slices:
+                    for fm in forecast_months:
+                        forecast_row = {
+                            year_col: fm['year'],
+                            month_col: fm['month']
+                        }
+                        
+                        # Кодируем срезы
+                        for slice_col in slice_cols:
+                            forecast_row[slice_col] = slice_combination[slice_col]
+                            encoded_col = f'{slice_col}_encoded'
+                            if encoded_col in label_encoders:
+                                le = label_encoders[encoded_col]
+                                value = slice_combination[slice_col]
+                                try:
+                                    encoded_value = le.transform([value if value in le.classes_ else 'unknown'])[0]
+                                except:
+                                    encoded_value = 0
+                                forecast_row[encoded_col] = encoded_value
+                        
+                        # Формируем вектор признаков
+                        feature_cols = [year_col, month_col] + [f'{col}_encoded' for col in slice_cols]
+                        X_forecast = np.array([[forecast_row.get(col, 0) for col in feature_cols]])
+                        
+                        # Прогноз
+                        predicted_value = model.predict(X_forecast)[0]
+                        
+                        # Создаем прогнозную строку
+                        final_row = {}
+                        final_row[year_col] = fm['year']
+                        final_row[month_col] = fm['month']
+                        
+                        for slice_col in slice_cols:
+                            final_row[slice_col] = slice_combination[slice_col]
+                        
+                        final_row[metric] = predicted_value
+                        for other_metric in all_metrics:
+                            if other_metric != metric:
+                                final_row[other_metric] = 0
+                        
+                        final_row['is_forecast'] = True
+                        final_row['Quarter'] = f'Q{(fm["month"]-1)//3 + 1}'
+                        final_row['Halfyear'] = 'H1' if fm['month'] <= 6 else 'H2'
+                        
+                        forecast_rows.append(final_row)
+                
+                print(f"   ✅ Random Forest: создано {len(forecast_rows)} прогнозных строк", flush=True)
+            
             else:
-                # Для других моделей (random_forest, prophet, arima) - цикл по срезам
+                # Для других моделей (prophet, arima) - цикл по срезам с переобучением
+                print(f"   ⚠️ Модель {selected_model} будет переобучена для каждого среза", flush=True)
+                
                 for slice_combination in unique_slices:
                     # Фильтруем данные для этой комбинации срезов
                     mask = pd.Series([True] * len(df_agg))
@@ -3140,7 +3208,6 @@ def generate_forecast():
                     df_slice = df_agg[mask].copy()
                     
                     if len(df_slice) < 10:
-                        # print(f"   ⚠️ Недостаточно данных для {slice_combination}, пропускаем", flush=True)
                         continue
                     
                     # Строим прогноз для этой комбинации
@@ -3149,10 +3216,8 @@ def generate_forecast():
                             slice_forecast = generate_arima_forecast(df_slice, metric, len(forecast_months))
                         elif selected_model == 'prophet':
                             slice_forecast = generate_prophet_forecast(df_slice, metric, year_col, month_col, forecast_months)
-                        elif selected_model == 'random_forest':
-                            slice_forecast = generate_random_forest_forecast(df_slice, metric, year_col, month_col, forecast_months)
                         else:
-                            return jsonify({'success': False, 'message': f'Неизвестная модель: {selected_model}'})
+                            continue
                     
                     # Создаем прогнозные строки для этой комбинации срезов
                     for i, month_data in enumerate(forecast_months):
