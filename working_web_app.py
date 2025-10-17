@@ -546,7 +546,12 @@ def generate_random_forest_forecast(df_agg, metric, year_col, month_col, forecas
     return predicted.tolist()
 
 def generate_random_forest_hierarchy_forecast(df_agg, metric, year_col, month_col, slice_cols, forecast_months, trained_model_data):
-    """Генерация прогноза с помощью Random Forest Hierarchy с расширенными признаками"""
+    """Генерация прогноза с помощью Random Forest Hierarchy - упрощенная версия (возвращает только значения)"""
+    detailed = generate_random_forest_hierarchy_forecast_detailed(df_agg, metric, year_col, month_col, slice_cols, forecast_months, trained_model_data)
+    return [f['predicted'] for f in detailed]
+
+def generate_random_forest_hierarchy_forecast_detailed(df_agg, metric, year_col, month_col, slice_cols, forecast_months, trained_model_data):
+    """Генерация детального прогноза с помощью Random Forest Hierarchy с расширенными признаками"""
     print(f"\n🌲🏗️ Генерация прогноза Random Forest Hierarchy", flush=True)
     
     # Получаем обученную модель и encoders из результатов обучения
@@ -581,6 +586,17 @@ def generate_random_forest_hierarchy_forecast(df_agg, metric, year_col, month_co
         if len(df_slice) < 15:
             continue
         
+        # Кодируем срезы (нужно для признаков)
+        for slice_col in slice_cols:
+            encoded_col = f'{slice_col}_encoded'
+            if encoded_col in label_encoders:
+                le = label_encoders[encoded_col]
+                value = slice_combination[slice_col]
+                try:
+                    df_slice[encoded_col] = le.transform([value if value in le.classes_ else 'unknown'])[0]
+                except:
+                    df_slice[encoded_col] = 0
+        
         # Строим признаки для исторических данных
         fb = FeatureBuilder(df_slice, metric, month_col, year_col)
         df_with_features, _ = fb.build_all_features(categorical_cols=[f'{col}_encoded' for col in slice_cols])
@@ -603,7 +619,10 @@ def generate_random_forest_hierarchy_forecast(df_agg, metric, year_col, month_co
                 if encoded_col in label_encoders:
                     le = label_encoders[encoded_col]
                     value = slice_combination[slice_col]
-                    forecast_row[encoded_col] = le.transform([value if value in le.classes_ else 'unknown'])[0]
+                    try:
+                        forecast_row[encoded_col] = le.transform([value if value in le.classes_ else 'unknown'])[0]
+                    except:
+                        forecast_row[encoded_col] = 0
             
             # Временной индекс
             time_index = (fm['year'] - df_slice[year_col].min()) * 12 + fm['month']
@@ -641,8 +660,8 @@ def generate_random_forest_hierarchy_forecast(df_agg, metric, year_col, month_co
     
     print(f"   ✅ Создано прогнозов: {len(all_forecasts)}", flush=True)
     
-    # Преобразуем в массив значений (для каждой комбинации срезов × периодов)
-    return [f['predicted'] for f in all_forecasts]
+    # Возвращаем детальный список прогнозов
+    return all_forecasts
 
 # Flask
 from flask import Flask, render_template, render_template_string, request, jsonify, send_file, redirect
@@ -3062,48 +3081,78 @@ def generate_forecast():
             
             forecast_rows = []
             
-            for slice_combination in unique_slices:
-                # Фильтруем данные для этой комбинации срезов
-                mask = pd.Series([True] * len(df_agg))
-                for slice_col in slice_cols:
-                    mask &= (df_agg[slice_col] == slice_combination[slice_col])
+            # Специальная обработка для random_forest_hierarchy
+            if selected_model == 'random_forest_hierarchy':
+                print(f"   🏗️ Используется Random Forest Hierarchy - генерируем прогноз для всех срезов сразу", flush=True)
                 
-                df_slice = df_agg[mask].copy()
+                # Получаем данные обученной модели
+                if not hasattr(forecast_app, 'training_results') or session_id not in forecast_app.training_results:
+                    return jsonify({'success': False, 'message': 'Модель не обучена. Сначала обучите модель.'})
                 
-                if len(df_slice) < 10:
-                    # print(f"   ⚠️ Недостаточно данных для {slice_combination}, пропускаем", flush=True)
-                    continue
+                trained_model_data = forecast_app.training_results[session_id].get('random_forest_hierarchy')
+                if not trained_model_data:
+                    return jsonify({'success': False, 'message': 'Random Forest Hierarchy не обучена'})
                 
-                # Строим прогноз для этой комбинации
+                # Генерируем прогнозы для всех комбинаций сразу
                 try:
-                    if selected_model == 'arima':
-                        slice_forecast = generate_arima_forecast(df_slice, metric, len(forecast_months))
-                    elif selected_model == 'prophet':
-                        slice_forecast = generate_prophet_forecast(df_slice, metric, year_col, month_col, forecast_months)
-                    elif selected_model == 'random_forest':
-                        slice_forecast = generate_random_forest_forecast(df_slice, metric, year_col, month_col, forecast_months)
-                    elif selected_model == 'random_forest_hierarchy':
-                        # Получаем данные обученной модели
-                        if not hasattr(forecast_app, 'training_results') or session_id not in forecast_app.training_results:
-                            return jsonify({'success': False, 'message': 'Модель не обучена. Сначала обучите модель.'})
+                    all_forecasts_detailed = generate_random_forest_hierarchy_forecast_detailed(
+                        df_agg, metric, year_col, month_col, slice_cols, forecast_months, trained_model_data
+                    )
+                    
+                    # Преобразуем в forecast_rows
+                    for forecast_dict in all_forecasts_detailed:
+                        forecast_row = {}
+                        forecast_row[year_col] = forecast_dict['year']
+                        forecast_row[month_col] = forecast_dict['month']
                         
-                        trained_model_data = forecast_app.training_results[session_id].get('random_forest_hierarchy')
-                        if not trained_model_data:
-                            return jsonify({'success': False, 'message': 'Random Forest Hierarchy не обучена'})
+                        # Копируем срезы
+                        for slice_col in slice_cols:
+                            forecast_row[slice_col] = forecast_dict[slice_col]
                         
-                        # Генерируем прогноз для всех срезов сразу
-                        all_slice_forecasts = generate_random_forest_hierarchy_forecast(
-                            df_agg, metric, year_col, month_col, slice_cols, forecast_months, trained_model_data
-                        )
+                        # Устанавливаем метрику
+                        forecast_row[metric] = forecast_dict['predicted']
+                        for other_metric in all_metrics:
+                            if other_metric != metric:
+                                forecast_row[other_metric] = 0
                         
-                        # Индекс для текущей комбинации срезов
-                        # TODO: Нужно правильно выбрать прогноз для текущей комбинации
-                        # Пока возвращаем средние значения
-                        num_periods = len(forecast_months)
-                        slice_forecast = [sum(all_slice_forecasts[i::num_periods]) / len(unique_slices) 
-                                        for i in range(num_periods)]
-                    else:
-                        return jsonify({'success': False, 'message': f'Неизвестная модель: {selected_model}'})
+                        forecast_row['is_forecast'] = True
+                        forecast_row['Quarter'] = f'Q{(forecast_dict["month"]-1)//3 + 1}'
+                        forecast_row['Halfyear'] = 'H1' if forecast_dict['month'] <= 6 else 'H2'
+                        
+                        forecast_rows.append(forecast_row)
+                    
+                    print(f"   ✅ Random Forest Hierarchy: создано {len(forecast_rows)} прогнозных строк", flush=True)
+                    
+                except Exception as e:
+                    print(f"   ❌ Ошибка генерации прогноза Random Forest Hierarchy: {e}", flush=True)
+                    import traceback
+                    traceback.print_exc()
+                    return jsonify({'success': False, 'message': f'Ошибка: {str(e)}'})
+            
+            else:
+                # Для других моделей (random_forest, prophet, arima) - цикл по срезам
+                for slice_combination in unique_slices:
+                    # Фильтруем данные для этой комбинации срезов
+                    mask = pd.Series([True] * len(df_agg))
+                    for slice_col in slice_cols:
+                        mask &= (df_agg[slice_col] == slice_combination[slice_col])
+                    
+                    df_slice = df_agg[mask].copy()
+                    
+                    if len(df_slice) < 10:
+                        # print(f"   ⚠️ Недостаточно данных для {slice_combination}, пропускаем", flush=True)
+                        continue
+                    
+                    # Строим прогноз для этой комбинации
+                    try:
+                        if selected_model == 'arima':
+                            slice_forecast = generate_arima_forecast(df_slice, metric, len(forecast_months))
+                        elif selected_model == 'prophet':
+                            slice_forecast = generate_prophet_forecast(df_slice, metric, year_col, month_col, forecast_months)
+                        elif selected_model == 'random_forest':
+                            slice_forecast = generate_random_forest_forecast(df_slice, metric, year_col, month_col, forecast_months)
+                        else:
+                            return jsonify({'success': False, 'message': f'Неизвестная модель: {selected_model}'})
                     
                     # Создаем прогнозные строки для этой комбинации срезов
                     for i, month_data in enumerate(forecast_months):
