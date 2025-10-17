@@ -614,23 +614,24 @@
             console.log('Первая строка:', detailedData[0]);
             
             // Создаем конфигурацию для pivot table с правильными типами
+            // Используем режим time-series, где период - это столбцы
             const rowFields = [];
             
-            // Добавляем поля срезов
+            // Добавляем поля срезов как строки
             sliceCols.forEach((sliceCol, index) => {
                 rowFields.push(new PivotField(sliceCol, sliceCol, 'slice', index));
             });
             
-            // Добавляем период
-            rowFields.push(new PivotField('period', 'Период', 'slice', sliceCols.length));
+            // Период будет временной осью (по столбцам)
+            const timeField = new PivotField('period', 'Период', 'time');
             
-            // Создаем поля метрик
+            // Создаем поля метрик - будут показаны как отдельные строки под каждым срезом
             const metricFields = [
                 new PivotField('actual', 'Факт', 'metric'),
                 new PivotField('predicted', 'Прогноз', 'metric')
             ];
             
-            const pivotConfig = new PivotConfig(rowFields, metricFields, null, 'slices');
+            const pivotConfig = new PivotConfig(rowFields, metricFields, timeField, 'time-series');
             
             // Рендерим таблицу
             container.innerHTML = '<div class="text-center"><p>Загрузка...</p></div>';
