@@ -389,6 +389,10 @@
             document.getElementById('trainingResults').style.display = 'none';
             
             try {
+                // Получаем маппинг из sessionStorage
+                const mappingData = sessionStorage.getItem('dataMapping');
+                const mapping = mappingData ? JSON.parse(mappingData) : null;
+                
                 const response = await fetch('/api/train_models', {
                     method: 'POST',
                     headers: {
@@ -399,7 +403,8 @@
                         metric: forecastSettings.metric,
                         models: selectedModels,
                         test_size: testSize / 100,
-                        forecast_periods: forecastSettings.forecast_periods
+                        forecast_periods: forecastSettings.forecast_periods,
+                        mapping: mapping
                     })
                 });
                 
@@ -445,9 +450,18 @@
                 if (metrics.mape > 20) mapeClass = 'metric-bad';
                 else if (metrics.mape > 10) mapeClass = 'metric-medium';
                 
+                // Информация о срезах
+                let sliceInfo = '';
+                if (data.slices_count) {
+                    const rangeText = data.metrics_range 
+                        ? `(${data.metrics_range.mape_min.toFixed(1)}%-${data.metrics_range.mape_max.toFixed(1)}%)`
+                        : '';
+                    sliceInfo = `<br><small class="text-muted">Усреднено по ${data.slices_count} срезам ${rangeText}</small>`;
+                }
+                
                 const row = `
                     <tr>
-                        <td><strong>${getModelDisplayName(modelName)}</strong></td>
+                        <td><strong>${getModelDisplayName(modelName)}</strong>${sliceInfo}</td>
                         <td>${metrics.mae.toLocaleString('ru-RU', {maximumFractionDigits: 2})}</td>
                         <td>${metrics.rmse.toLocaleString('ru-RU', {maximumFractionDigits: 2})}</td>
                         <td><span class="metric-badge ${mapeClass}">${metrics.mape.toFixed(2)}%</span></td>

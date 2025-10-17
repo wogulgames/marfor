@@ -2354,56 +2354,185 @@ def train_models():
         # Подготовка данных
         df = forecast_app.df
         
-        # Находим временные поля
+        # Получаем маппинг
+        mapping_config = data.get('mapping')
+        if not mapping_config and hasattr(forecast_app, 'mapping_config'):
+            mapping_config = forecast_app.mapping_config
+        
+        # Находим временные поля и поля срезов из маппинга
         year_col = None
         month_col = None
+        slice_cols = []
         
-        for col in df.columns:
-            if 'year' in col.lower() and not year_col:
-                year_col = col
-            if 'month' in col.lower() and not month_col:
-                month_col = col
+        if mapping_config and mapping_config.get('columns'):
+            for col_config in mapping_config['columns']:
+                if col_config.get('time_series') == 'year':
+                    year_col = col_config['name']
+                elif col_config.get('time_series') == 'month':
+                    month_col = col_config['name']
+                elif col_config.get('role') == 'dimension' and not col_config.get('time_series'):
+                    slice_cols.append(col_config['name'])
+        
+        # Fallback: поиск по названиям
+        if not year_col or not month_col:
+            for col in df.columns:
+                if 'year' in col.lower() and not year_col:
+                    year_col = col
+                if 'month' in col.lower() and not month_col:
+                    month_col = col
         
         if not year_col or not month_col or metric not in df.columns:
             return jsonify({'success': False, 'message': 'Необходимые поля не найдены'})
         
-        # Агрегируем данные по году-месяцу
-        df_agg = df.groupby([year_col, month_col])[metric].sum().reset_index()
+        print(f"   📊 Поля для обучения:")
+        print(f"      Временные: {year_col}, {month_col}")
+        print(f"      Срезы: {slice_cols}")
+        print(f"      Метрика: {metric}")
+        
+        # Агрегируем данные по году-месяцу + срезы
+        groupby_cols = [year_col, month_col] + slice_cols
+        df_agg = df.groupby(groupby_cols)[metric].sum().reset_index()
         df_agg = df_agg.sort_values([year_col, month_col])
-        df_agg['period'] = df_agg[year_col].astype(str) + '-' + df_agg[month_col].astype(str).str.zfill(2)
         
-        print(f"   Всего периодов: {len(df_agg)}")
-        
-        # Разделение на обучающую и контрольную выборки
-        split_index = int(len(df_agg) * (1 - test_size))
-        train_df = df_agg[:split_index]
-        test_df = df_agg[split_index:]
-        
-        print(f"   Обучающая выборка: {len(train_df)} периодов")
-        print(f"   Контрольная выборка: {len(test_df)} периодов")
+        print(f"   📊 После агрегации: {len(df_agg)} уникальных комбинаций")
         
         results = {}
         
-        # Обучение моделей
-        for model_name in models_to_train:
-            print(f"\n📊 Обучение модели: {model_name}")
+        # Если есть срезы - обучаем модели для каждой комбинации
+        if slice_cols:
+            print(f"   🔄 Обучение моделей для каждой комбинации срезов...")
             
-            try:
-                if model_name == 'arima':
-                    model_result = train_arima_model(train_df, test_df, metric)
-                elif model_name == 'prophet':
-                    model_result = train_prophet_model(train_df, test_df, metric, year_col, month_col)
-                elif model_name == 'random_forest':
-                    model_result = train_random_forest_model(train_df, test_df, metric, year_col, month_col)
-                else:
+            # Получаем уникальные комбинации срезов
+            unique_slices = df_agg[slice_cols].drop_duplicates().to_dict('records')
+            print(f"   📊 Уникальных комбинаций срезов: {len(unique_slices)}")
+            
+            # Обучаем каждую модель
+            for model_name in models_to_train:
+                print(f"\n📊 Обучение модели: {model_name}")
+                
+                slice_results = []
+                all_predictions = []
+                all_actuals = []
+                
+                for slice_combination in unique_slices:
+                    # Фильтруем данные для этой комбинации срезов
+                    mask = pd.Series([True] * len(df_agg))
+                    for slice_col in slice_cols:
+                        mask &= (df_agg[slice_col] == slice_combination[slice_col])
+                    
+                    df_slice = df_agg[mask].copy()
+                    df_slice['period'] = df_slice[year_col].astype(str) + '-' + df_slice[month_col].astype(str).str.zfill(2)
+                    
+                    if len(df_slice) < 5:
+                        print(f"   ⚠️ Недостаточно данных для {slice_combination}, пропускаем")
+                        continue
+                    
+                    # Разделение на обучающую и контрольную выборки
+                    split_index = int(len(df_slice) * (1 - test_size))
+                    train_df_slice = df_slice[:split_index]
+                    test_df_slice = df_slice[split_index:]
+                    
+                    if len(test_df_slice) < 1:
+                        print(f"   ⚠️ Недостаточно тестовых данных для {slice_combination}, пропускаем")
+                        continue
+                    
+                    # Обучаем модель
+                    try:
+                        if model_name == 'arima':
+                            model_result = train_arima_model(train_df_slice, test_df_slice, metric)
+                        elif model_name == 'prophet':
+                            model_result = train_prophet_model(train_df_slice, test_df_slice, metric, year_col, month_col)
+                        elif model_name == 'random_forest':
+                            model_result = train_random_forest_model(train_df_slice, test_df_slice, metric, year_col, month_col)
+                        else:
+                            continue
+                        
+                        slice_results.append(model_result['metrics'])
+                        all_predictions.extend(model_result['validation_data']['predicted'])
+                        all_actuals.extend(model_result['validation_data']['actual'])
+                        
+                    except Exception as e:
+                        print(f"   ⚠️ Ошибка обучения {model_name} для {slice_combination}: {e}")
+                        continue
+                
+                if not slice_results:
+                    print(f"   ❌ Не удалось обучить {model_name} ни на одной комбинации срезов")
                     continue
                 
-                results[model_name] = model_result
-                print(f"   ✅ {model_name}: MAPE = {model_result['metrics']['mape']:.2f}%")
+                # Усредняем метрики по всем срезам
+                avg_metrics = {
+                    'mae': sum(r['mae'] for r in slice_results) / len(slice_results),
+                    'rmse': sum(r['rmse'] for r in slice_results) / len(slice_results),
+                    'mape': sum(r['mape'] for r in slice_results) / len(slice_results)
+                }
                 
-            except Exception as e:
-                print(f"   ❌ Ошибка обучения {model_name}: {e}")
-                continue
+                # Для графика - агрегируем предсказания по всем срезам (суммируем по периодам)
+                validation_df = pd.DataFrame({
+                    'actual': all_actuals,
+                    'predicted': all_predictions
+                })
+                
+                # Группируем по периодам (для агрегированного графика)
+                # Получаем уникальные периоды из тестовой выборки
+                test_periods = sorted(df_agg[year_col].astype(str) + '-' + df_agg[month_col].astype(str).str.zfill(2))
+                split_index = int(len(set(test_periods)) * (1 - test_size))
+                unique_test_periods = sorted(set(test_periods))[split_index:]
+                
+                # Для простоты - берём первые N значений (где N = количество тестовых периодов * количество срезов)
+                n_test_periods = len(unique_test_periods)
+                
+                results[model_name] = {
+                    'metrics': avg_metrics,
+                    'validation_data': {
+                        'periods': unique_test_periods,
+                        'actual': validation_df['actual'].tolist()[:n_test_periods],
+                        'predicted': validation_df['predicted'].tolist()[:n_test_periods]
+                    },
+                    'slices_count': len(slice_results),
+                    'metrics_range': {
+                        'mape_min': min(r['mape'] for r in slice_results),
+                        'mape_max': max(r['mape'] for r in slice_results)
+                    }
+                }
+                
+                print(f"   ✅ {model_name}: MAPE = {avg_metrics['mape']:.2f}% (усреднено по {len(slice_results)} срезам)")
+                print(f"      Диапазон MAPE: {results[model_name]['metrics_range']['mape_min']:.2f}% - {results[model_name]['metrics_range']['mape_max']:.2f}%")
+        
+        else:
+            # Нет срезов - используем старую логику (один общий прогноз)
+            print(f"   📊 Нет срезов, обучаем на агрегированных данных")
+            
+            df_agg['period'] = df_agg[year_col].astype(str) + '-' + df_agg[month_col].astype(str).str.zfill(2)
+            
+            print(f"   Всего периодов: {len(df_agg)}")
+            
+            # Разделение на обучающую и контрольную выборки
+            split_index = int(len(df_agg) * (1 - test_size))
+            train_df = df_agg[:split_index]
+            test_df = df_agg[split_index:]
+            
+            print(f"   Обучающая выборка: {len(train_df)} периодов")
+            print(f"   Контрольная выборка: {len(test_df)} периодов")
+            
+            for model_name in models_to_train:
+                print(f"\n📊 Обучение модели: {model_name}")
+                
+                try:
+                    if model_name == 'arima':
+                        model_result = train_arima_model(train_df, test_df, metric)
+                    elif model_name == 'prophet':
+                        model_result = train_prophet_model(train_df, test_df, metric, year_col, month_col)
+                    elif model_name == 'random_forest':
+                        model_result = train_random_forest_model(train_df, test_df, metric, year_col, month_col)
+                    else:
+                        continue
+                    
+                    results[model_name] = model_result
+                    print(f"   ✅ {model_name}: MAPE = {model_result['metrics']['mape']:.2f}%")
+                    
+                except Exception as e:
+                    print(f"   ❌ Ошибка обучения {model_name}: {e}")
+                    continue
         
         if not results:
             return jsonify({'success': False, 'message': 'Не удалось обучить ни одну модель'})
@@ -2484,26 +2613,51 @@ def generate_forecast():
         # Подготовка данных для прогноза
         df = forecast_app.df
         
-        # Находим временные поля
+        # Находим временные поля и поля срезов из маппинга
         year_col = None
         month_col = None
+        slice_cols = []
         
-        for col in df.columns:
-            if 'year' in col.lower() and not year_col:
-                year_col = col
-            if 'month' in col.lower() and not month_col:
-                month_col = col
+        # Используем маппинг для определения полей
+        if mapping_config and mapping_config.get('columns'):
+            for col_config in mapping_config['columns']:
+                if col_config.get('time_series') == 'year':
+                    year_col = col_config['name']
+                elif col_config.get('time_series') == 'month':
+                    month_col = col_config['name']
+                elif col_config.get('role') == 'dimension' and not col_config.get('time_series'):
+                    # Это поле среза
+                    slice_cols.append(col_config['name'])
+        
+        # Fallback: поиск по названиям
+        if not year_col or not month_col:
+            for col in df.columns:
+                if 'year' in col.lower() and not year_col:
+                    year_col = col
+                if 'month' in col.lower() and not month_col:
+                    month_col = col
         
         if not year_col or not month_col or metric not in df.columns:
             return jsonify({'success': False, 'message': 'Необходимые поля не найдены'})
+        
+        print(f"   📊 Поля для прогноза:", flush=True)
+        print(f"      Временные: {year_col}, {month_col}", flush=True)
+        print(f"      Срезы: {slice_cols}", flush=True)
+        print(f"      Метрика: {metric}", flush=True)
         
         # Сохраняем все исходные данные (не агрегируем!)
         # Добавляем is_forecast = False ко всем фактическим данным
         df['is_forecast'] = False
         
-        # Агрегируем данные только для построения прогноза
-        df_agg = df.groupby([year_col, month_col])[metric].sum().reset_index()
+        # Агрегируем данные для построения прогноза
+        # Группируем по временным полям + срезам
+        groupby_cols = [year_col, month_col] + slice_cols
+        df_agg = df.groupby(groupby_cols)[metric].sum().reset_index()
         df_agg = df_agg.sort_values([year_col, month_col])
+        
+        print(f"   📊 После агрегации: {len(df_agg)} уникальных комбинаций", flush=True)
+        print(f"   📊 Первые 3 строки:", flush=True)
+        print(df_agg.head(3).to_dict('records'), flush=True)
         
         # Создаем список прогнозных периодов
         forecast_months = []
@@ -2514,57 +2668,109 @@ def generate_forecast():
                     'month': month
                 })
         
-        print(f"   Всего прогнозных месяцев: {len(forecast_months)}")
-        
-        # Обучаем модель на всех фактических данных
-        if selected_model == 'arima':
-            forecast_values = generate_arima_forecast(df_agg, metric, len(forecast_months))
-        elif selected_model == 'prophet':
-            forecast_values = generate_prophet_forecast(df_agg, metric, year_col, month_col, forecast_months)
-        elif selected_model == 'random_forest':
-            forecast_values = generate_random_forest_forecast(df_agg, metric, year_col, month_col, forecast_months)
-        else:
-            return jsonify({'success': False, 'message': f'Неизвестная модель: {selected_model}'})
-        
-        # Создаем DataFrame с прогнозными данными
-        # Берем структуру из последней строки исходных данных
-        last_row = df.iloc[-1].to_dict()
+        print(f"   Всего прогнозных месяцев: {len(forecast_months)}", flush=True)
         
         # Получаем список всех метрик из маппинга
         all_metrics = [col['name'] for col in mapping_config.get('columns', []) if col.get('role') == 'metric']
         print(f"   📊 Все метрики: {all_metrics}", flush=True)
         print(f"   🎯 Метрика с прогнозом: {metric}", flush=True)
-        print(f"   ⚠️ Остальные метрики будут заполнены нулями", flush=True)
         
-        # Создаем прогнозные строки
-        forecast_rows = []
-        for i, month_data in enumerate(forecast_months):
-            forecast_row = last_row.copy()
-            forecast_row[year_col] = month_data['year']
-            forecast_row[month_col] = month_data['month']
+        # Если есть срезы - строим прогноз для каждой комбинации срезов
+        if slice_cols:
+            print(f"   🔄 Строим прогноз для каждой комбинации срезов...", flush=True)
             
-            # Устанавливаем значения метрик
-            forecast_row[metric] = forecast_values[i]  # Прогнозная метрика
+            # Получаем уникальные комбинации срезов
+            unique_slices = df_agg[slice_cols].drop_duplicates().to_dict('records')
+            print(f"   📊 Уникальных комбинаций срезов: {len(unique_slices)}", flush=True)
+            print(f"   📊 Первые 3 комбинации:", unique_slices[:3], flush=True)
             
-            # Для остальных метрик устанавливаем 0 (прогноз не строился)
-            zeros_count = 0
-            for other_metric in all_metrics:
-                if other_metric != metric:
-                    forecast_row[other_metric] = 0
-                    zeros_count += 1
+            forecast_rows = []
             
-            if i == 0:  # Логируем только для первой строки
-                print(f"   📝 Прогнозная строка {i+1}: {metric}={forecast_values[i]}, остальные {zeros_count} метрик=0", flush=True)
+            for slice_combination in unique_slices:
+                # Фильтруем данные для этой комбинации срезов
+                mask = pd.Series([True] * len(df_agg))
+                for slice_col in slice_cols:
+                    mask &= (df_agg[slice_col] == slice_combination[slice_col])
+                
+                df_slice = df_agg[mask].copy()
+                
+                if len(df_slice) < 3:
+                    print(f"   ⚠️ Недостаточно данных для {slice_combination}, пропускаем", flush=True)
+                    continue
+                
+                # Строим прогноз для этой комбинации
+                try:
+                    if selected_model == 'arima':
+                        slice_forecast = generate_arima_forecast(df_slice, metric, len(forecast_months))
+                    elif selected_model == 'prophet':
+                        slice_forecast = generate_prophet_forecast(df_slice, metric, year_col, month_col, forecast_months)
+                    elif selected_model == 'random_forest':
+                        slice_forecast = generate_random_forest_forecast(df_slice, metric, year_col, month_col, forecast_months)
+                    else:
+                        return jsonify({'success': False, 'message': f'Неизвестная модель: {selected_model}'})
+                    
+                    # Создаем прогнозные строки для этой комбинации срезов
+                    for i, month_data in enumerate(forecast_months):
+                        forecast_row = {}
+                        forecast_row[year_col] = month_data['year']
+                        forecast_row[month_col] = month_data['month']
+                        
+                        # Копируем значения срезов
+                        for slice_col in slice_cols:
+                            forecast_row[slice_col] = slice_combination[slice_col]
+                        
+                        # Устанавливаем значения метрик
+                        forecast_row[metric] = slice_forecast[i]
+                        for other_metric in all_metrics:
+                            if other_metric != metric:
+                                forecast_row[other_metric] = 0
+                        
+                        forecast_row['is_forecast'] = True
+                        forecast_row['Quarter'] = f'Q{(month_data["month"]-1)//3 + 1}'
+                        forecast_row['Halfyear'] = 'H1' if month_data['month'] <= 6 else 'H2'
+                        
+                        forecast_rows.append(forecast_row)
+                
+                except Exception as e:
+                    print(f"   ⚠️ Ошибка прогноза для {slice_combination}: {e}", flush=True)
+                    continue
             
-            forecast_row['is_forecast'] = True
+            forecast_df = pd.DataFrame(forecast_rows)
+            print(f"   ✅ Создано прогнозных строк: {len(forecast_df)}", flush=True)
+        else:
+            # Нет срезов - строим один общий прогноз (старая логика)
+            print(f"   📊 Нет срезов, строим общий прогноз", flush=True)
             
-            # Добавляем Quarter и Halfyear
-            forecast_row['Quarter'] = f'Q{(month_data["month"]-1)//3 + 1}'
-            forecast_row['Halfyear'] = 'H1' if month_data['month'] <= 6 else 'H2'
+            if selected_model == 'arima':
+                forecast_values = generate_arima_forecast(df_agg, metric, len(forecast_months))
+            elif selected_model == 'prophet':
+                forecast_values = generate_prophet_forecast(df_agg, metric, year_col, month_col, forecast_months)
+            elif selected_model == 'random_forest':
+                forecast_values = generate_random_forest_forecast(df_agg, metric, year_col, month_col, forecast_months)
+            else:
+                return jsonify({'success': False, 'message': f'Неизвестная модель: {selected_model}'})
             
-            forecast_rows.append(forecast_row)
-        
-        forecast_df = pd.DataFrame(forecast_rows)
+            # Создаем прогнозные строки
+            forecast_rows = []
+            last_row = df.iloc[-1].to_dict()
+            
+            for i, month_data in enumerate(forecast_months):
+                forecast_row = last_row.copy()
+                forecast_row[year_col] = month_data['year']
+                forecast_row[month_col] = month_data['month']
+                forecast_row[metric] = forecast_values[i]
+                
+                for other_metric in all_metrics:
+                    if other_metric != metric:
+                        forecast_row[other_metric] = 0
+                
+                forecast_row['is_forecast'] = True
+                forecast_row['Quarter'] = f'Q{(month_data["month"]-1)//3 + 1}'
+                forecast_row['Halfyear'] = 'H1' if month_data['month'] <= 6 else 'H2'
+                
+                forecast_rows.append(forecast_row)
+            
+            forecast_df = pd.DataFrame(forecast_rows)
         
         # Добавляем Quarter и Halfyear к фактическим данным если их нет
         if 'Quarter' not in df.columns:
