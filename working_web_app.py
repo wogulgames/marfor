@@ -2346,10 +2346,10 @@ def train_models():
         models_to_train = data.get('models', [])
         test_size = data.get('test_size', 0.2)
         
-        print(f"\n🎯 ОБУЧЕНИЕ МОДЕЛЕЙ:")
-        print(f"   Метрика: {metric}")
-        print(f"   Модели: {models_to_train}")
-        print(f"   Размер тестовой выборки: {test_size * 100}%")
+        print(f"\n🎯 ОБУЧЕНИЕ МОДЕЛЕЙ:", flush=True)
+        print(f"   Метрика: {metric}", flush=True)
+        print(f"   Модели: {models_to_train}", flush=True)
+        print(f"   Размер тестовой выборки: {test_size * 100}%", flush=True)
         
         # Подготовка данных
         df = forecast_app.df
@@ -2384,37 +2384,38 @@ def train_models():
         if not year_col or not month_col or metric not in df.columns:
             return jsonify({'success': False, 'message': 'Необходимые поля не найдены'})
         
-        print(f"   📊 Поля для обучения:")
-        print(f"      Временные: {year_col}, {month_col}")
-        print(f"      Срезы: {slice_cols}")
-        print(f"      Метрика: {metric}")
+        print(f"   📊 Поля для обучения:", flush=True)
+        print(f"      Временные: {year_col}, {month_col}", flush=True)
+        print(f"      Срезы: {slice_cols}", flush=True)
+        print(f"      Метрика: {metric}", flush=True)
         
         # Агрегируем данные по году-месяцу + срезы
         groupby_cols = [year_col, month_col] + slice_cols
         df_agg = df.groupby(groupby_cols)[metric].sum().reset_index()
         df_agg = df_agg.sort_values([year_col, month_col])
         
-        print(f"   📊 После агрегации: {len(df_agg)} уникальных комбинаций")
+        print(f"   📊 После агрегации: {len(df_agg)} уникальных комбинаций", flush=True)
         
         results = {}
         
         # Если есть срезы - обучаем модели для каждой комбинации
         if slice_cols:
-            print(f"   🔄 Обучение моделей для каждой комбинации срезов...")
+            print(f"   🔄 Обучение моделей для каждой комбинации срезов...", flush=True)
             
             # Получаем уникальные комбинации срезов
             unique_slices = df_agg[slice_cols].drop_duplicates().to_dict('records')
-            print(f"   📊 Уникальных комбинаций срезов: {len(unique_slices)}")
+            print(f"   📊 Уникальных комбинаций срезов: {len(unique_slices)}", flush=True)
             
             # Обучаем каждую модель
             for model_name in models_to_train:
-                print(f"\n📊 Обучение модели: {model_name}")
+                print(f"\n📊 Обучение модели: {model_name}", flush=True)
                 
                 slice_results = []
                 all_predictions = []
                 all_actuals = []
                 
-                for slice_combination in unique_slices:
+                for slice_idx, slice_combination in enumerate(unique_slices):
+                    print(f"   🔄 Прогресс: {slice_idx + 1}/{len(unique_slices)} срезов...", end='\r', flush=True)
                     # Фильтруем данные для этой комбинации срезов
                     mask = pd.Series([True] * len(df_agg))
                     for slice_col in slice_cols:
@@ -2495,8 +2496,8 @@ def train_models():
                     }
                 }
                 
-                print(f"   ✅ {model_name}: MAPE = {avg_metrics['mape']:.2f}% (усреднено по {len(slice_results)} срезам)")
-                print(f"      Диапазон MAPE: {results[model_name]['metrics_range']['mape_min']:.2f}% - {results[model_name]['metrics_range']['mape_max']:.2f}%")
+                print(f"\n   ✅ {model_name}: MAPE = {avg_metrics['mape']:.2f}% (усреднено по {len(slice_results)} срезам)", flush=True)
+                print(f"      Диапазон MAPE: {results[model_name]['metrics_range']['mape_min']:.2f}% - {results[model_name]['metrics_range']['mape_max']:.2f}%", flush=True)
         
         else:
             # Нет срезов - используем старую логику (один общий прогноз)
