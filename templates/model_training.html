@@ -241,6 +241,18 @@
                             </div>
                         </div>
                     </div>
+                    
+                    <!-- Детализированная сводная таблица валидации -->
+                    <div class="card mt-4" id="detailedValidationCard" style="display: none;">
+                        <div class="card-header bg-info text-dark">
+                            <h6 class="mb-0">
+                                <i class="fas fa-table me-2"></i>Детализированная валидация по срезам
+                            </h6>
+                        </div>
+                        <div class="card-body">
+                            <div id="validationPivotTableContainer"></div>
+                        </div>
+                    </div>
 
                     <!-- Кнопка перехода к прогнозу -->
                     <div class="text-center mb-4">
@@ -258,6 +270,7 @@
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
     <script src="/static/breadcrumbs.js"></script>
+    <script src="/static/pivot_table_system.js"></script>
     <script>
         let currentSessionId = null;
         let forecastSettings = null;
@@ -576,6 +589,50 @@
             
             // Отображаем метрики для выбранной модели
             displayModelMetrics(selectedModel);
+            
+            // Отображаем детализированную таблицу
+            renderDetailedValidationTable(selectedModel, modelData);
+        }
+        
+        function renderDetailedValidationTable(modelName, modelData) {
+            const card = document.getElementById('detailedValidationCard');
+            const container = document.getElementById('validationPivotTableContainer');
+            
+            if (!modelData.detailed_validation || modelData.detailed_validation.length === 0) {
+                card.style.display = 'none';
+                return;
+            }
+            
+            card.style.display = 'block';
+            
+            // Подготавливаем данные для сводной таблицы
+            const detailedData = modelData.detailed_validation;
+            const sliceCols = modelData.slice_cols || [];
+            const metric = forecastSettings.metric;
+            
+            // Создаем конфигурацию для pivot table
+            const pivotConfig = {
+                rows: [...sliceCols, { name: 'period', displayName: 'Период' }],
+                metrics: [
+                    { name: 'actual', displayName: 'Факт' },
+                    { name: 'predicted', displayName: 'Прогноз' }
+                ],
+                mode: 'slices'
+            };
+            
+            // Рендерим таблицу
+            container.innerHTML = '<div class="text-center"><p>Загрузка...</p></div>';
+            
+            setTimeout(() => {
+                try {
+                    const pivotData = new PivotData(detailedData, pivotConfig);
+                    const renderer = new PivotRenderer(pivotData, pivotConfig);
+                    container.innerHTML = renderer.createPivotTableHTML();
+                } catch (error) {
+                    console.error('Ошибка рендеринга таблицы:', error);
+                    container.innerHTML = '<div class="alert alert-danger">Ошибка отображения таблицы</div>';
+                }
+            }, 100);
         }
 
         function displayModelMetrics(modelName) {

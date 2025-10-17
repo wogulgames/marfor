@@ -215,11 +215,15 @@ def train_random_forest_with_slices(df_agg, metric, year_col, month_col, slice_c
     test_df_copy = test_df.copy()
     test_df_copy['predicted'] = predicted
     
-    # Группируем по периоду и суммируем
+    # Группируем по периоду и суммируем (для графика)
     validation_agg = test_df_copy.groupby('period').agg({
         metric: 'sum',
         'predicted': 'sum'
     }).reset_index()
+    
+    # Подготавливаем детализированные данные для сводной таблицы
+    detailed_validation = test_df_copy[[year_col, month_col] + slice_cols + [metric, 'predicted', 'period']].copy()
+    detailed_validation.rename(columns={metric: 'actual'}, inplace=True)
     
     return {
         'metrics': metrics,
@@ -228,6 +232,8 @@ def train_random_forest_with_slices(df_agg, metric, year_col, month_col, slice_c
             'actual': validation_agg[metric].tolist(),
             'predicted': validation_agg['predicted'].tolist()
         },
+        'detailed_validation': detailed_validation.to_dict('records'),  # Детализированные данные
+        'slice_cols': slice_cols,  # Названия срезов
         'model': model,
         'label_encoders': label_encoders,
         'feature_cols': feature_cols
@@ -2628,7 +2634,9 @@ def train_models():
         for model_name, model_data in results.items():
             results_for_client[model_name] = {
                 'metrics': model_data['metrics'],
-                'validation_data': model_data['validation_data']
+                'validation_data': model_data['validation_data'],
+                'detailed_validation': model_data.get('detailed_validation', []),
+                'slice_cols': model_data.get('slice_cols', [])
             }
         
         return jsonify({
