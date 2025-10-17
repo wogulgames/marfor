@@ -3218,32 +3218,32 @@ def generate_forecast():
                             slice_forecast = generate_prophet_forecast(df_slice, metric, year_col, month_col, forecast_months)
                         else:
                             continue
+                        
+                        # Создаем прогнозные строки для этой комбинации срезов
+                        for i, month_data in enumerate(forecast_months):
+                            forecast_row = {}
+                            forecast_row[year_col] = month_data['year']
+                            forecast_row[month_col] = month_data['month']
+                            
+                            # Копируем значения срезов
+                            for slice_col in slice_cols:
+                                forecast_row[slice_col] = slice_combination[slice_col]
+                            
+                            # Устанавливаем значения метрик
+                            forecast_row[metric] = slice_forecast[i]
+                            for other_metric in all_metrics:
+                                if other_metric != metric:
+                                    forecast_row[other_metric] = 0
+                            
+                            forecast_row['is_forecast'] = True
+                            forecast_row['Quarter'] = f'Q{(month_data["month"]-1)//3 + 1}'
+                            forecast_row['Halfyear'] = 'H1' if month_data['month'] <= 6 else 'H2'
+                            
+                            forecast_rows.append(forecast_row)
                     
-                    # Создаем прогнозные строки для этой комбинации срезов
-                    for i, month_data in enumerate(forecast_months):
-                        forecast_row = {}
-                        forecast_row[year_col] = month_data['year']
-                        forecast_row[month_col] = month_data['month']
-                        
-                        # Копируем значения срезов
-                        for slice_col in slice_cols:
-                            forecast_row[slice_col] = slice_combination[slice_col]
-                        
-                        # Устанавливаем значения метрик
-                        forecast_row[metric] = slice_forecast[i]
-                        for other_metric in all_metrics:
-                            if other_metric != metric:
-                                forecast_row[other_metric] = 0
-                        
-                        forecast_row['is_forecast'] = True
-                        forecast_row['Quarter'] = f'Q{(month_data["month"]-1)//3 + 1}'
-                        forecast_row['Halfyear'] = 'H1' if month_data['month'] <= 6 else 'H2'
-                        
-                        forecast_rows.append(forecast_row)
-                
-                except Exception as e:
-                    print(f"   ⚠️ Ошибка прогноза для {slice_combination}: {e}", flush=True)
-                    continue
+                    except Exception as e:
+                        print(f"   ⚠️ Ошибка прогноза для {slice_combination}: {e}", flush=True)
+                        continue
             
             forecast_df = pd.DataFrame(forecast_rows)
             print(f"   ✅ Создано прогнозных строк: {len(forecast_df)}", flush=True)

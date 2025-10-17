@@ -1593,13 +1593,15 @@
             // Рендерим хлебные крошки (шаг 6 - Результаты прогноза)
             breadcrumbsModule.render(6);
             
-            // Получаем session_id из URL
+            // Получаем session_id и model из URL
             const urlParams = new URLSearchParams(window.location.search);
             currentSessionId = urlParams.get('session_id') || sessionStorage.getItem('currentSessionId');
+            const selectedModel = urlParams.get('model') || sessionStorage.getItem('selectedForecastModel');
             
             console.log('🆔 session_id из URL:', urlParams.get('session_id'));
             console.log('🆔 session_id из sessionStorage:', sessionStorage.getItem('currentSessionId'));
             console.log('🆔 currentSessionId итоговый:', currentSessionId);
+            console.log('🎯 Модель для прогноза:', selectedModel);
             
             if (!currentSessionId) {
                 console.error('❌ Ошибка: session_id не найден!');
@@ -1608,7 +1610,7 @@
                 return;
             }
             
-            console.log('📊 Загрузка результатов прогноза для сессии:', currentSessionId);
+            console.log('📊 Генерация прогноза для сессии:', currentSessionId);
             
             // Скрываем секции, которые не нужны на странице результатов
             const uploadSection = document.getElementById('uploadSection');
@@ -1616,9 +1618,108 @@
                 uploadSection.style.display = 'none';
             }
             
-            // Загружаем результаты прогноза
-            await loadForecastResults();
+            // Проверяем, есть ли уже готовый прогноз
+            if (selectedModel) {
+                // Модель передана - нужно сгенерировать прогноз
+                await generateAndLoadForecast(selectedModel);
+            } else {
+                // Прогноз уже есть - просто загружаем
+                await loadForecastResults();
+            }
         });
+        
+        async function generateAndLoadForecast(selectedModel) {
+            console.log('🚀 Генерация прогноза с моделью:', selectedModel);
+            
+            // Показываем модальное окно с прогресс-баром
+            const modalHTML = `
+                <div class="modal fade" id="forecastProgressModal" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1">
+                    <div class="modal-dialog modal-dialog-centered">
+                        <div class="modal-content">
+                            <div class="modal-header bg-primary text-white">
+                                <h5 class="modal-title">
+                                    <i class="fas fa-magic me-2"></i>Генерация прогноза
+                                </h5>
+                            </div>
+                            <div class="modal-body text-center">
+                                <div class="spinner-border text-primary mb-3" style="width: 3rem; height: 3rem;" role="status">
+                                    <span class="visually-hidden">Загрузка...</span>
+                                </div>
+                                <h6 id="progressStatus">Подготовка данных...</h6>
+                                <p class="text-muted" id="progressDetails">Это может занять несколько минут</p>
+                                <div class="progress mt-3">
+                                    <div class="progress-bar progress-bar-striped progress-bar-animated" 
+                                         role="progressbar" 
+                                         style="width: 30%" 
+                                         id="progressBar">30%</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            // Добавляем модальное окно в DOM
+            document.body.insertAdjacentHTML('beforeend', modalHTML);
+            const modal = new bootstrap.Modal(document.getElementById('forecastProgressModal'));
+            modal.show();
+            
+            try {
+                // Обновляем статус
+                document.getElementById('progressStatus').textContent = 'Генерация прогноза...';
+                document.getElementById('progressBar').style.width = '50%';
+                document.getElementById('progressBar').textContent = '50%';
+                
+                // Получаем маппинг из sessionStorage
+                const mappingData = sessionStorage.getItem('dataMapping');
+                const mapping = mappingData ? JSON.parse(mappingData) : null;
+                
+                // Запускаем генерацию прогноза
+                const response = await fetch('/api/generate_forecast', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        session_id: currentSessionId,
+                        model: selectedModel,
+                        mapping: mapping
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (!result.success) {
+                    modal.hide();
+                    alert('❌ Ошибка построения прогноза: ' + result.message);
+                    window.location.href = `/forecast/training?session_id=${currentSessionId}`;
+                    return;
+                }
+                
+                // Обновляем статус
+                document.getElementById('progressStatus').textContent = 'Загрузка результатов...';
+                document.getElementById('progressBar').style.width = '80%';
+                document.getElementById('progressBar').textContent = '80%';
+                
+                // Загружаем результаты
+                await loadForecastResults();
+                
+                // Закрываем модальное окно
+                document.getElementById('progressStatus').textContent = 'Готово!';
+                document.getElementById('progressBar').style.width = '100%';
+                document.getElementById('progressBar').textContent = '100%';
+                
+                setTimeout(() => {
+                    modal.hide();
+                }, 500);
+                
+            } catch (error) {
+                console.error('❌ Ошибка:', error);
+                modal.hide();
+                alert('❌ Ошибка: ' + error.message);
+                window.location.href = `/forecast/training?session_id=${currentSessionId}`;
+            }
+        }
         
         async function loadForecastResults() {
             try {

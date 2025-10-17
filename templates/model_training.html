@@ -1038,36 +1038,12 @@
                 return;
             }
             
-            try {
-                // Получаем маппинг из sessionStorage
-                const mappingData = sessionStorage.getItem('dataMapping');
-                const mapping = mappingData ? JSON.parse(mappingData) : null;
-                
-                // Запускаем построение прогноза
-                const response = await fetch('/api/generate_forecast', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        session_id: currentSessionId,
-                        model: selectedModel,
-                        mapping: mapping  // Передаем маппинг
-                    })
-                });
-                
-                const result = await response.json();
-                
-                if (result.success) {
-                    // Переходим на страницу результатов прогноза
-                    window.location.href = `/forecast/results?session_id=${currentSessionId}`;
-                } else {
-                    alert('❌ Ошибка построения прогноза: ' + result.message);
-                }
-            } catch (error) {
-                console.error('Ошибка:', error);
-                alert('❌ Ошибка: ' + error.message);
-            }
+            // Сохраняем выбранную модель в sessionStorage
+            sessionStorage.setItem('selectedForecastModel', selectedModel);
+            
+            // Сразу переходим на страницу результатов
+            // Генерация прогноза запустится там с прогресс-баром
+            window.location.href = `/forecast/results?session_id=${currentSessionId}&model=${selectedModel}`;
         }
 
         function goBack() {
