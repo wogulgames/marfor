@@ -871,13 +871,65 @@
             }
             
             const detailedData = modelData.detailed_validation;
+            const sliceCols = modelData.slice_cols || [];
+            const metricName = forecastSettings.metric;
+            
             const mappingData = sessionStorage.getItem('dataMapping');
-            const mapping = mappingData ? JSON.parse(mappingData) : null;
+            let mapping = mappingData ? JSON.parse(mappingData) : null;
             
             if (!mapping) {
                 alert('Ошибка: маппинг данных не найден');
                 return;
             }
+            
+            // Создаем модифицированный маппинг для валидации
+            const validationMapping = JSON.parse(JSON.stringify(mapping)); // deep copy
+            
+            console.log('📊 Исходный маппинг:', mapping);
+            console.log('📊 Данные валидации (первая строка):', detailedData[0]);
+            
+            // Убираем старые метрики, добавляем новые для валидации
+            validationMapping.columns = validationMapping.columns.filter(col => {
+                // Оставляем только срезы и временные поля
+                return (col.role === 'dimension') || (col.time_series && col.time_series !== '');
+            });
+            
+            // Добавляем metric_type как срез (для разделения Факт/Прогноз)
+            if (validationPivotMode === 'time-series') {
+                validationMapping.columns.push({
+                    name: 'metric_type',
+                    role: 'dimension',
+                    time_series: '',
+                    nesting_level: sliceCols.length,
+                    include: true
+                });
+            }
+            
+            // Добавляем метрику revenue с данными
+            validationMapping.columns.push({
+                name: metricName,
+                role: 'metric',
+                include: true
+            });
+            
+            // Добавляем period как временное поле если его нет
+            if (!validationMapping.columns.find(col => col.name === 'period')) {
+                validationMapping.columns.push({
+                    name: 'period',
+                    role: 'dimension',
+                    time_series: 'period',
+                    include: true
+                });
+            }
+            
+            // Устанавливаем selectedMetrics
+            if (validationPivotMode === 'time-series') {
+                validationMapping.selectedMetrics = validationSelectedMetrics.includes('actual') && validationSelectedMetrics.includes('predicted') 
+                    ? [metricName]  // Если выбраны обе метрики, показываем revenue (он содержит и факт и прогноз через metric_type)
+                    : [metricName];
+            }
+            
+            console.log('📊 Модифицированный маппинг для валидации:', validationMapping);
             
             // Используем renderNewPivotTable
             const container = document.getElementById('timeSeriesChartContainer');
@@ -890,7 +942,7 @@
             setTimeout(() => {
                 try {
                     if (typeof renderNewPivotTable === 'function') {
-                        renderNewPivotTable(detailedData, mapping, validationPivotMode, validationSplitField || '');
+                        renderNewPivotTable(detailedData, validationMapping, validationPivotMode, validationSplitField || '');
                         console.log('✅ Таблица валидации отрендерена');
                     } else {
                         container.innerHTML = '<div class="alert alert-danger">Ошибка: функция renderNewPivotTable не найдена</div>';
