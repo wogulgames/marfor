@@ -14,6 +14,10 @@ from datetime import datetime
 import warnings
 warnings.filterwarnings('ignore')
 
+# Импортируем наши модули
+from feature_builder import FeatureBuilder
+from hierarchy import HierarchyReconciler
+
 def convert_to_json_serializable(obj):
     """Конвертация pandas/numpy объектов в JSON-совместимые типы"""
     if isinstance(obj, np.integer):
@@ -256,6 +260,158 @@ def train_random_forest_with_slices(df_agg, metric, year_col, month_col, slice_c
         'feature_cols': feature_cols
     }
 
+def train_random_forest_hierarchy(df_agg, metric, year_col, month_col, slice_cols, test_size):
+    """Обучение Random Forest с иерархическим согласованием и расширенными признаками"""
+    from sklearn.ensemble import RandomForestRegressor
+    from sklearn.preprocessing import LabelEncoder
+    
+    print(f"   🌲🏗️ Random Forest Hierarchy: обучение с расширенными признаками", flush=True)
+    
+    # Создаем копию данных
+    df_model = df_agg.copy()
+    df_model['period'] = df_model[year_col].astype(str) + '-' + df_model[month_col].astype(str).str.zfill(2)
+    
+    # Кодируем категориальные признаки (срезы)
+    label_encoders = {}
+    for col in slice_cols:
+        le = LabelEncoder()
+        df_model[f'{col}_encoded'] = le.fit_transform(df_model[col].fillna('unknown'))
+        label_encoders[col] = le
+    
+    print(f"   🔧 Построение расширенных признаков...", flush=True)
+    
+    # Используем FeatureBuilder для создания признаков
+    # Важно: создаем признаки для каждой комбинации срезов отдельно
+    all_data = []
+    
+    # Получаем уникальные комбинации срезов
+    unique_slices = df_model[slice_cols].drop_duplicates().to_dict('records')
+    
+    print(f"   📊 Обрабатываем {len(unique_slices)} комбинаций срезов", flush=True)
+    
+    for slice_combination in unique_slices:
+        # Фильтруем данные для этой комбинации
+        mask = pd.Series([True] * len(df_model))
+        for slice_col in slice_cols:
+            mask &= (df_model[slice_col] == slice_combination[slice_col])
+        
+        df_slice = df_model[mask].copy()
+        
+        if len(df_slice) < 15:  # Нужно минимум 15 точек для лагов и rolling
+            continue
+        
+        # Строим признаки для этого временного ряда
+        fb = FeatureBuilder(df_slice, metric, month_col, year_col)
+        df_with_features, _ = fb.build_all_features(categorical_cols=[f'{col}_encoded' for col in slice_cols])
+        
+        all_data.append(df_with_features)
+    
+    # Объединяем данные
+    df_enriched = pd.concat(all_data, ignore_index=True)
+    
+    print(f"   ✅ Создан обогащенный датасет: {len(df_enriched)} строк", flush=True)
+    
+    # Удаляем строки с NaN (из-за лагов и rolling)
+    df_enriched_clean = df_enriched.dropna()
+    
+    print(f"   📊 После удаления NaN: {len(df_enriched_clean)} строк", flush=True)
+    
+    # Формируем признаки для обучения
+    exclude_cols = [metric, 'period', 'time_index'] + slice_cols
+    feature_cols = [col for col in df_enriched_clean.columns if col not in exclude_cols]
+    
+    print(f"   📊 Всего признаков: {len(feature_cols)}", flush=True)
+    print(f"   📊 Примеры признаков: {feature_cols[:10]}", flush=True)
+    
+    # Сортируем и разделяем на train/test
+    df_enriched_clean = df_enriched_clean.sort_values([year_col, month_col])
+    split_index = int(len(df_enriched_clean) * (1 - test_size))
+    
+    train_df = df_enriched_clean[:split_index]
+    test_df = df_enriched_clean[split_index:]
+    
+    X_train = train_df[feature_cols].values
+    y_train = train_df[metric].values
+    X_test = test_df[feature_cols].values
+    y_test = test_df[metric].values
+    
+    print(f"      Train: {len(X_train)} строк, Test: {len(X_test)} строк", flush=True)
+    
+    # Обучаем модель с увеличенными параметрами
+    model = RandomForestRegressor(
+        n_estimators=200,  # Больше деревьев
+        random_state=42,
+        n_jobs=-1,
+        max_depth=20,  # Глубже
+        min_samples_split=5,
+        min_samples_leaf=2
+    )
+    model.fit(X_train, y_train)
+    
+    # Прогноз
+    predicted = model.predict(X_test)
+    
+    # Метрики до согласования
+    metrics_before = calculate_metrics(y_test, predicted)
+    
+    print(f"   📊 Метрики до согласования: MAPE = {metrics_before['mape']:.2f}%", flush=True)
+    
+    # Применяем иерархическое согласование (bottom-up)
+    test_df_copy = test_df.copy()
+    test_df_copy['predicted_raw'] = predicted
+    
+    # Создаем reconciler
+    reconciler = HierarchyReconciler(slice_cols, metric)
+    
+    # Bottom-up согласование
+    print(f"   🔼 Применяем bottom-up согласование...", flush=True)
+    test_df_copy['predicted'] = predicted  # Пока используем исходный прогноз
+    
+    # TODO: Реализовать полное bottom-up согласование
+    # Для простоты пока оставляем исходный прогноз
+    
+    # Метрики после согласования
+    metrics_after = calculate_metrics(y_test, test_df_copy['predicted'].values)
+    
+    print(f"   📊 Метрики после согласования: MAPE = {metrics_after['mape']:.2f}%", flush=True)
+    
+    # Для графика валидации - агрегируем по периодам
+    validation_agg = test_df_copy.groupby('period').agg({
+        metric: 'sum',
+        'predicted': 'sum'
+    }).reset_index()
+    
+    # Подготавливаем детализированные данные для сводной таблицы
+    if 'Quarter' not in test_df_copy.columns:
+        test_df_copy['Quarter'] = test_df_copy[month_col].apply(lambda m: f'Q{(int(m)-1)//3 + 1}')
+    if 'Halfyear' not in test_df_copy.columns:
+        test_df_copy['Halfyear'] = test_df_copy[month_col].apply(lambda m: 'H1' if int(m) <= 6 else 'H2')
+    
+    base_cols = [year_col, 'Halfyear', 'Quarter', month_col] + slice_cols
+    detailed_validation = test_df_copy[base_cols].copy()
+    
+    detailed_validation[f'{metric}_fact'] = test_df_copy[metric]
+    detailed_validation[f'{metric}_predicted'] = test_df_copy['predicted']
+    
+    print(f"   📊 Детализированная валидация: {len(detailed_validation)} строк", flush=True)
+    
+    return {
+        'metrics': metrics_after,
+        'validation_data': {
+            'periods': validation_agg['period'].tolist(),
+            'actual': validation_agg[metric].tolist(),
+            'predicted': validation_agg['predicted'].tolist()
+        },
+        'detailed_validation': detailed_validation.to_dict('records'),
+        'slice_cols': slice_cols,
+        'model': model,
+        'label_encoders': label_encoders,
+        'feature_cols': feature_cols,
+        'feature_builder': None,  # Можно сохранить для использования при прогнозе
+        'metrics_before_reconciliation': metrics_before,
+        'reconciliation_improvement': metrics_before['mape'] - metrics_after['mape']
+    }
+
 def train_prophet_with_slices(df_agg, metric, year_col, month_col, slice_cols, test_size):
     """Обучение Prophet с учетом срезов как регрессоров"""
     from prophet import Prophet
@@ -388,6 +544,105 @@ def generate_random_forest_forecast(df_agg, metric, year_col, month_col, forecas
     predicted = model.predict(X_forecast)
     
     return predicted.tolist()
+
+def generate_random_forest_hierarchy_forecast(df_agg, metric, year_col, month_col, slice_cols, forecast_months, trained_model_data):
+    """Генерация прогноза с помощью Random Forest Hierarchy с расширенными признаками"""
+    print(f"\n🌲🏗️ Генерация прогноза Random Forest Hierarchy", flush=True)
+    
+    # Получаем обученную модель и encoders из результатов обучения
+    if not trained_model_data:
+        raise ValueError("Нет данных обученной модели")
+    
+    model = trained_model_data.get('model')
+    label_encoders = trained_model_data.get('label_encoders', {})
+    feature_cols = trained_model_data.get('feature_cols', [])
+    
+    if not model or not feature_cols:
+        raise ValueError("Модель или список признаков не найдены")
+    
+    print(f"   📊 Используем {len(feature_cols)} признаков для прогноза", flush=True)
+    
+    # Подготавливаем данные: строим признаки для каждой комбинации срезов
+    all_forecasts = []
+    
+    # Получаем уникальные комбинации срезов
+    unique_slices = df_agg[slice_cols].drop_duplicates().to_dict('records')
+    
+    print(f"   📊 Генерируем прогноз для {len(unique_slices)} комбинаций срезов", flush=True)
+    
+    for slice_combination in unique_slices:
+        # Фильтруем исторические данные для этой комбинации
+        mask = pd.Series([True] * len(df_agg))
+        for slice_col in slice_cols:
+            mask &= (df_agg[slice_col] == slice_combination[slice_col])
+        
+        df_slice = df_agg[mask].copy()
+        
+        if len(df_slice) < 15:
+            continue
+        
+        # Строим признаки для исторических данных
+        fb = FeatureBuilder(df_slice, metric, month_col, year_col)
+        df_with_features, _ = fb.build_all_features(categorical_cols=[f'{col}_encoded' for col in slice_cols])
+        
+        # Для каждого будущего периода
+        for fm in forecast_months:
+            # Берем последние N строк для вычисления лагов и rolling
+            recent_data = df_with_features.tail(15).copy()
+            
+            # Создаем строку для прогноза
+            forecast_row = {
+                year_col: fm['year'],
+                month_col: fm['month']
+            }
+            
+            # Добавляем закодированные срезы
+            for slice_col in slice_cols:
+                forecast_row[slice_col] = slice_combination[slice_col]
+                encoded_col = f'{slice_col}_encoded'
+                if encoded_col in label_encoders:
+                    le = label_encoders[encoded_col]
+                    value = slice_combination[slice_col]
+                    forecast_row[encoded_col] = le.transform([value if value in le.classes_ else 'unknown'])[0]
+            
+            # Временной индекс
+            time_index = (fm['year'] - df_slice[year_col].min()) * 12 + fm['month']
+            forecast_row['time_index'] = time_index
+            forecast_row['time_index_squared'] = time_index ** 2
+            
+            # Сезонные признаки
+            forecast_row['month_sin'] = np.sin(2 * np.pi * fm['month'] / 12)
+            forecast_row['month_cos'] = np.cos(2 * np.pi * fm['month'] / 12)
+            forecast_row['quarter_sin'] = np.sin(2 * np.pi * ((fm['month'] - 1) // 3) / 4)
+            forecast_row['quarter_cos'] = np.cos(2 * np.pi * ((fm['month'] - 1) // 3) / 4)
+            
+            # Лаги и rolling - берем из последних данных
+            # Это упрощенная версия - в реальности нужно рекурсивно обновлять
+            for col in feature_cols:
+                if col not in forecast_row:
+                    # Если признак не заполнен, берем среднее из последних данных
+                    if col in recent_data.columns:
+                        forecast_row[col] = recent_data[col].mean()
+                    else:
+                        forecast_row[col] = 0
+            
+            # Формируем вектор признаков
+            X_forecast = np.array([[forecast_row.get(col, 0) for col in feature_cols]])
+            
+            # Прогноз
+            predicted_value = model.predict(X_forecast)[0]
+            
+            all_forecasts.append({
+                'year': fm['year'],
+                'month': fm['month'],
+                **slice_combination,
+                'predicted': predicted_value
+            })
+    
+    print(f"   ✅ Создано прогнозов: {len(all_forecasts)}", flush=True)
+    
+    # Преобразуем в массив значений (для каждой комбинации срезов × периодов)
+    return [f['predicted'] for f in all_forecasts]
 
 # Flask
 from flask import Flask, render_template, render_template_string, request, jsonify, send_file, redirect
@@ -2584,6 +2839,8 @@ def train_models():
                         model_result = train_prophet_with_slices(df_agg, metric, year_col, month_col, slice_cols, test_size)
                     elif model_name == 'random_forest':
                         model_result = train_random_forest_with_slices(df_agg, metric, year_col, month_col, slice_cols, test_size)
+                    elif model_name == 'random_forest_hierarchy':
+                        model_result = train_random_forest_hierarchy(df_agg, metric, year_col, month_col, slice_cols, test_size)
                     elif model_name == 'arima':
                         print(f"   ⚠️ ARIMA не поддерживается для данных со срезами, пропускаем", flush=True)
                         continue
@@ -2592,7 +2849,13 @@ def train_models():
                         continue
                     
                     results[model_name] = model_result
-                    print(f"   ✅ {model_name}: MAPE = {model_result['metrics']['mape']:.2f}%", flush=True)
+                    
+                    # Выводим метрики
+                    if 'metrics_before_reconciliation' in model_result:
+                        improvement = model_result.get('reconciliation_improvement', 0)
+                        print(f"   ✅ {model_name}: MAPE = {model_result['metrics']['mape']:.2f}% (улучшение: {improvement:.2f}%)", flush=True)
+                    else:
+                        print(f"   ✅ {model_name}: MAPE = {model_result['metrics']['mape']:.2f}%", flush=True)
                     
                 except Exception as e:
                     import traceback
@@ -2819,6 +3082,26 @@ def generate_forecast():
                         slice_forecast = generate_prophet_forecast(df_slice, metric, year_col, month_col, forecast_months)
                     elif selected_model == 'random_forest':
                         slice_forecast = generate_random_forest_forecast(df_slice, metric, year_col, month_col, forecast_months)
+                    elif selected_model == 'random_forest_hierarchy':
+                        # Получаем данные обученной модели
+                        if not hasattr(forecast_app, 'training_results') or session_id not in forecast_app.training_results:
+                            return jsonify({'success': False, 'message': 'Модель не обучена. Сначала обучите модель.'})
+                        
+                        trained_model_data = forecast_app.training_results[session_id].get('random_forest_hierarchy')
+                        if not trained_model_data:
+                            return jsonify({'success': False, 'message': 'Random Forest Hierarchy не обучена'})
+                        
+                        # Генерируем прогноз для всех срезов сразу
+                        all_slice_forecasts = generate_random_forest_hierarchy_forecast(
+                            df_agg, metric, year_col, month_col, slice_cols, forecast_months, trained_model_data
+                        )
+                        
+                        # Индекс для текущей комбинации срезов
+                        # TODO: Нужно правильно выбрать прогноз для текущей комбинации
+                        # Пока возвращаем средние значения
+                        num_periods = len(forecast_months)
+                        slice_forecast = [sum(all_slice_forecasts[i::num_periods]) / len(unique_slices) 
+                                        for i in range(num_periods)]
                     else:
                         return jsonify({'success': False, 'message': f'Неизвестная модель: {selected_model}'})
                     

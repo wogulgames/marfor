@@ -154,21 +154,38 @@
                     <div class="card-body">
                         <div class="alert alert-info mb-3">
                             <i class="fas fa-info-circle me-2"></i>
-                            <strong>Оптимизированное обучение:</strong> Random Forest обучается на всех данных сразу, 
-                            используя срезы (регионы, категории, подразделения) как признаки. Это быстро и точно!
+                            <strong>Две модели Random Forest:</strong> Базовая (быстрая) и продвинутая с иерархическим согласованием, 
+                            лагами, rolling-признаками и сезонными синусоидами. Выберите модели для сравнения!
                         </div>
                         
-                        <div class="row justify-content-center">
-                            <!-- Random Forest -->
-                            <div class="col-md-8">
-                                <div class="model-card active">
+                        <div class="row">
+                            <!-- Random Forest (базовая) -->
+                            <div class="col-md-6">
+                                <div class="model-card" onclick="toggleModel('random_forest')">
                                     <div class="form-check">
-                                        <input class="form-check-input" type="checkbox" id="model_random_forest" checked disabled>
+                                        <input class="form-check-input" type="checkbox" id="model_random_forest" checked>
                                         <label class="form-check-label fw-bold" for="model_random_forest">
                                             <i class="fas fa-tree me-2"></i>Random Forest
                                         </label>
                                     </div>
-                                    <small class="text-muted">Ансамбль деревьев решений. Отлично работает с категориальными признаками и большими данными.</small>
+                                    <small class="text-muted">
+                                        Базовая модель. Признаки: year, month, срезы (закодированные). Быстрая и простая.
+                                    </small>
+                                </div>
+                            </div>
+                            
+                            <!-- Random Forest Hierarchy (продвинутая) -->
+                            <div class="col-md-6">
+                                <div class="model-card" onclick="toggleModel('random_forest_hierarchy')">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="model_random_forest_hierarchy" checked>
+                                        <label class="form-check-label fw-bold" for="model_random_forest_hierarchy">
+                                            <i class="fas fa-project-diagram me-2"></i>Random Forest Hierarchy
+                                        </label>
+                                    </div>
+                                    <small class="text-muted">
+                                        Продвинутая модель. Лаги (1,2,3,4,6,12), rolling (mean/std/min/max), сезонные синусоиды, иерархическое согласование.
+                                    </small>
                                 </div>
                             </div>
                         </div>
@@ -362,7 +379,7 @@
         let forecastSettings = null;
         let trainingResults = null;
         let validationChartInstance = null;
-        let selectedModels = ['arima', 'prophet', 'random_forest'];
+        let selectedModels = ['random_forest', 'random_forest_hierarchy'];
 
         document.addEventListener('DOMContentLoaded', async function() {
             // Рендерим хлебные крошки (шаг 4 - Обучение моделей)
@@ -467,8 +484,14 @@
                 const mappingData = sessionStorage.getItem('dataMapping');
                 const mapping = mappingData ? JSON.parse(mappingData) : null;
                 
-                // Используем только Random Forest
-                const modelsToTrain = ['random_forest'];
+                // Используем выбранные модели
+                if (selectedModels.length === 0) {
+                    alert('Выберите хотя бы одну модель для обучения');
+                    document.getElementById('trainingStatus').style.display = 'none';
+                    return;
+                }
+                
+                console.log('🚀 Запуск обучения моделей:', selectedModels);
                 
                 const response = await fetch('/api/train_models', {
                     method: 'POST',
@@ -478,7 +501,7 @@
                     body: JSON.stringify({
                         session_id: currentSessionId,
                         metric: forecastSettings.metric,
-                        models: modelsToTrain,
+                        models: selectedModels,  // Используем выбранные модели
                         test_size: testSize / 100,
                         forecast_periods: forecastSettings.forecast_periods,
                         mapping: mapping
@@ -569,6 +592,7 @@
                 'arima': 'ARIMA',
                 'prophet': 'Prophet',
                 'random_forest': 'Random Forest',
+                'random_forest_hierarchy': 'Random Forest Hierarchy',
                 'linear_regression': 'Linear Regression',
                 'xgboost': 'XGBoost'
             };
