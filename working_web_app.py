@@ -244,6 +244,10 @@ def train_random_forest_with_slices(df_agg, metric, year_col, month_col, slice_c
     
     detailed_validation = pd.DataFrame(detailed_rows)
     
+    print(f"   📊 Детализированная валидация: {len(detailed_validation)} строк", flush=True)
+    print(f"   📊 Колонки: {list(detailed_validation.columns)}", flush=True)
+    print(f"   📊 Первая строка:", detailed_validation.iloc[0].to_dict() if len(detailed_validation) > 0 else "нет данных", flush=True)
+    
     return {
         'metrics': metrics,
         'validation_data': {
