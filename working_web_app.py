@@ -126,7 +126,7 @@ def train_prophet_model(train_df, test_df, metric, year_col, month_col):
     }
 
 def train_random_forest_model(train_df, test_df, metric, year_col, month_col):
-    """Обучение Random Forest модели"""
+    """Обучение Random Forest модели (без срезов)"""
     from sklearn.ensemble import RandomForestRegressor
     
     # Подготовка признаков
@@ -153,6 +153,145 @@ def train_random_forest_model(train_df, test_df, metric, year_col, month_col):
             'actual': test_df[metric].tolist(),
             'predicted': predicted.tolist()
         }
+    }
+
+def train_random_forest_with_slices(df_agg, metric, year_col, month_col, slice_cols, test_size):
+    """Обучение Random Forest с учетом срезов как признаков"""
+    from sklearn.ensemble import RandomForestRegressor
+    from sklearn.preprocessing import LabelEncoder
+    
+    print(f"   🌲 Random Forest: обучение на всех данных со срезами как признаками", flush=True)
+    
+    # Создаем копию данных
+    df_model = df_agg.copy()
+    df_model['period'] = df_model[year_col].astype(str) + '-' + df_model[month_col].astype(str).str.zfill(2)
+    
+    # Кодируем категориальные признаки (срезы)
+    label_encoders = {}
+    for col in slice_cols:
+        le = LabelEncoder()
+        df_model[f'{col}_encoded'] = le.fit_transform(df_model[col].fillna('unknown'))
+        label_encoders[col] = le
+    
+    # Формируем признаки: год, месяц, закодированные срезы
+    feature_cols = [year_col, month_col] + [f'{col}_encoded' for col in slice_cols]
+    
+    # Сортируем по времени и разделяем на train/test
+    df_model = df_model.sort_values([year_col, month_col])
+    split_index = int(len(df_model) * (1 - test_size))
+    
+    train_df = df_model[:split_index]
+    test_df = df_model[split_index:]
+    
+    X_train = train_df[feature_cols].values
+    y_train = train_df[metric].values
+    X_test = test_df[feature_cols].values
+    y_test = test_df[metric].values
+    
+    print(f"      Train: {len(X_train)} строк, Test: {len(X_test)} строк", flush=True)
+    print(f"      Признаки: {feature_cols}", flush=True)
+    
+    # Обучаем модель
+    model = RandomForestRegressor(n_estimators=100, random_state=42, n_jobs=-1, max_depth=15)
+    model.fit(X_train, y_train)
+    
+    # Прогноз
+    predicted = model.predict(X_test)
+    
+    # Метрики
+    metrics = calculate_metrics(y_test, predicted)
+    
+    # Для графика валидации - агрегируем по периодам
+    test_df_copy = test_df.copy()
+    test_df_copy['predicted'] = predicted
+    
+    # Группируем по периоду и суммируем
+    validation_agg = test_df_copy.groupby('period').agg({
+        metric: 'sum',
+        'predicted': 'sum'
+    }).reset_index()
+    
+    return {
+        'metrics': metrics,
+        'validation_data': {
+            'periods': validation_agg['period'].tolist(),
+            'actual': validation_agg[metric].tolist(),
+            'predicted': validation_agg['predicted'].tolist()
+        },
+        'model': model,
+        'label_encoders': label_encoders,
+        'feature_cols': feature_cols
+    }
+
+def train_prophet_with_slices(df_agg, metric, year_col, month_col, slice_cols, test_size):
+    """Обучение Prophet с учетом срезов как регрессоров"""
+    from prophet import Prophet
+    
+    print(f"   📈 Prophet: обучение на всех данных со срезами как регрессорами", flush=True)
+    
+    # Создаем копию данных
+    df_model = df_agg.copy()
+    df_model['ds'] = pd.to_datetime(df_model[year_col].astype(str) + '-' + 
+                                     df_model[month_col].astype(str).str.zfill(2) + '-01')
+    df_model['y'] = df_model[metric]
+    
+    # One-hot encoding для срезов
+    df_encoded = pd.get_dummies(df_model, columns=slice_cols, prefix=slice_cols)
+    
+    # Находим колонки-регрессоры (все one-hot encoded колонки)
+    regressor_cols = [col for col in df_encoded.columns if any(col.startswith(f'{sc}_') for sc in slice_cols)]
+    
+    print(f"      Регрессоры (срезы): {len(regressor_cols)} колонок", flush=True)
+    
+    # Сортируем по времени и разделяем на train/test
+    df_encoded = df_encoded.sort_values(['ds'])
+    split_index = int(len(df_encoded) * (1 - test_size))
+    
+    train_df = df_encoded[:split_index]
+    test_df = df_encoded[split_index:]
+    
+    print(f"      Train: {len(train_df)} строк, Test: {len(test_df)} строк", flush=True)
+    
+    # Подготовка данных для Prophet
+    prophet_train = train_df[['ds', 'y'] + regressor_cols].copy()
+    prophet_test = test_df[['ds'] + regressor_cols].copy()
+    
+    # Создаем и обучаем модель
+    model = Prophet(yearly_seasonality=True, weekly_seasonality=False, daily_seasonality=False)
+    
+    # Добавляем регрессоры
+    for reg_col in regressor_cols:
+        model.add_regressor(reg_col)
+    
+    model.fit(prophet_train)
+    
+    # Прогноз
+    forecast = model.predict(prophet_test)
+    predicted = forecast['yhat'].values
+    
+    # Метрики
+    y_test = test_df['y'].values
+    metrics = calculate_metrics(y_test, predicted)
+    
+    # Для графика валидации - агрегируем по периодам
+    test_df_copy = test_df.copy()
+    test_df_copy['predicted'] = predicted
+    test_df_copy['period'] = test_df_copy['ds'].dt.strftime('%Y-%m')
+    
+    validation_agg = test_df_copy.groupby('period').agg({
+        'y': 'sum',
+        'predicted': 'sum'
+    }).reset_index()
+    
+    return {
+        'metrics': metrics,
+        'validation_data': {
+            'periods': validation_agg['period'].tolist(),
+            'actual': validation_agg['y'].tolist(),
+            'predicted': validation_agg['predicted'].tolist()
+        },
+        'model': model,
+        'regressor_cols': regressor_cols
     }
 
 # Функции генерации прогноза на будущие периоды
@@ -2398,106 +2537,35 @@ def train_models():
         
         results = {}
         
-        # Если есть срезы - обучаем модели для каждой комбинации
+        # Если есть срезы - используем новый подход (срезы как признаки)
         if slice_cols:
-            print(f"   🔄 Обучение моделей для каждой комбинации срезов...", flush=True)
-            
-            # Получаем уникальные комбинации срезов
-            unique_slices = df_agg[slice_cols].drop_duplicates().to_dict('records')
-            print(f"   📊 Уникальных комбинаций срезов: {len(unique_slices)}", flush=True)
+            print(f"   🔄 Обучение моделей со срезами как признаками...", flush=True)
+            print(f"   📊 Уникальных комбинаций срезов: {len(df_agg)}", flush=True)
             
             # Обучаем каждую модель
             for model_name in models_to_train:
                 print(f"\n📊 Обучение модели: {model_name}", flush=True)
                 
-                slice_results = []
-                all_predictions = []
-                all_actuals = []
-                
-                for slice_idx, slice_combination in enumerate(unique_slices):
-                    print(f"   🔄 Прогресс: {slice_idx + 1}/{len(unique_slices)} срезов...", end='\r', flush=True)
-                    # Фильтруем данные для этой комбинации срезов
-                    mask = pd.Series([True] * len(df_agg))
-                    for slice_col in slice_cols:
-                        mask &= (df_agg[slice_col] == slice_combination[slice_col])
-                    
-                    df_slice = df_agg[mask].copy()
-                    df_slice['period'] = df_slice[year_col].astype(str) + '-' + df_slice[month_col].astype(str).str.zfill(2)
-                    
-                    if len(df_slice) < 5:
-                        print(f"   ⚠️ Недостаточно данных для {slice_combination}, пропускаем")
+                try:
+                    if model_name == 'prophet':
+                        model_result = train_prophet_with_slices(df_agg, metric, year_col, month_col, slice_cols, test_size)
+                    elif model_name == 'random_forest':
+                        model_result = train_random_forest_with_slices(df_agg, metric, year_col, month_col, slice_cols, test_size)
+                    elif model_name == 'arima':
+                        print(f"   ⚠️ ARIMA не поддерживается для данных со срезами, пропускаем", flush=True)
+                        continue
+                    else:
+                        print(f"   ⚠️ Неизвестная модель {model_name}, пропускаем", flush=True)
                         continue
                     
-                    # Разделение на обучающую и контрольную выборки
-                    split_index = int(len(df_slice) * (1 - test_size))
-                    train_df_slice = df_slice[:split_index]
-                    test_df_slice = df_slice[split_index:]
+                    results[model_name] = model_result
+                    print(f"   ✅ {model_name}: MAPE = {model_result['metrics']['mape']:.2f}%", flush=True)
                     
-                    if len(test_df_slice) < 1:
-                        print(f"   ⚠️ Недостаточно тестовых данных для {slice_combination}, пропускаем")
-                        continue
-                    
-                    # Обучаем модель
-                    try:
-                        if model_name == 'arima':
-                            model_result = train_arima_model(train_df_slice, test_df_slice, metric)
-                        elif model_name == 'prophet':
-                            model_result = train_prophet_model(train_df_slice, test_df_slice, metric, year_col, month_col)
-                        elif model_name == 'random_forest':
-                            model_result = train_random_forest_model(train_df_slice, test_df_slice, metric, year_col, month_col)
-                        else:
-                            continue
-                        
-                        slice_results.append(model_result['metrics'])
-                        all_predictions.extend(model_result['validation_data']['predicted'])
-                        all_actuals.extend(model_result['validation_data']['actual'])
-                        
-                    except Exception as e:
-                        print(f"   ⚠️ Ошибка обучения {model_name} для {slice_combination}: {e}")
-                        continue
-                
-                if not slice_results:
-                    print(f"   ❌ Не удалось обучить {model_name} ни на одной комбинации срезов")
+                except Exception as e:
+                    import traceback
+                    print(f"   ❌ Ошибка обучения {model_name}: {e}", flush=True)
+                    traceback.print_exc()
                     continue
-                
-                # Усредняем метрики по всем срезам
-                avg_metrics = {
-                    'mae': sum(r['mae'] for r in slice_results) / len(slice_results),
-                    'rmse': sum(r['rmse'] for r in slice_results) / len(slice_results),
-                    'mape': sum(r['mape'] for r in slice_results) / len(slice_results)
-                }
-                
-                # Для графика - агрегируем предсказания по всем срезам (суммируем по периодам)
-                validation_df = pd.DataFrame({
-                    'actual': all_actuals,
-                    'predicted': all_predictions
-                })
-                
-                # Группируем по периодам (для агрегированного графика)
-                # Получаем уникальные периоды из тестовой выборки
-                test_periods = sorted(df_agg[year_col].astype(str) + '-' + df_agg[month_col].astype(str).str.zfill(2))
-                split_index = int(len(set(test_periods)) * (1 - test_size))
-                unique_test_periods = sorted(set(test_periods))[split_index:]
-                
-                # Для простоты - берём первые N значений (где N = количество тестовых периодов * количество срезов)
-                n_test_periods = len(unique_test_periods)
-                
-                results[model_name] = {
-                    'metrics': avg_metrics,
-                    'validation_data': {
-                        'periods': unique_test_periods,
-                        'actual': validation_df['actual'].tolist()[:n_test_periods],
-                        'predicted': validation_df['predicted'].tolist()[:n_test_periods]
-                    },
-                    'slices_count': len(slice_results),
-                    'metrics_range': {
-                        'mape_min': min(r['mape'] for r in slice_results),
-                        'mape_max': max(r['mape'] for r in slice_results)
-                    }
-                }
-                
-                print(f"\n   ✅ {model_name}: MAPE = {avg_metrics['mape']:.2f}% (усреднено по {len(slice_results)} срезам)", flush=True)
-                print(f"      Диапазон MAPE: {results[model_name]['metrics_range']['mape_min']:.2f}% - {results[model_name]['metrics_range']['mape_max']:.2f}%", flush=True)
         
         else:
             # Нет срезов - используем старую логику (один общий прогноз)
@@ -2695,8 +2763,8 @@ def generate_forecast():
                 
                 df_slice = df_agg[mask].copy()
                 
-                if len(df_slice) < 3:
-                    print(f"   ⚠️ Недостаточно данных для {slice_combination}, пропускаем", flush=True)
+                if len(df_slice) < 10:
+                    # print(f"   ⚠️ Недостаточно данных для {slice_combination}, пропускаем", flush=True)
                     continue
                 
                 # Строим прогноз для этой комбинации
