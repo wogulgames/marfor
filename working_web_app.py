@@ -222,8 +222,27 @@ def train_random_forest_with_slices(df_agg, metric, year_col, month_col, slice_c
     }).reset_index()
     
     # Подготавливаем детализированные данные для сводной таблицы
-    detailed_validation = test_df_copy[[year_col, month_col] + slice_cols + [metric, 'predicted', 'period']].copy()
-    detailed_validation.rename(columns={metric: 'actual'}, inplace=True)
+    # Нужно трансформировать: одна строка → две строки (факт и прогноз как отдельные метрики)
+    detailed_rows = []
+    for _, row in test_df_copy.iterrows():
+        # Базовые поля для обеих строк
+        base_row = {year_col: row[year_col], month_col: row[month_col], 'period': row['period']}
+        for slice_col in slice_cols:
+            base_row[slice_col] = row[slice_col]
+        
+        # Строка с фактическими данными
+        fact_row = base_row.copy()
+        fact_row['metric_type'] = 'Факт'
+        fact_row[metric] = row[metric]
+        detailed_rows.append(fact_row)
+        
+        # Строка с прогнозными данными
+        pred_row = base_row.copy()
+        pred_row['metric_type'] = 'Прогноз'
+        pred_row[metric] = row['predicted']
+        detailed_rows.append(pred_row)
+    
+    detailed_validation = pd.DataFrame(detailed_rows)
     
     return {
         'metrics': metrics,

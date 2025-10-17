@@ -622,13 +622,15 @@
                 rowFields.push(new PivotField(sliceCol, sliceCol, 'slice', index));
             });
             
+            // Добавляем metric_type (Факт/Прогноз) как последнее поле в строках
+            rowFields.push(new PivotField('metric_type', 'Тип', 'slice', sliceCols.length));
+            
             // Период будет временной осью (по столбцам)
             const timeField = new PivotField('period', 'Период', 'time');
             
-            // Создаем поля метрик - будут показаны как отдельные строки под каждым срезом
+            // Метрика - это значение revenue (будет одна колонка с названием метрики)
             const metricFields = [
-                new PivotField('actual', 'Факт', 'metric'),
-                new PivotField('predicted', 'Прогноз', 'metric')
+                new PivotField(metric, metric, 'metric')
             ];
             
             const pivotConfig = new PivotConfig(rowFields, metricFields, timeField, 'time-series');
