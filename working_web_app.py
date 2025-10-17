@@ -118,8 +118,8 @@ def train_prophet_model(train_df, test_df, metric, year_col, month_col):
     
     return {
         'metrics': metrics,
-        'validation': {
-            'labels': test_df['period'].tolist(),
+        'validation_data': {
+            'periods': test_df['period'].tolist(),
             'actual': test_df[metric].tolist(),
             'predicted': predicted.tolist()
         }
