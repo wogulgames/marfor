@@ -154,34 +154,21 @@
                     <div class="card-body">
                         <div class="alert alert-info mb-3">
                             <i class="fas fa-info-circle me-2"></i>
-                            <strong>Оптимизированное обучение:</strong> Модели обучаются на всех данных сразу, 
-                            используя срезы (регионы, категории, подразделения) как признаки. Это быстрее и точнее!
+                            <strong>Оптимизированное обучение:</strong> Random Forest обучается на всех данных сразу, 
+                            используя срезы (регионы, категории, подразделения) как признаки. Это быстро и точно!
                         </div>
                         
-                        <div class="row">
-                            <!-- Prophet -->
-                            <div class="col-md-6">
-                                <div class="model-card" onclick="toggleModel('prophet')">
-                                    <div class="form-check">
-                                        <input class="form-check-input" type="checkbox" id="model_prophet" checked>
-                                        <label class="form-check-label fw-bold" for="model_prophet">
-                                            <i class="fas fa-magic me-2"></i>Prophet
-                                        </label>
-                                    </div>
-                                    <small class="text-muted">Модель от Facebook с регрессорами. Учитывает тренды, сезонность и срезы.</small>
-                                </div>
-                            </div>
-                            
+                        <div class="row justify-content-center">
                             <!-- Random Forest -->
-                            <div class="col-md-6">
-                                <div class="model-card" onclick="toggleModel('random_forest')">
+                            <div class="col-md-8">
+                                <div class="model-card active">
                                     <div class="form-check">
-                                        <input class="form-check-input" type="checkbox" id="model_random_forest" checked>
+                                        <input class="form-check-input" type="checkbox" id="model_random_forest" checked disabled>
                                         <label class="form-check-label fw-bold" for="model_random_forest">
                                             <i class="fas fa-tree me-2"></i>Random Forest
                                         </label>
                                     </div>
-                                    <small class="text-muted">Ансамбль деревьев решений. Отлично работает с категориальными признаками.</small>
+                                    <small class="text-muted">Ансамбль деревьев решений. Отлично работает с категориальными признаками и большими данными.</small>
                                 </div>
                             </div>
                         </div>
@@ -370,11 +357,6 @@
         }
 
         async function trainModels() {
-            if (selectedModels.length === 0) {
-                alert('Выберите хотя бы одну модель');
-                return;
-            }
-            
             const testSize = parseInt(document.getElementById('testSizeSlider').value);
             
             // Показываем статус обучения
@@ -386,6 +368,9 @@
                 const mappingData = sessionStorage.getItem('dataMapping');
                 const mapping = mappingData ? JSON.parse(mappingData) : null;
                 
+                // Используем только Random Forest
+                const modelsToTrain = ['random_forest'];
+                
                 const response = await fetch('/api/train_models', {
                     method: 'POST',
                     headers: {
@@ -394,7 +379,7 @@
                     body: JSON.stringify({
                         session_id: currentSessionId,
                         metric: forecastSettings.metric,
-                        models: selectedModels,
+                        models: modelsToTrain,
                         test_size: testSize / 100,
                         forecast_periods: forecastSettings.forecast_periods,
                         mapping: mapping
@@ -510,11 +495,11 @@
             validationChartInstance = new Chart(ctx, {
                 type: 'line',
                 data: {
-                    labels: modelData.validation.labels,
+                    labels: modelData.validation_data.periods,
                     datasets: [
                         {
                             label: 'Фактические значения',
-                            data: modelData.validation.actual,
+                            data: modelData.validation_data.actual,
                             borderColor: '#2196F3',
                             backgroundColor: '#2196F333',
                             borderWidth: 4,
@@ -524,7 +509,7 @@
                         },
                         {
                             label: 'Прогноз модели',
-                            data: modelData.validation.predicted,
+                            data: modelData.validation_data.predicted,
                             borderColor: '#4CAF50',
                             backgroundColor: '#4CAF5033',
                             borderWidth: 4,
