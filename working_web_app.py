@@ -2095,7 +2095,7 @@ def load_project(project_id):
             'created_at': project.get('created_at'),
             'updated_at': datetime.now().isoformat(),
             'session_id': project.get('session_id'),
-            'mapping_config': clean_nan_values(project.get('mapping_config', {})),
+            'mapping_config': clean_nan_values(project.get('data_mapping', {})),  # Используем data_mapping!
             'csv_loaded': csv_loaded,
             'current_step': current_step,
             'redirect_url': redirect_url,

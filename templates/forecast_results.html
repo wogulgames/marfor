@@ -1816,14 +1816,41 @@
                 console.log('📊 Количество строк в raw_data:', forecastData.raw_data.length);
                 
                 // СНАЧАЛА загружаем маппинг
-                const savedDataMapping = sessionStorage.getItem('dataMapping');
-                if (!savedDataMapping) {
-                    alert('Ошибка: маппинг не найден. Вернитесь к настройкам прогноза.');
-                    return;
+                let savedDataMapping = sessionStorage.getItem('dataMapping');
+                
+                // Если маппинга нет в sessionStorage - загружаем из проекта
+                if (!savedDataMapping || savedDataMapping === 'undefined') {
+                    console.log('⚠️ Маппинг не найден в sessionStorage, загружаем из проекта...');
+                    
+                    // Загружаем проект через API
+                    const projectId = sessionStorage.getItem('currentProjectId');
+                    if (projectId) {
+                        const projectResponse = await fetch(`/api/load_project/${projectId}`);
+                        const projectData = await projectResponse.json();
+                        
+                        if (projectData.success) {
+                            // Проверяем оба возможных ключа
+                            const mappingData = projectData.project.mapping_config || projectData.project.data_mapping;
+                            if (mappingData) {
+                                dataMapping = mappingData;
+                                sessionStorage.setItem('dataMapping', JSON.stringify(dataMapping));
+                                console.log('✅ Маппинг загружен из проекта');
+                                console.log('   Колонок в маппинге:', dataMapping.columns?.length || 0);
+                            }
+                        }
+                    }
+                    
+                    if (!dataMapping) {
+                        alert('Ошибка: маппинг не найден. Вернитесь к настройкам маппинга.');
+                        window.location.href = `/forecast/mapping?session_id=${currentSessionId}`;
+                        return;
+                    }
+                } else {
+                    dataMapping = JSON.parse(savedDataMapping);
+                    console.log('📊 Маппинг загружен из sessionStorage');
                 }
                 
-                dataMapping = JSON.parse(savedDataMapping);
-                console.log('📊 Маппинг загружен:', dataMapping);
+                console.log('📊 Маппинг:', dataMapping);
                 
                 // ТЕПЕРЬ проверяем прогнозные данные
                 const forecastRows = forecastData.raw_data.filter(row => row.is_forecast === true);
