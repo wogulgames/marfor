@@ -4683,34 +4683,96 @@
             const datasets = [];
             const colors = ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40'];
             
+            // Определяем индекс последнего фактического периода
+            let lastFactIndex = -1;
+            if (data.raw_data && data.raw_data.length > 0) {
+                for (let i = 0; i < data.raw_data.length; i++) {
+                    if (!data.raw_data[i].is_forecast) {
+                        lastFactIndex = i;
+                    } else {
+                        break; // Как только начались прогнозы, останавливаемся
+                    }
+                }
+            }
+            console.log('📊 Последний фактический индекс:', lastFactIndex);
+            
             if (data.grouped_series && Object.keys(data.grouped_series).length > 0) {
                 // Группированные данные
                 let colorIndex = 0;
                 for (const [groupName, groupData] of Object.entries(data.grouped_series)) {
                     for (const [metric, values] of Object.entries(groupData)) {
-                        datasets.push({
-                            label: `${metric} (${groupName})`,
-                            data: values,
-                            borderColor: colors[colorIndex % colors.length],
-                            backgroundColor: colors[colorIndex % colors.length] + '20',
-                            fill: false,
-                            tension: 0.1
-                        });
+                        const color = colors[colorIndex % colors.length];
+                        
+                        // Разделяем на фактические и прогнозные данные
+                        const factData = lastFactIndex >= 0 ? values.slice(0, lastFactIndex + 1) : values;
+                        const forecastData = lastFactIndex >= 0 ? new Array(lastFactIndex).fill(null).concat(values.slice(lastFactIndex)) : [];
+                        
+                        // Фактическая линия (сплошная)
+                        if (factData.length > 0) {
+                            datasets.push({
+                                label: `${metric} (${groupName})`,
+                                data: factData,
+                                borderColor: color,
+                                backgroundColor: color + '20',
+                                fill: false,
+                                tension: 0.1,
+                                borderWidth: 2
+                            });
+                        }
+                        
+                        // Прогнозная линия (пунктирная)
+                        if (forecastData.length > lastFactIndex + 1) {
+                            datasets.push({
+                                label: `${metric} (${groupName}) - Прогноз`,
+                                data: forecastData,
+                                borderColor: color,
+                                backgroundColor: color + '20',
+                                fill: false,
+                                tension: 0.1,
+                                borderWidth: 2,
+                                borderDash: [10, 5] // Пунктирная линия
+                            });
+                        }
+                        
                         colorIndex++;
                     }
-                            }
-                        } else {
+                }
+            } else {
                 // Обычные данные
                 data.time_series.forEach((series, index) => {
-                datasets.push({
-                        label: series.metric,
-                        data: series.data,
-                    borderColor: colors[index % colors.length],
-                    backgroundColor: colors[index % colors.length] + '20',
-                    fill: false,
-                    tension: 0.1
+                    const color = colors[index % colors.length];
+                    
+                    // Разделяем на фактические и прогнозные данные
+                    const factData = lastFactIndex >= 0 ? series.data.slice(0, lastFactIndex + 1) : series.data;
+                    const forecastData = lastFactIndex >= 0 ? new Array(lastFactIndex).fill(null).concat(series.data.slice(lastFactIndex)) : [];
+                    
+                    // Фактическая линия (сплошная)
+                    if (factData.length > 0) {
+                        datasets.push({
+                            label: series.metric,
+                            data: factData,
+                            borderColor: color,
+                            backgroundColor: color + '20',
+                            fill: false,
+                            tension: 0.1,
+                            borderWidth: 2
+                        });
+                    }
+                    
+                    // Прогнозная линия (пунктирная)
+                    if (forecastData.length > lastFactIndex + 1) {
+                        datasets.push({
+                            label: `${series.metric} - Прогноз`,
+                            data: forecastData,
+                            borderColor: color,
+                            backgroundColor: color + '20',
+                            fill: false,
+                            tension: 0.1,
+                            borderWidth: 2,
+                            borderDash: [10, 5] // Пунктирная линия
+                        });
+                    }
                 });
-            });
             }
             
             // Создаем график
