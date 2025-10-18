@@ -141,11 +141,15 @@ class BreadcrumbsModule {
         const currentSessionId = sessionStorage.getItem('currentSessionId') || 
                                  sessionStorage.getItem('sessionId');
         
+        console.log('   Session ID:', currentSessionId);
+        console.log('   Базовый URL:', step.url);
+        
         let url = step.url;
         if (currentSessionId && url !== '/') {
             url += `?session_id=${currentSessionId}`;
         }
-
+        
+        console.log('   Финальный URL:', url);
         window.location.href = url;
     }
 
