@@ -890,11 +890,21 @@ class WorkingForecastApp:
         if missing_strategy == 'remove':
             df = df.dropna()
         elif missing_strategy == 'zeros':
+            # Числовые колонки → 0
             numeric_cols = df.select_dtypes(include=[np.number]).columns
             df[numeric_cols] = df[numeric_cols].fillna(0)
+            
+            # Категориальные/текстовые колонки → 'Не указано'
+            categorical_cols = df.select_dtypes(include=['object', 'category']).columns
+            df[categorical_cols] = df[categorical_cols].fillna('Не указано')
         elif missing_strategy == 'mean':
+            # Числовые колонки → среднее
             numeric_cols = df.select_dtypes(include=[np.number]).columns
             df[numeric_cols] = df[numeric_cols].fillna(df[numeric_cols].mean())
+            
+            # Категориальные/текстовые колонки → 'Не указано'
+            categorical_cols = df.select_dtypes(include=['object', 'category']).columns
+            df[categorical_cols] = df[categorical_cols].fillna('Не указано')
         
         # Обработка выбросов
         if mapping_config.get('detectOutliers', False):
@@ -3727,6 +3737,12 @@ def get_forecast_results(session_id):
         
         # Загружаем данные из CSV
         forecast_df = pd.read_csv(combined_file)
+        
+        # Заменяем NaN на пустые строки для корректной JSON сериализации
+        forecast_df = forecast_df.fillna('')
+        
+        print(f"   📊 Загружено строк: {len(forecast_df)}")
+        print(f"   📊 Колонок: {len(forecast_df.columns)}")
         
         return jsonify({
             'success': True,
