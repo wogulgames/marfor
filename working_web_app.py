@@ -1388,19 +1388,15 @@ def get_time_series_data(session_id):
         
         if use_forecast:
             # Используем прогнозные данные (факт + прогноз)
-            # Сначала пытаемся взять из памяти
-            if hasattr(forecast_app, 'forecast_results') and session_id in forecast_app.forecast_results:
-                combined_data = forecast_app.forecast_results[session_id]['combined_data']
-                df = pd.DataFrame(combined_data)
-                print(f"DEBUG: Используем прогнозные данные из памяти: {len(df)} строк")
-            else:
-                # Загружаем из CSV файла
-                print(f"🔄 Прогнозных данных нет в памяти, загружаем из CSV...", flush=True)
+            # ПРИОРИТЕТ: Сначала пытаемся загрузить из CSV (более надежно)
+            print(f"🔄 Загрузка прогнозных данных...", flush=True)
+            
+            # Ищем проект с прогнозом
+            projects_dir = 'projects'
+            forecast_file = None
+            
+            if os.path.exists(projects_dir):
                 print(f"   Ищем проект с session_id: {session_id}", flush=True)
-                
-                # Ищем проект с прогнозом
-                projects_dir = 'projects'
-                forecast_file = None
                 
                 for filename in os.listdir(projects_dir):
                     if filename.endswith('.json'):
@@ -1425,16 +1421,27 @@ def get_time_series_data(session_id):
                             print(f"   ⚠️ Ошибка чтения {filename}: {e}", flush=True)
                             continue
                 
-                print(f"   Итоговый файл: {forecast_file}", flush=True)
-                print(f"   Существует: {os.path.exists(forecast_file) if forecast_file else False}", flush=True)
-                
-                if not forecast_file or not os.path.exists(forecast_file):
-                    return jsonify({'success': False, 'message': 'CSV файл прогноза не найден'})
-                
+            print(f"   Итоговый файл: {forecast_file}", flush=True)
+            print(f"   Существует: {os.path.exists(forecast_file) if forecast_file else False}", flush=True)
+            
+            # Пытаемся загрузить из CSV
+            if forecast_file and os.path.exists(forecast_file):
                 print(f"✅ Загружаем прогноз из CSV: {forecast_file}", flush=True)
                 df = pd.read_csv(forecast_file)
                 df = df.fillna('Не указано')  # Заменяем NaN
                 print(f"✅ Загружено {len(df)} строк из CSV", flush=True)
+            
+            # Fallback: пытаемся взять из памяти
+            elif hasattr(forecast_app, 'forecast_results') and session_id in forecast_app.forecast_results:
+                print(f"⚠️ CSV не найден, используем данные из памяти", flush=True)
+                combined_data = forecast_app.forecast_results[session_id]['combined_data']
+                df = pd.DataFrame(combined_data)
+                df = df.fillna('Не указано')
+                print(f"✅ Загружено {len(df)} строк из памяти", flush=True)
+            
+            else:
+                print(f"❌ Прогноз не найден ни в CSV, ни в памяти", flush=True)
+                return jsonify({'success': False, 'message': 'Прогнозные данные не найдены. CSV файл отсутствует.'})
             
             print(f"DEBUG: Колонки прогнозных данных: {list(df.columns)}")
             if 'is_forecast' in df.columns:
