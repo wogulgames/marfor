@@ -419,13 +419,24 @@
         }
         
         async function loadTrainingResults() {
+            console.log('🔍 loadTrainingResults() вызвана');
             try {
                 // Проверяем есть ли сохраненные результаты обучения в проекте
                 const projectId = sessionStorage.getItem('currentProjectId');
-                if (!projectId) return;
+                console.log('   Project ID:', projectId);
                 
+                if (!projectId) {
+                    console.log('   ⚠️ Project ID не найден, пропускаем загрузку результатов');
+                    return;
+                }
+                
+                console.log('   Загружаем проект...');
                 const projectResponse = await fetch(`/api/load_project/${projectId}`);
                 const projectData = await projectResponse.json();
+                
+                console.log('   Результат API:', projectData.success);
+                console.log('   Проект:', projectData.project);
+                console.log('   training_results в проекте:', projectData.project?.training_results);
                 
                 if (projectData.success && projectData.project.training_results) {
                     const savedResults = projectData.project.training_results;
@@ -434,13 +445,19 @@
                     // Восстанавливаем результаты (без моделей sklearn)
                     trainingResults = savedResults;
                     
+                    console.log('   trainingResults установлен:', trainingResults);
+                    console.log('   Вызываем displayTrainingResults()...');
+                    
                     // Показываем результаты
                     displayTrainingResults();
                     
                     console.log('✅ Результаты обучения восстановлены');
+                } else {
+                    console.log('⚠️ training_results не найдены в проекте');
                 }
             } catch (error) {
-                console.log('ℹ️ Результаты обучения не найдены:', error.message);
+                console.error('❌ Ошибка загрузки результатов обучения:', error);
+                console.error('   Детали:', error.message);
             }
         }
 
