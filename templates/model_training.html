@@ -409,22 +409,30 @@
         });
 
         async function loadForecastSettings() {
+            console.log('🔄 loadForecastSettings() вызвана');
+            console.log('   currentSessionId:', currentSessionId);
+            
             try {
                 // Получаем сохраненные настройки прогноза
                 const response = await fetch(`/api/get_forecast_settings/${currentSessionId}`);
                 const result = await response.json();
                 
+                console.log('   Результат API get_forecast_settings:', result.success);
+                
                 if (result.success) {
                     forecastSettings = result.settings;
+                    console.log('   Настройки загружены:', forecastSettings);
                     displayForecastSettings();
                     
+                    console.log('   Вызываем loadTrainingResults()...');
                     // Пытаемся загрузить результаты обучения если они есть
                     await loadTrainingResults();
                 } else {
+                    console.error('   ❌ Ошибка от API:', result.message);
                     alert('Ошибка загрузки настроек: ' + result.message);
                 }
             } catch (error) {
-                console.error('Ошибка:', error);
+                console.error('❌ Ошибка loadForecastSettings:', error);
                 alert('Ошибка загрузки настроек: ' + error.message);
             }
         }
