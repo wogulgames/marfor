@@ -1632,10 +1632,16 @@
                     // Добавляем кнопку для создания нового проекта
                     addNewProjectButton();
                     
-                    if (savedProcessedData && savedDataMapping) {
+                    if (savedProcessedData && savedDataMapping && savedProcessedData !== 'undefined' && savedDataMapping !== 'undefined') {
                         // Есть обработанные данные
-                        processedData = JSON.parse(savedProcessedData);
-                        dataMapping = JSON.parse(savedDataMapping);
+                        try {
+                            processedData = JSON.parse(savedProcessedData);
+                            dataMapping = JSON.parse(savedDataMapping);
+                        } catch (error) {
+                            console.error('Ошибка парсинга данных:', error);
+                            processedData = null;
+                            dataMapping = null;
+                        }
                         
                         // Проверяем, есть ли настройки маппинга
                         if (dataMapping && Object.keys(dataMapping).length > 0) {
@@ -1696,6 +1702,18 @@
                     sessionStorage.setItem('uploadedData', JSON.stringify(dataInfoForStorage));
                     if (project.mapping_config) {
                         sessionStorage.setItem('dataMapping', JSON.stringify(project.mapping_config));
+                    }
+                    
+                    // Если проект на шаге "Анализ" или выше, загружаем обработанные данные
+                    if (project.current_step >= 3) {
+                        // Загружаем обработанные данные через API
+                        const processedResponse = await fetch(`/api/get_processed_data/${currentSessionId}`);
+                        const processedResult = await processedResponse.json();
+                        
+                        if (processedResult.success && processedResult.processed_data) {
+                            sessionStorage.setItem('processedData', JSON.stringify(processedResult.processed_data));
+                            console.log('✅ Обработанные данные загружены и сохранены');
+                        }
                     }
                 } catch (error) {
                     console.warn('Ошибка сохранения в sessionStorage:', error);
