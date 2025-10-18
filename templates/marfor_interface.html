@@ -1633,7 +1633,7 @@
                     addNewProjectButton();
                     
                     if (savedProcessedData && savedDataMapping && savedProcessedData !== 'undefined' && savedDataMapping !== 'undefined') {
-                        // Есть обработанные данные
+                        // Есть обработанные данные в sessionStorage
                         try {
                             processedData = JSON.parse(savedProcessedData);
                             dataMapping = JSON.parse(savedDataMapping);
@@ -1651,12 +1651,70 @@
                             showMappingButton();
                         }
                     } else {
-                        // Показываем кнопку для перехода к маппингу
-                        showMappingButton();
+                        // Данных нет в sessionStorage - пытаемся загрузить из проекта
+                        console.log('⚠️ processedData нет в sessionStorage, загружаем из проекта...');
+                        
+                        const maxStep = parseInt(sessionStorage.getItem('maxCompletedStep')) || 0;
+                        if (maxStep >= 3) {
+                            // Проект прошел маппинг - загружаем обработанные данные
+                            loadProcessedDataFromServer(savedSessionId);
+                        } else {
+                            // Маппинг еще не применялся
+                            showMappingButton();
+                        }
                     }
                 }
             }
         });
+
+        async function loadProcessedDataFromServer(sessionId) {
+            try {
+                console.log('📥 Загрузка обработанных данных с сервера...');
+                
+                // Загружаем обработанные данные
+                const response = await fetch(`/api/get_processed_data/${sessionId}`);
+                const result = await response.json();
+                
+                if (!result.success) {
+                    console.error('❌ Ошибка загрузки данных:', result.message);
+                    showMappingButton();
+                    return;
+                }
+                
+                console.log('✅ Данные загружены с сервера');
+                
+                // Загружаем маппинг из проекта
+                const projectId = sessionStorage.getItem('currentProjectId');
+                if (projectId) {
+                    const projectResponse = await fetch(`/api/load_project/${projectId}`);
+                    const projectData = await projectResponse.json();
+                    
+                    if (projectData.success && projectData.project.mapping_config) {
+                        dataMapping = projectData.project.mapping_config;
+                        sessionStorage.setItem('dataMapping', JSON.stringify(dataMapping));
+                        
+                        // Создаем processedData
+                        processedData = {
+                            columns: result.data_info.columns,
+                            rows: result.data_info.rows,
+                            shape: result.data_info.shape
+                        };
+                        
+                        // Сохраняем в sessionStorage
+                        sessionStorage.setItem('processedData', JSON.stringify(processedData));
+                        
+                        // Показываем интерфейс
+                        showProcessedDataPreview(processedData, dataMapping);
+                        
+                        console.log('✅ Интерфейс инициализирован с данными из проекта');
+                    }
+                }
+                
+            } catch (error) {
+                console.error('❌ Ошибка загрузки данных:', error);
+                showMappingButton();
+            }
+        }
 
         async function loadProjectFromUrl(projectId) {
             console.log('loadProjectFromUrl вызвана с projectId:', projectId);
