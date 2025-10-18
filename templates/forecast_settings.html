@@ -335,7 +335,11 @@
                             // Обновляем timeline с прогнозными периодами
                             buildTimelineData();
                             renderTimeline();
-                            updateChart();
+                            
+                            // Обновляем график (нужно подождать загрузки данных метрики)
+                            setTimeout(() => {
+                                renderMetricChart();
+                            }, 500);
                             
                             console.log(`✅ Восстановлен горизонт: ${settings.forecast_months} месяцев`);
                         }
