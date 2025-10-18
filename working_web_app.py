@@ -1385,12 +1385,40 @@ def get_time_series_data(session_id):
         
         if use_forecast:
             # Используем прогнозные данные (факт + прогноз)
-            if not hasattr(forecast_app, 'forecast_results') or session_id not in forecast_app.forecast_results:
-                return jsonify({'success': False, 'message': 'Прогнозные данные не найдены'})
+            # Сначала пытаемся взять из памяти
+            if hasattr(forecast_app, 'forecast_results') and session_id in forecast_app.forecast_results:
+                combined_data = forecast_app.forecast_results[session_id]['combined_data']
+                df = pd.DataFrame(combined_data)
+                print(f"DEBUG: Используем прогнозные данные из памяти: {len(df)} строк")
+            else:
+                # Загружаем из CSV файла
+                print(f"DEBUG: Прогнозных данных нет в памяти, загружаем из CSV...")
+                
+                # Ищем проект с прогнозом
+                projects_dir = 'projects'
+                forecast_file = None
+                
+                for filename in os.listdir(projects_dir):
+                    if filename.endswith('.json'):
+                        filepath = os.path.join(projects_dir, filename)
+                        try:
+                            with open(filepath, 'r', encoding='utf-8') as f:
+                                proj = json.load(f)
+                                if proj.get('session_id') == session_id and proj.get('forecast_result_info'):
+                                    csv_files = proj['forecast_result_info'].get('csv_files', {})
+                                    forecast_file = csv_files.get('combined')
+                                    break
+                        except:
+                            continue
+                
+                if not forecast_file or not os.path.exists(forecast_file):
+                    return jsonify({'success': False, 'message': 'CSV файл прогноза не найден'})
+                
+                print(f"DEBUG: Загружаем прогноз из CSV: {forecast_file}")
+                df = pd.read_csv(forecast_file)
+                df = df.fillna('Не указано')  # Заменяем NaN
+                print(f"DEBUG: Загружено {len(df)} строк из CSV")
             
-            combined_data = forecast_app.forecast_results[session_id]['combined_data']
-            df = pd.DataFrame(combined_data)
-            print(f"DEBUG: Используем прогнозные данные: {len(df)} строк (факт + прогноз)")
             print(f"DEBUG: Колонки прогнозных данных: {list(df.columns)}")
             if 'is_forecast' in df.columns:
                 forecast_count = df['is_forecast'].sum()
