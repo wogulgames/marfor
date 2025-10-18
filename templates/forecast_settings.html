@@ -252,13 +252,24 @@
             }
             
             const urlParams = new URLSearchParams(window.location.search);
-            currentSessionId = urlParams.get('session_id') || sessionStorage.getItem('currentSessionId');
+            currentSessionId = urlParams.get('session_id') || 
+                             sessionStorage.getItem('currentSessionId') ||
+                             sessionStorage.getItem('sessionId');
+            
+            console.log('🆔 Session ID из URL:', urlParams.get('session_id'));
+            console.log('🆔 Session ID из storage:', sessionStorage.getItem('currentSessionId'), sessionStorage.getItem('sessionId'));
+            console.log('🆔 Итоговый currentSessionId:', currentSessionId);
             
             if (!currentSessionId) {
-                alert('Сессия не найдена. Вернитесь на главную страницу.');
-                window.location.href = '/forecast';
+                console.error('❌ Session ID не найден!');
+                alert('Сессия не найдена. Вернитесь на главную страницу и откройте проект.');
+                window.location.href = '/';
                 return;
             }
+            
+            // Сохраняем в оба ключа для совместимости
+            sessionStorage.setItem('currentSessionId', currentSessionId);
+            sessionStorage.setItem('sessionId', currentSessionId);
             
             await loadData();
         });
