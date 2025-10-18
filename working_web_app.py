@@ -3408,7 +3408,53 @@ def generate_forecast():
         
         settings = forecast_app.forecast_settings[session_id]
         metric = settings['metric']
-        forecast_periods = settings['forecast_periods']
+        forecast_periods = settings.get('forecast_periods', [])
+        
+        # Если forecast_periods пустой, но есть forecast_months - пересоздаем
+        if not forecast_periods and settings.get('forecast_months', 0) > 0:
+            print(f"   ⚠️ forecast_periods пустой, восстанавливаем из forecast_months ({settings['forecast_months']})", flush=True)
+            
+            # Находим последний месяц в данных
+            year_col = None
+            month_col = None
+            if mapping_config and mapping_config.get('columns'):
+                for col_config in mapping_config['columns']:
+                    if col_config.get('time_series') == 'year':
+                        year_col = col_config['name']
+                    elif col_config.get('time_series') == 'month':
+                        month_col = col_config['name']
+            
+            if year_col and month_col and year_col in df.columns and month_col in df.columns:
+                last_year = int(df[year_col].max())
+                last_month = int(df[df[year_col] == last_year][month_col].max())
+                
+                print(f"   📅 Последний месяц в данных: {last_year}/{last_month}", flush=True)
+                
+                # Генерируем forecast_periods
+                forecast_periods = []
+                current_year = last_year
+                current_month = last_month
+                
+                for _ in range(settings['forecast_months']):
+                    current_month += 1
+                    if current_month > 12:
+                        current_month = 1
+                        current_year += 1
+                    
+                    # Проверяем, есть ли уже год в forecast_periods
+                    year_period = next((p for p in forecast_periods if p['year'] == current_year), None)
+                    if not year_period:
+                        year_period = {'year': current_year, 'months': []}
+                        forecast_periods.append(year_period)
+                    
+                    year_period['months'].append(current_month)
+                
+                # Обновляем в памяти
+                forecast_app.forecast_settings[session_id]['forecast_periods'] = forecast_periods
+                print(f"   ✅ Восстановлено {len(forecast_periods)} периодов прогноза", flush=True)
+            else:
+                print(f"   ❌ Не удалось восстановить forecast_periods - отсутствуют временные поля", flush=True)
+                return jsonify({'success': False, 'message': 'Не удалось восстановить настройки прогноза'})
         
         # Получаем маппинг (приоритет - из запроса)
         mapping_config = None
@@ -3538,9 +3584,16 @@ def generate_forecast():
                 if hasattr(forecast_app, 'training_results') and session_id in forecast_app.training_results:
                     trained_model_data = forecast_app.training_results[session_id].get('random_forest_hierarchy')
                 
+                # Проверяем наличие самой модели (не только метрик)
+                if trained_model_data:
+                    print(f"   🔍 Найдены данные модели в памяти, проверяем наличие обученной модели...", flush=True)
+                    if not trained_model_data.get('model') or not trained_model_data.get('feature_cols'):
+                        print(f"   ⚠️ Модель или признаки отсутствуют (только метрики), требуется переобучение", flush=True)
+                        trained_model_data = None
+                
                 # Если модель не найдена в памяти - переобучаем
                 if not trained_model_data:
-                    print(f"   ⚠️ Модель не найдена в памяти - запускаем переобучение...", flush=True)
+                    print(f"   ⚠️ Модель Random Forest Hierarchy не найдена в памяти - запускаем переобучение...", flush=True)
                     
                     # Обучаем модель заново
                     try:
@@ -3606,6 +3659,13 @@ def generate_forecast():
                 trained_model_data = None
                 if hasattr(forecast_app, 'training_results') and session_id in forecast_app.training_results:
                     trained_model_data = forecast_app.training_results[session_id].get('random_forest')
+                
+                # Проверяем наличие самой модели (не только метрик)
+                if trained_model_data:
+                    print(f"   🔍 Найдены данные модели Random Forest в памяти, проверяем наличие обученной модели...", flush=True)
+                    if not trained_model_data.get('model'):
+                        print(f"   ⚠️ Модель отсутствует (только метрики), требуется переобучение", flush=True)
+                        trained_model_data = None
                 
                 # Если модель не найдена в памяти - переобучаем
                 if not trained_model_data:
