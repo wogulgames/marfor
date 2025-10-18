@@ -1965,7 +1965,7 @@ def load_project(project_id):
         
         # Определяем, куда перенаправить пользователя
         current_step = project.get('current_step', 2)
-        redirect_url = '/data_mapping'  # По умолчанию
+        redirect_url = '/forecast/mapping'  # По умолчанию
         
         if current_step == 6 and project.get('forecast_result_info'):
             # Если есть прогноз - показываем информацию, но не переходим автоматически
@@ -1980,7 +1980,7 @@ def load_project(project_id):
         elif current_step == 3:
             redirect_url = '/forecast'
         else:
-            redirect_url = '/data_mapping'
+            redirect_url = '/forecast/mapping'
         
         # Очищаем только метаданные, но не full_data (он может быть большим)
         project_clean = {
