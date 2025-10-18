@@ -293,10 +293,14 @@
                 console.log('Метрики:', metrics);
                 console.log('Временные поля:', timeSeriesConfig);
                 
-                populateMetricSelect();
+                await populateMetricSelect();
                 await loadTimeSeries();
                 buildTimelineData();
                 renderTimeline();
+                
+                // Восстанавливаем горизонт прогноза если он был задан
+                await restoreForecastHorizon();
+                
                 await loadMetricData();
                 
             } catch (error) {
@@ -304,8 +308,45 @@
                 alert('Ошибка загрузки данных: ' + error.message);
             }
         }
+        
+        async function restoreForecastHorizon() {
+            try {
+                const response = await fetch(`/api/get_forecast_settings/${currentSessionId}`);
+                const result = await response.json();
+                
+                if (result.success && result.settings) {
+                    const settings = result.settings;
+                    console.log('✅ Восстановлены настройки прогноза:', settings);
+                    
+                    // Восстанавливаем количество месяцев
+                    if (settings.forecast_months > 0) {
+                        const monthsInput = document.getElementById('forecastMonths');
+                        if (monthsInput) {
+                            monthsInput.value = settings.forecast_months;
+                        }
+                        
+                        // Автоматически устанавливаем горизонт
+                        forecastMonthsCount = settings.forecast_months;
+                        
+                        // Восстанавливаем прогнозные периоды
+                        if (settings.forecast_periods && settings.forecast_periods.length > 0) {
+                            forecastPeriods = settings.forecast_periods;
+                            
+                            // Обновляем timeline с прогнозными периодами
+                            buildTimelineData();
+                            renderTimeline();
+                            updateChart();
+                            
+                            console.log(`✅ Восстановлен горизонт: ${settings.forecast_months} месяцев`);
+                        }
+                    }
+                }
+            } catch (error) {
+                console.log('ℹ️ Сохраненные настройки прогноза не найдены');
+            }
+        }
 
-        function populateMetricSelect() {
+        async function populateMetricSelect() {
             const select = document.getElementById('metricSelect');
             select.innerHTML = '';
             
@@ -314,14 +355,34 @@
                 return;
             }
             
+            // Пытаемся восстановить сохраненные настройки
+            let savedMetric = null;
+            try {
+                const response = await fetch(`/api/get_forecast_settings/${currentSessionId}`);
+                const result = await response.json();
+                if (result.success && result.settings) {
+                    savedMetric = result.settings.metric;
+                    console.log('✅ Восстановлена сохраненная метрика:', savedMetric);
+                }
+            } catch (error) {
+                console.log('ℹ️ Сохраненные настройки не найдены, используем первую метрику');
+            }
+            
             metrics.forEach((metric, index) => {
                 const option = document.createElement('option');
                 option.value = metric.name;
                 option.text = metric.displayName;
-                if (index === 0) {
+                
+                // Выбираем сохраненную метрику или первую
+                if (savedMetric && metric.name === savedMetric) {
+                    option.selected = true;
+                    selectedMetric = metric.name;
+                    console.log('📊 Выбрана сохраненная метрика:', metric.name);
+                } else if (!savedMetric && index === 0) {
                     option.selected = true;
                     selectedMetric = metric.name;
                 }
+                
                 select.appendChild(option);
             });
         }

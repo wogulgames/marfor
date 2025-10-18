@@ -406,12 +406,41 @@
                 if (result.success) {
                     forecastSettings = result.settings;
                     displayForecastSettings();
+                    
+                    // Пытаемся загрузить результаты обучения если они есть
+                    await loadTrainingResults();
                 } else {
                     alert('Ошибка загрузки настроек: ' + result.message);
                 }
             } catch (error) {
                 console.error('Ошибка:', error);
                 alert('Ошибка загрузки настроек: ' + error.message);
+            }
+        }
+        
+        async function loadTrainingResults() {
+            try {
+                // Проверяем есть ли сохраненные результаты обучения в проекте
+                const projectId = sessionStorage.getItem('currentProjectId');
+                if (!projectId) return;
+                
+                const projectResponse = await fetch(`/api/load_project/${projectId}`);
+                const projectData = await projectResponse.json();
+                
+                if (projectData.success && projectData.project.training_results) {
+                    const savedResults = projectData.project.training_results;
+                    console.log('✅ Найдены результаты обучения в проекте:', Object.keys(savedResults));
+                    
+                    // Восстанавливаем результаты (без моделей sklearn)
+                    trainingResults = savedResults;
+                    
+                    // Показываем результаты
+                    displayTrainingResults();
+                    
+                    console.log('✅ Результаты обучения восстановлены');
+                }
+            } catch (error) {
+                console.log('ℹ️ Результаты обучения не найдены:', error.message);
             }
         }
 
