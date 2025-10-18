@@ -3534,12 +3534,33 @@ def generate_forecast():
                 print(f"   🏗️ Используется Random Forest Hierarchy - генерируем прогноз для всех срезов сразу", flush=True)
                 
                 # Получаем данные обученной модели
-                if not hasattr(forecast_app, 'training_results') or session_id not in forecast_app.training_results:
-                    return jsonify({'success': False, 'message': 'Модель не обучена. Сначала обучите модель.'})
+                trained_model_data = None
+                if hasattr(forecast_app, 'training_results') and session_id in forecast_app.training_results:
+                    trained_model_data = forecast_app.training_results[session_id].get('random_forest_hierarchy')
                 
-                trained_model_data = forecast_app.training_results[session_id].get('random_forest_hierarchy')
+                # Если модель не найдена в памяти - переобучаем
                 if not trained_model_data:
-                    return jsonify({'success': False, 'message': 'Random Forest Hierarchy не обучена'})
+                    print(f"   ⚠️ Модель не найдена в памяти - запускаем переобучение...", flush=True)
+                    
+                    # Обучаем модель заново
+                    try:
+                        test_size = 0.2  # 20% данных для теста
+                        trained_model_data = train_random_forest_hierarchy(
+                            df_agg, metric, year_col, month_col, slice_cols, test_size
+                        )
+                        
+                        # Сохраняем результаты в памяти
+                        if not hasattr(forecast_app, 'training_results'):
+                            forecast_app.training_results = {}
+                        if session_id not in forecast_app.training_results:
+                            forecast_app.training_results[session_id] = {}
+                        
+                        forecast_app.training_results[session_id]['random_forest_hierarchy'] = trained_model_data
+                        print(f"   ✅ Модель успешно переобучена (MAPE: {trained_model_data.get('mape', 0):.2f}%)", flush=True)
+                        
+                    except Exception as e:
+                        print(f"   ❌ Ошибка переобучения модели: {e}", flush=True)
+                        return jsonify({'success': False, 'message': f'Ошибка переобучения модели: {str(e)}'})
                 
                 # Генерируем прогнозы для всех комбинаций сразу
                 try:
@@ -3581,12 +3602,37 @@ def generate_forecast():
                 # Random Forest тоже использует обученную модель со всеми срезами
                 print(f"   🌲 Используется Random Forest - генерируем прогноз для всех срезов", flush=True)
                 
-                if not hasattr(forecast_app, 'training_results') or session_id not in forecast_app.training_results:
-                    return jsonify({'success': False, 'message': 'Модель не обучена. Сначала обучите модель.'})
+                # Получаем данные обученной модели
+                trained_model_data = None
+                if hasattr(forecast_app, 'training_results') and session_id in forecast_app.training_results:
+                    trained_model_data = forecast_app.training_results[session_id].get('random_forest')
                 
-                trained_model_data = forecast_app.training_results[session_id].get('random_forest')
+                # Если модель не найдена в памяти - переобучаем
                 if not trained_model_data:
-                    return jsonify({'success': False, 'message': 'Random Forest не обучена'})
+                    print(f"   ⚠️ Модель Random Forest не найдена в памяти - запускаем переобучение...", flush=True)
+                    
+                    # Обучаем модель заново (используем train_random_forest_hierarchy для срезов)
+                    try:
+                        test_size = 0.2  # 20% данных для теста
+                        # Random Forest для срезов также использует иерархическую логику
+                        trained_model_data = train_random_forest_hierarchy(
+                            df_agg, metric, year_col, month_col, slice_cols, test_size
+                        )
+                        
+                        # Сохраняем результаты в памяти
+                        if not hasattr(forecast_app, 'training_results'):
+                            forecast_app.training_results = {}
+                        if session_id not in forecast_app.training_results:
+                            forecast_app.training_results[session_id] = {}
+                        
+                        forecast_app.training_results[session_id]['random_forest'] = trained_model_data
+                        print(f"   ✅ Random Forest успешно переобучен (MAPE: {trained_model_data.get('mape', 0):.2f}%)", flush=True)
+                        
+                    except Exception as e:
+                        print(f"   ❌ Ошибка переобучения Random Forest: {e}", flush=True)
+                        import traceback
+                        traceback.print_exc()
+                        return jsonify({'success': False, 'message': f'Ошибка переобучения модели: {str(e)}'})
                 
                 model = trained_model_data.get('model')
                 label_encoders = trained_model_data.get('label_encoders', {})
