@@ -1660,12 +1660,19 @@
         async function tryLoadExistingForecast() {
             try {
                 console.log('🔍 Проверка наличия готового прогноза...');
+                console.log('   Session ID:', currentSessionId);
+                
                 const response = await fetch(`/api/get_forecast_results/${currentSessionId}`);
+                console.log('   Response status:', response.status);
+                
                 const result = await response.json();
+                console.log('   Result:', result);
                 
                 if (result.success) {
                     console.log('✅ Готовый прогноз найден!');
-                    console.log('📊 Данных:', result.forecast_data.raw_data.length, 'строк');
+                    console.log('📊 Данных:', result.forecast_data?.raw_data?.length || 0, 'строк');
+                    console.log('📊 Модель:', result.info?.model);
+                    console.log('📊 Метрика:', result.info?.metric);
                     return true;
                 } else {
                     console.log('ℹ️ Готовый прогноз не найден:', result.message);
@@ -1673,6 +1680,7 @@
                 }
             } catch (error) {
                 console.error('❌ Ошибка проверки прогноза:', error);
+                console.error('   Error details:', error.message);
                 return false;
             }
         }
