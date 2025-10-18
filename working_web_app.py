@@ -1336,7 +1336,12 @@ def apply_mapping():
         # Применяем маппинг
         processed_data = forecast_app.apply_data_mapping(mapping_config)
         
-        # Сохраняем обработанные данные в CSV для последующего использования
+        # ВАЖНО: Обновляем forecast_app.df - теперь это обработанные данные!
+        forecast_app.df = processed_data.copy()
+        forecast_app.mapping_config = mapping_config
+        print(f"✅ forecast_app.df обновлен: {len(forecast_app.df)} строк, {len(forecast_app.df.columns)} колонок")
+        
+        # Сохраняем обработанные данные в CSV для восстановления при перезапуске
         try:
             processed_dir = 'processed'
             os.makedirs(processed_dir, exist_ok=True)
@@ -1344,10 +1349,14 @@ def apply_mapping():
             processed_filename = f'processed_{session_id}.csv'
             processed_path = os.path.join(processed_dir, processed_filename)
             
+            # Если файл существует - перезаписываем (маппинг мог измениться)
+            if os.path.exists(processed_path):
+                print(f"⚠️ Перезапись существующего файла обработанных данных")
+            
             processed_data.to_csv(processed_path, index=False, encoding='utf-8')
             print(f"✅ Обработанные данные сохранены: {processed_path}")
             
-            # Сохраняем путь в forecast_app для быстрого доступа
+            # Сохраняем путь для быстрого доступа
             if not hasattr(forecast_app, 'processed_files'):
                 forecast_app.processed_files = {}
             forecast_app.processed_files[session_id] = processed_path
@@ -2086,20 +2095,45 @@ def load_project(project_id):
         csv_loaded = False
         
         if session_id:
-            # Ищем исходный файл в uploads
-            upload_folder = app.config['UPLOAD_FOLDER']
-            matching_files = [f for f in os.listdir(upload_folder) if f.startswith(session_id)]
+            # ПРИОРИТЕТ: Загружаем обработанные данные (после маппинга) если они есть
+            processed_file = f'processed/processed_{session_id}.csv'
             
-            if matching_files:
-                original_file = os.path.join(upload_folder, matching_files[0])
-                success, message = forecast_app.load_data_from_file(original_file)
-                
-                if success:
+            if os.path.exists(processed_file) and project.get('data_mapping'):
+                # Есть обработанные данные - загружаем их
+                try:
+                    processed_df = pd.read_csv(processed_file)
+                    forecast_app.df = processed_df
                     forecast_app.session_id = session_id
+                    forecast_app.mapping_config = project.get('data_mapping')
                     csv_loaded = True
-                    print(f"✅ Проект {project.get('name')}: Данные загружены из CSV ({message})")
-                else:
-                    print(f"⚠️ Проект {project.get('name')}: Не удалось загрузить CSV ({message})")
+                    print(f"✅ Проект {project.get('name')}: Загружены ОБРАБОТАННЫЕ данные ({len(processed_df)} строк)")
+                except Exception as e:
+                    print(f"⚠️ Ошибка загрузки обработанных данных: {e}")
+            
+            # FALLBACK: Загружаем исходный файл из uploads
+            if not csv_loaded:
+                upload_folder = app.config['UPLOAD_FOLDER']
+                matching_files = [f for f in os.listdir(upload_folder) if f.startswith(session_id)]
+                
+                if matching_files:
+                    original_file = os.path.join(upload_folder, matching_files[0])
+                    success, message = forecast_app.load_data_from_file(original_file)
+                    
+                    if success:
+                        forecast_app.session_id = session_id
+                        csv_loaded = True
+                        print(f"✅ Проект {project.get('name')}: Данные загружены из исходного CSV ({message})")
+                        
+                        # Если есть маппинг - применяем его сразу
+                        if project.get('data_mapping'):
+                            try:
+                                forecast_app.df = forecast_app.apply_data_mapping(project['data_mapping'])
+                                forecast_app.mapping_config = project['data_mapping']
+                                print(f"✅ Маппинг автоматически применен при загрузке")
+                            except Exception as e:
+                                print(f"⚠️ Ошибка применения маппинга: {e}")
+                    else:
+                        print(f"⚠️ Проект {project.get('name')}: Не удалось загрузить CSV ({message})")
         
         # Если CSV не загрузился, используем данные из JSON (fallback)
         if not csv_loaded:
