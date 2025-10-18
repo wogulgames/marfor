@@ -1383,6 +1383,9 @@ def get_time_series_data(session_id):
         # Проверяем, нужно ли использовать прогнозные данные
         use_forecast = request.args.get('use_forecast', 'false').lower() == 'true'
         
+        print(f"🔍 use_forecast = {use_forecast}", flush=True)
+        print(f"🔍 session_id = {session_id}", flush=True)
+        
         if use_forecast:
             # Используем прогнозные данные (факт + прогноз)
             # Сначала пытаемся взять из памяти
@@ -1392,7 +1395,8 @@ def get_time_series_data(session_id):
                 print(f"DEBUG: Используем прогнозные данные из памяти: {len(df)} строк")
             else:
                 # Загружаем из CSV файла
-                print(f"DEBUG: Прогнозных данных нет в памяти, загружаем из CSV...")
+                print(f"🔄 Прогнозных данных нет в памяти, загружаем из CSV...", flush=True)
+                print(f"   Ищем проект с session_id: {session_id}", flush=True)
                 
                 # Ищем проект с прогнозом
                 projects_dir = 'projects'
@@ -1404,20 +1408,33 @@ def get_time_series_data(session_id):
                         try:
                             with open(filepath, 'r', encoding='utf-8') as f:
                                 proj = json.load(f)
-                                if proj.get('session_id') == session_id and proj.get('forecast_result_info'):
-                                    csv_files = proj['forecast_result_info'].get('csv_files', {})
-                                    forecast_file = csv_files.get('combined')
-                                    break
-                        except:
+                                proj_session = proj.get('session_id')
+                                print(f"   Проверяем {filename}: session={proj_session}", flush=True)
+                                
+                                if proj_session == session_id:
+                                    print(f"   ✅ Найден проект!", flush=True)
+                                    forecast_info = proj.get('forecast_result_info')
+                                    print(f"   forecast_result_info: {forecast_info is not None}", flush=True)
+                                    
+                                    if forecast_info:
+                                        csv_files = forecast_info.get('csv_files', {})
+                                        forecast_file = csv_files.get('combined')
+                                        print(f"   CSV путь: {forecast_file}", flush=True)
+                                        break
+                        except Exception as e:
+                            print(f"   ⚠️ Ошибка чтения {filename}: {e}", flush=True)
                             continue
+                
+                print(f"   Итоговый файл: {forecast_file}", flush=True)
+                print(f"   Существует: {os.path.exists(forecast_file) if forecast_file else False}", flush=True)
                 
                 if not forecast_file or not os.path.exists(forecast_file):
                     return jsonify({'success': False, 'message': 'CSV файл прогноза не найден'})
                 
-                print(f"DEBUG: Загружаем прогноз из CSV: {forecast_file}")
+                print(f"✅ Загружаем прогноз из CSV: {forecast_file}", flush=True)
                 df = pd.read_csv(forecast_file)
                 df = df.fillna('Не указано')  # Заменяем NaN
-                print(f"DEBUG: Загружено {len(df)} строк из CSV")
+                print(f"✅ Загружено {len(df)} строк из CSV", flush=True)
             
             print(f"DEBUG: Колонки прогнозных данных: {list(df.columns)}")
             if 'is_forecast' in df.columns:
