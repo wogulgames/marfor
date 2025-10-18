@@ -1775,12 +1775,10 @@ def save_project():
         # Создаем объект проекта
         data_info = forecast_app.get_data_info()
         
-        # Добавляем полные данные в data_info
-        if forecast_app.df is not None:
-            # Сохраняем все данные, а не только sample
-            # Заменяем NaN на None для корректной JSON сериализации
-            df_clean = forecast_app.df.fillna('')
-            data_info['full_data'] = convert_to_json_serializable(df_clean.to_dict('records'))
+        # НЕ сохраняем full_data - он слишком большой (30K+ строк)
+        # Исходный CSV хранится в uploads/ и загружается при открытии проекта
+        if 'full_data' in data_info:
+            del data_info['full_data']
         
         # Определяем текущий шаг проекта
         current_step = 2  # По умолчанию - после маппинга
