@@ -966,6 +966,14 @@
             currentPivotMode: 'time-series', // Текущий режим представления
             originalHierarchy: null // Сохраняем исходную иерархию для фильтров
         };
+        
+        // Временная функция-заглушка для toggleAllPrimaryFields (определится позже)
+        window.toggleAllPrimaryFields = function(checkbox) {
+            console.log('toggleAllPrimaryFields вызвана (временная заглушка)');
+            if (window.toggleAllMetrics) {
+                window.toggleAllMetrics(checkbox);
+            }
+        };
 
         // Обработка загрузки файла
         document.addEventListener('DOMContentLoaded', function() {
@@ -1869,7 +1877,27 @@
                 showForecastResultsInterface(processedData, dataMapping);
                 
                 console.log('✅ Интерфейс инициализирован');
-                console.log('💡 Ожидаем автоматического выбора метрики и загрузки данных...');
+                
+                // Автоматически выбираем метрику прогноза
+                const forecastMetric = forecastInfo.metric;
+                console.log('🎯 Автоматический выбор метрики прогноза:', forecastMetric);
+                
+                // Устанавливаем метрику в window.selectedMetrics
+                window.selectedMetrics = [forecastMetric];
+                pivotState.selectedMetrics = [forecastMetric];
+                
+                // Отмечаем чекбокс метрики
+                setTimeout(() => {
+                    const metricCheckbox = document.querySelector(`input[type="checkbox"][value="${forecastMetric}"]`);
+                    if (metricCheckbox) {
+                        metricCheckbox.checked = true;
+                        console.log('✅ Чекбокс метрики отмечен:', forecastMetric);
+                    }
+                    
+                    // Загружаем данные с выбранной метрикой
+                    console.log('💡 Загрузка данных с метрикой:', forecastMetric);
+                    loadForecastData();
+                }, 100);
                 
             } catch (error) {
                 console.error('❌ Ошибка загрузки результатов:', error);
