@@ -2641,28 +2641,72 @@ function prepareChartData(pivotData, config, targetLevel) {
         // Обычный режим: создаем dataset для каждой метрики
         config.values.forEach(valueField => {
             const dataValues = [];
+            const forecastFlags = []; // Флаги is_forecast для каждой точки
             
             sortedRowKeys.forEach(rowKey => {
                 const rowGroup = pivotData.rowGroups.get(rowKey);
                 if (rowGroup && rowGroup.rows && rowGroup.rows.length > 0) {
                     // Суммируем значения из всех строк в группе
                     let sum = 0;
+                    let isForecast = false; // Определяем, является ли эта точка прогнозом
+                    
                     rowGroup.rows.forEach(row => {
                         const value = parseFloat(row[valueField.name]) || 0;
                         sum += value;
+                        // Если хотя бы одна строка в группе - прогноз, то вся точка - прогноз
+                        if (row.is_forecast === true || row.is_forecast === 'true') {
+                            isForecast = true;
+                        }
                     });
                     dataValues.push(sum);
+                    forecastFlags.push(isForecast);
                 } else {
                     dataValues.push(0);
+                    forecastFlags.push(false);
                 }
             });
             
-            datasets.push({
-                label: valueField.label,
-                data: dataValues,
-                borderWidth: 2,
-                fill: false
-            });
+            // Определяем индекс последней фактической точки
+            let lastFactIndex = -1;
+            for (let i = forecastFlags.length - 1; i >= 0; i--) {
+                if (!forecastFlags[i]) {
+                    lastFactIndex = i;
+                    break;
+                }
+            }
+            
+            console.log(`📊 ${valueField.label}: последняя фактическая точка на индексе ${lastFactIndex} из ${dataValues.length}`);
+            
+            // Если есть разделение на факт/прогноз, создаем два dataset'а
+            if (lastFactIndex >= 0 && lastFactIndex < dataValues.length - 1 && config.mode === 'time-series') {
+                // Фактические данные (сплошная линия)
+                const factData = dataValues.slice(0, lastFactIndex + 1);
+                datasets.push({
+                    label: valueField.label,
+                    data: factData,
+                    borderWidth: 2,
+                    fill: false
+                });
+                
+                // Прогнозные данные (пунктирная линия)
+                // Начинаем с последней фактической точки для плавного перехода
+                const forecastData = new Array(lastFactIndex).fill(null).concat(dataValues.slice(lastFactIndex));
+                datasets.push({
+                    label: `${valueField.label} - Прогноз`,
+                    data: forecastData,
+                    borderWidth: 2,
+                    fill: false,
+                    borderDash: [10, 5] // Пунктирная линия
+                });
+            } else {
+                // Нет прогнозных данных или не time-series режим - создаем один dataset
+                datasets.push({
+                    label: valueField.label,
+                    data: dataValues,
+                    borderWidth: 2,
+                    fill: false
+                });
+            }
         });
     }
     
