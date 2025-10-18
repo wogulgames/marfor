@@ -1617,20 +1617,28 @@
             // Рендерим хлебные крошки (шаг 6 - Результаты прогноза)
             breadcrumbsModule.render(6);
             
-            // Получаем session_id из URL или sessionStorage
+            // Получаем session_id из URL или sessionStorage (проверяем все варианты)
             const urlParams = new URLSearchParams(window.location.search);
-            currentSessionId = urlParams.get('session_id') || sessionStorage.getItem('currentSessionId');
+            currentSessionId = urlParams.get('session_id') || 
+                             sessionStorage.getItem('currentSessionId') ||
+                             sessionStorage.getItem('sessionId');
             
             console.log('🆔 session_id из URL:', urlParams.get('session_id'));
-            console.log('🆔 session_id из sessionStorage:', sessionStorage.getItem('currentSessionId'));
+            console.log('🆔 currentSessionId из storage:', sessionStorage.getItem('currentSessionId'));
+            console.log('🆔 sessionId из storage:', sessionStorage.getItem('sessionId'));
             console.log('🆔 currentSessionId итоговый:', currentSessionId);
             
             if (!currentSessionId) {
-                console.error('❌ Ошибка: session_id не найден!');
-                alert('Ошибка: не указан session_id');
+                console.error('❌ Ошибка: session_id не найден ни в URL, ни в sessionStorage!');
+                console.log('📋 Все ключи в sessionStorage:', Object.keys(sessionStorage));
+                alert('Ошибка: не указан session_id. Вернитесь на главную страницу и откройте проект заново.');
                 window.location.href = '/';
                 return;
             }
+            
+            // Сохраняем session_id в оба ключа для совместимости
+            sessionStorage.setItem('currentSessionId', currentSessionId);
+            sessionStorage.setItem('sessionId', currentSessionId);
             
             // Скрываем секции, которые не нужны на странице результатов
             const uploadSection = document.getElementById('uploadSection');
