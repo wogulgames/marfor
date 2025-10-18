@@ -643,6 +643,18 @@
                 validationChartInstance.destroy();
             }
             
+            // Проверяем наличие данных для графика
+            if (!modelData.validation_data || !modelData.validation_data.periods || modelData.validation_data.periods.length === 0) {
+                console.warn('⚠️ Данные валидации отсутствуют для построения графика');
+                const ctx = canvas.getContext('2d');
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                ctx.font = '16px Arial';
+                ctx.fillStyle = '#666';
+                ctx.textAlign = 'center';
+                ctx.fillText('Данные валидации не сохранены. Обучите модели заново для просмотра графика.', canvas.width / 2, canvas.height / 2);
+                return;
+            }
+            
             const ctx = canvas.getContext('2d');
             validationChartInstance = new Chart(ctx, {
                 type: 'line',
