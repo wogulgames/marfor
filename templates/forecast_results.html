@@ -1646,24 +1646,24 @@
                 uploadSection.style.display = 'none';
             }
             
-            // СНАЧАЛА пытаемся загрузить готовый прогноз
-            console.log('📊 Попытка загрузить готовый прогноз...');
-            const existingForecast = await tryLoadExistingForecast();
+            // ПРОВЕРЯЕМ: если передан параметр model - это запрос на ПЕРЕГЕНЕРАЦИЮ
+            const selectedModel = urlParams.get('model') || sessionStorage.getItem('selectedForecastModel');
+            console.log('🎯 Проверка модели для генерации:', selectedModel);
             
-            if (existingForecast) {
-                // Прогноз найден - загружаем его
-                console.log('✅ Найден готовый прогноз, загружаем из CSV');
-                await loadForecastResults();
+            if (selectedModel) {
+                // ПЕРЕГЕНЕРАЦИЯ: игнорируем существующий прогноз, создаем новый
+                console.log('🚀 ЗАПУСК ПЕРЕГЕНЕРАЦИИ ПРОГНОЗА (старый будет перезаписан)');
+                sessionStorage.removeItem('selectedForecastModel'); // Очищаем после использования
+                await generateAndLoadForecast(selectedModel);
             } else {
-                // Прогноза нет - проверяем, передана ли модель для генерации
-                const selectedModel = urlParams.get('model') || sessionStorage.getItem('selectedForecastModel');
-                console.log('🎯 Модель для генерации:', selectedModel);
+                // НЕТ параметра model - пытаемся загрузить существующий прогноз
+                console.log('📊 Попытка загрузить готовый прогноз...');
+                const existingForecast = await tryLoadExistingForecast();
                 
-                if (selectedModel) {
-                    // Генерируем новый прогноз
-                    console.log('🚀 Генерация нового прогноза...');
-                    sessionStorage.removeItem('selectedForecastModel'); // Очищаем после использования
-                    await generateAndLoadForecast(selectedModel);
+                if (existingForecast) {
+                    // Прогноз найден - загружаем его
+                    console.log('✅ Найден готовый прогноз, загружаем из CSV');
+                    await loadForecastResults();
                 } else {
                     // Нет ни прогноза, ни модели
                     console.error('❌ Нет готового прогноза и не указана модель');
