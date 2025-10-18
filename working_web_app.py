@@ -3410,6 +3410,36 @@ def generate_forecast():
         metric = settings['metric']
         forecast_periods = settings.get('forecast_periods', [])
         
+        # Получаем маппинг (нужен для восстановления forecast_periods)
+        mapping_config = None
+        if mapping_from_request:
+            mapping_config = mapping_from_request
+            print("   ✅ Маппинг получен из запроса", flush=True)
+        elif hasattr(forecast_app, 'mapping_config'):
+            mapping_config = forecast_app.mapping_config
+            print("   ✅ Маппинг получен из forecast_app", flush=True)
+        else:
+            # Пытаемся загрузить из проекта (ищем по session_id)
+            projects_dir = 'projects'
+            
+            if os.path.exists(projects_dir):
+                for filename in os.listdir(projects_dir):
+                    if filename.endswith('.json'):
+                        filepath = os.path.join(projects_dir, filename)
+                        try:
+                            with open(filepath, 'r', encoding='utf-8') as f:
+                                proj = json.load(f)
+                                if proj.get('session_id') == session_id:
+                                    mapping_config = proj.get('data_mapping', {})
+                                    print(f"   ✅ Маппинг загружен из проекта {proj.get('name')}", flush=True)
+                                    break
+                        except:
+                            continue
+        
+        if not mapping_config or not mapping_config.get('columns'):
+            print("   ⚠️ Маппинг не найден, будет использован базовый набор метрик", flush=True)
+            mapping_config = {'columns': []}
+        
         # Если forecast_periods пустой, но есть forecast_months - пересоздаем
         if not forecast_periods and settings.get('forecast_months', 0) > 0:
             print(f"   ⚠️ forecast_periods пустой, восстанавливаем из forecast_months ({settings['forecast_months']})", flush=True)
@@ -3455,37 +3485,6 @@ def generate_forecast():
             else:
                 print(f"   ❌ Не удалось восстановить forecast_periods - отсутствуют временные поля", flush=True)
                 return jsonify({'success': False, 'message': 'Не удалось восстановить настройки прогноза'})
-        
-        # Получаем маппинг (приоритет - из запроса)
-        mapping_config = None
-        if mapping_from_request:
-            mapping_config = mapping_from_request
-            print("   ✅ Маппинг получен из запроса", flush=True)
-        elif hasattr(forecast_app, 'mapping_config'):
-            mapping_config = forecast_app.mapping_config
-            print("   ✅ Маппинг получен из forecast_app", flush=True)
-        else:
-            # Пытаемся загрузить из проекта (ищем по session_id)
-            projects_dir = 'projects'
-            mapping_config = None
-            
-            if os.path.exists(projects_dir):
-                for filename in os.listdir(projects_dir):
-                    if filename.endswith('.json'):
-                        filepath = os.path.join(projects_dir, filename)
-                        try:
-                            with open(filepath, 'r', encoding='utf-8') as f:
-                                proj = json.load(f)
-                                if proj.get('session_id') == session_id:
-                                    mapping_config = proj.get('data_mapping', {})
-                                    print(f"   ✅ Маппинг загружен из проекта {proj.get('name')}", flush=True)
-                                    break
-                        except:
-                            continue
-        
-        if not mapping_config or not mapping_config.get('columns'):
-            print("   ⚠️ Маппинг не найден, будет использован базовый набор метрик", flush=True)
-            mapping_config = {'columns': []}
         
         print(f"\n🚀 ГЕНЕРАЦИЯ ПРОГНОЗА:", flush=True)
         print(f"   Модель: {selected_model}", flush=True)
