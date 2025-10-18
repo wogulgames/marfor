@@ -53,51 +53,70 @@ class BreadcrumbsModule {
 
     /**
      * Рендеринг хлебных крошек
-     * @param {number} currentStep - Текущий шаг (1-5)
+     * @param {number} currentStep - Текущий шаг (1-6)
      * @param {string} containerId - ID контейнера для вставки
+     * @param {number} maxCompletedStep - Максимальный достигнутый шаг (опционально)
      */
-    render(currentStep, containerId = 'breadcrumbContainer') {
+    render(currentStep, containerId = 'breadcrumbContainer', maxCompletedStep = null) {
         const container = document.getElementById(containerId);
         if (!container) {
             console.warn('Контейнер для хлебных крошек не найден:', containerId);
             return;
         }
 
+        // Если не передан maxCompletedStep, берем из sessionStorage или текущий шаг
+        if (maxCompletedStep === null) {
+            const stored = sessionStorage.getItem('maxCompletedStep');
+            maxCompletedStep = stored ? parseInt(stored) : currentStep;
+        }
+        
+        // Сохраняем максимальный шаг
+        this.maxCompletedStep = Math.max(maxCompletedStep, currentStep);
+        sessionStorage.setItem('maxCompletedStep', this.maxCompletedStep);
+
         const html = `
             <div class="breadcrumb-container">
                 <div class="step-indicator">
-                    ${this.steps.map((step, index) => this._renderStep(step, currentStep, index)).join('')}
+                    ${this.steps.map((step, index) => this._renderStep(step, currentStep, index, this.maxCompletedStep)).join('')}
                 </div>
             </div>
         `;
 
         container.innerHTML = html;
-        console.log('✅ Хлебные крошки отрендерены, текущий шаг:', currentStep);
+        console.log('✅ Хлебные крошки отрендерены');
+        console.log('   Текущий шаг:', currentStep);
+        console.log('   Максимальный достигнутый:', this.maxCompletedStep);
     }
 
     /**
      * Рендеринг отдельного шага
      * @private
      */
-    _renderStep(step, currentStep, index) {
+    _renderStep(step, currentStep, index, maxCompletedStep) {
         let stepClass = 'step-item';
         
+        // Определяем статус шага
         if (step.id < currentStep) {
             stepClass += ' completed';
         } else if (step.id === currentStep) {
             stepClass += ' active';
+        } else if (step.id <= maxCompletedStep) {
+            // Шаг был выполнен, но мы вернулись назад
+            stepClass += ' completed available';
         } else {
             stepClass += ' disabled';
         }
 
-        const isClickable = step.id < currentStep;
+        // Шаг кликабелен если он выполнен (меньше или равен maxCompletedStep)
+        const isClickable = step.id <= maxCompletedStep && step.id !== currentStep;
         const onClick = isClickable ? `onclick="breadcrumbsModule.navigateTo(${step.id})"` : '';
         const cursor = isClickable ? 'cursor: pointer;' : '';
+        const title = isClickable ? `title="Перейти к шагу: ${step.name}"` : '';
 
         return `
             <div class="${stepClass}">
-                <div class="step-circle" ${onClick} style="${cursor}">
-                    ${step.id < currentStep ? '' : step.id}
+                <div class="step-circle" ${onClick} style="${cursor}" ${title}>
+                    ${step.id <= maxCompletedStep ? '✓' : step.id}
                 </div>
                 <div class="step-label">${step.shortName}</div>
                 ${index < this.steps.length - 1 ? '<div class="step-connector"></div>' : ''}
