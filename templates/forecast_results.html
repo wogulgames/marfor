@@ -4678,6 +4678,7 @@
             }
             
             console.log('Canvas найден, предыдущий график уничтожен');
+            console.log('📊 Данные для графика:', data);
             
             // Подготавливаем данные для Chart.js
             const datasets = [];
@@ -4685,9 +4686,18 @@
             
             // Определяем индекс последнего фактического периода
             let lastFactIndex = -1;
-            if (data.raw_data && data.raw_data.length > 0) {
-                for (let i = 0; i < data.raw_data.length; i++) {
-                    if (!data.raw_data[i].is_forecast) {
+            
+            // Проверяем разные варианты структуры данных
+            const rawData = data.raw_data || data.data || [];
+            console.log('📊 raw_data:', rawData);
+            console.log('📊 Количество записей:', rawData.length);
+            
+            if (rawData.length > 0) {
+                console.log('📊 Первая запись:', rawData[0]);
+                console.log('📊 Последняя запись:', rawData[rawData.length - 1]);
+                
+                for (let i = 0; i < rawData.length; i++) {
+                    if (!rawData[i].is_forecast) {
                         lastFactIndex = i;
                     } else {
                         break; // Как только начались прогнозы, останавливаемся
@@ -4695,6 +4705,7 @@
                 }
             }
             console.log('📊 Последний фактический индекс:', lastFactIndex);
+            console.log('📊 Всего записей:', rawData.length);
             
             if (data.grouped_series && Object.keys(data.grouped_series).length > 0) {
                 // Группированные данные
