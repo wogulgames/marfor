@@ -1758,6 +1758,87 @@ def get_time_series_data(session_id):
     except Exception as e:
         return jsonify({'success': False, 'message': f'Ошибка при получении данных временных рядов: {str(e)}'})
 
+def auto_save_project_state(session_id, current_step=None):
+    """Автоматическое сохранение состояния проекта"""
+    try:
+        # Ищем существующий проект по session_id
+        projects_dir = 'projects'
+        if not os.path.exists(projects_dir):
+            print(f"   ⚠️ Директория {projects_dir} не существует")
+            return
+        
+        existing_project = None
+        project_id = None
+        
+        for filename in os.listdir(projects_dir):
+            if filename.endswith('.json'):
+                filepath = os.path.join(projects_dir, filename)
+                with open(filepath, 'r', encoding='utf-8') as f:
+                    proj = json.load(f)
+                    if proj.get('session_id') == session_id:
+                        existing_project = proj
+                        project_id = proj.get('id')
+                        break
+        
+        if not existing_project:
+            print(f"   ⚠️ Проект с session_id={session_id} не найден")
+            return
+        
+        # Обновляем состояние проекта
+        existing_project['updated_at'] = datetime.now().isoformat()
+        
+        if current_step:
+            existing_project['current_step'] = current_step
+        
+        # Обновляем forecast_settings
+        if hasattr(forecast_app, 'forecast_settings') and session_id in forecast_app.forecast_settings:
+            existing_project['forecast_settings'] = forecast_app.forecast_settings[session_id]
+        
+        # Обновляем training_results (БЕЗ моделей - только метрики!)
+        if hasattr(forecast_app, 'training_results') and session_id in forecast_app.training_results:
+            training_data = forecast_app.training_results[session_id]
+            
+            # Извлекаем только JSON-сериализуемые данные
+            training_metrics = {}
+            for model_name, model_data in training_data.items():
+                training_metrics[model_name] = {
+                    'metrics': model_data.get('metrics', {}),
+                    'validation_data': model_data.get('validation_data', {}),
+                    'slice_cols': model_data.get('slice_cols', []),
+                    'feature_cols': model_data.get('feature_cols', []),
+                    'peak_months': model_data.get('peak_months', []),
+                    'metrics_before_reconciliation': model_data.get('metrics_before_reconciliation', {}),
+                    'reconciliation_improvement': model_data.get('reconciliation_improvement', 0)
+                    # НЕ сохраняем: model, label_encoders (объекты sklearn)
+                }
+            
+            existing_project['training_results'] = training_metrics
+            print(f"      ✅ Сохранены метрики обучения (БЕЗ моделей sklearn)")
+        
+        # Обновляем forecast_result_info (метаданные, не сами данные)
+        if hasattr(forecast_app, 'forecast_results') and session_id in forecast_app.forecast_results:
+            forecast_result = forecast_app.forecast_results[session_id]
+            existing_project['forecast_result_info'] = {
+                'model': forecast_result.get('model'),
+                'metric': forecast_result.get('metric'),
+                'forecast_periods': forecast_result.get('forecast_periods'),
+                'historical_periods': forecast_result.get('historical_periods'),
+                'total_rows': len(forecast_result.get('combined_data', [])),
+                'created_at': datetime.now().isoformat()
+            }
+        
+        # Сохраняем проект
+        project_file = os.path.join(projects_dir, f"{project_id}.json")
+        with open(project_file, 'w', encoding='utf-8') as f:
+            json.dump(existing_project, f, ensure_ascii=False, indent=2)
+        
+        print(f"   ✅ Автосохранение: проект {project_id} обновлен (шаг {current_step})")
+        
+    except Exception as e:
+        print(f"   ❌ Ошибка автосохранения: {e}")
+        import traceback
+        traceback.print_exc()
+
 @app.route('/api/save_project', methods=['POST'])
 def save_project():
     """Сохранение проекта"""
@@ -2945,6 +3026,13 @@ def save_forecast_settings():
         print(f"   Горизонт: {forecast_settings['forecast_months']} месяцев")
         print(f"   Прогнозных периодов: {len(forecast_settings['forecast_periods'])}")
         
+        # Автосохранение проекта
+        try:
+            auto_save_project_state(session_id, current_step=4)
+            print(f"   ✅ Проект автоматически сохранен (шаг 4: Настройки прогноза)")
+        except Exception as e:
+            print(f"   ⚠️ Ошибка автосохранения: {e}")
+        
         return jsonify({
             'success': True,
             'message': 'Настройки прогноза сохранены'
@@ -3132,6 +3220,13 @@ def train_models():
                 'detailed_validation': model_data.get('detailed_validation', []),
                 'slice_cols': model_data.get('slice_cols', [])
             }
+        
+        # Автосохранение проекта после обучения
+        try:
+            auto_save_project_state(session_id, current_step=5)
+            print(f"   ✅ Проект автоматически сохранен (шаг 5: Обучение завершено)")
+        except Exception as e:
+            print(f"   ⚠️ Ошибка автосохранения: {e}")
         
         return jsonify({
             'success': True,
@@ -3529,6 +3624,14 @@ def generate_forecast():
         except Exception as e:
             print(f"   ⚠️ Ошибка сохранения файлов: {e}")
             # Продолжаем работу даже если сохранение не удалось
+        
+        # Автосохранение проекта после генерации прогноза
+        try:
+            print(f"   💾 Автосохранение проекта...", flush=True)
+            auto_save_project_state(session_id, current_step=6)
+            print(f"   ✅ Проект автоматически сохранен (шаг 6: Результаты)", flush=True)
+        except Exception as e:
+            print(f"   ⚠️ Ошибка автосохранения проекта: {e}", flush=True)
         
         return jsonify({
             'success': True,
