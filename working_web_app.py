@@ -1782,30 +1782,109 @@ def save_project():
             df_clean = forecast_app.df.fillna('')
             data_info['full_data'] = convert_to_json_serializable(df_clean.to_dict('records'))
         
-        project = {
-            'id': str(uuid.uuid4()),
-            'name': project_name,
-            'created_at': datetime.now().isoformat(),
-            'updated_at': datetime.now().isoformat(),
-            'session_id': session_id,
-            'data_info': data_info,
-            'data_mapping': data.get('data_mapping', {}),
-            'processed_data': data.get('processed_data', {}),
-            'status': 'saved'
-        }
+        # Определяем текущий шаг проекта
+        current_step = 2  # По умолчанию - после маппинга
         
-        # Сохраняем в файл
+        if hasattr(forecast_app, 'forecast_results') and session_id in forecast_app.forecast_results:
+            current_step = 6  # Прогноз готов
+        elif hasattr(forecast_app, 'training_results') and session_id in forecast_app.training_results:
+            current_step = 5  # Модели обучены
+        elif hasattr(forecast_app, 'forecast_settings') and session_id in forecast_app.forecast_settings:
+            current_step = 4  # Настройки прогноза заданы
+        elif data.get('data_mapping'):
+            current_step = 3  # Данные обработаны (Анализ)
+        
+        # Собираем данные для сохранения
+        forecast_settings = None
+        training_results = None
+        forecast_result_info = None
+        
+        if hasattr(forecast_app, 'forecast_settings') and session_id in forecast_app.forecast_settings:
+            forecast_settings = forecast_app.forecast_settings[session_id]
+        
+        if hasattr(forecast_app, 'training_results') and session_id in forecast_app.training_results:
+            training_results = forecast_app.training_results[session_id]
+        
+        if hasattr(forecast_app, 'forecast_results') and session_id in forecast_app.forecast_results:
+            # Сохраняем только метаинформацию, не сами данные (они слишком большие)
+            forecast_result = forecast_app.forecast_results[session_id]
+            forecast_result_info = {
+                'model': forecast_result.get('model'),
+                'metric': forecast_result.get('metric'),
+                'forecast_periods': forecast_result.get('forecast_periods'),
+                'historical_periods': forecast_result.get('historical_periods'),
+                'total_rows': len(forecast_result.get('data', [])),
+                'created_at': forecast_result.get('created_at')
+            }
+        
+        # Проверяем, есть ли уже сохраненный проект для этой сессии
         projects_dir = 'projects'
         os.makedirs(projects_dir, exist_ok=True)
         
-        project_file = os.path.join(projects_dir, f"{project['id']}.json")
+        existing_project = None
+        project_id = data.get('project_id')  # Может быть передан из фронтенда
+        
+        # Ищем существующий проект по session_id или project_id
+        if project_id:
+            project_file = os.path.join(projects_dir, f"{project_id}.json")
+            if os.path.exists(project_file):
+                with open(project_file, 'r', encoding='utf-8') as f:
+                    existing_project = json.load(f)
+        else:
+            # Ищем проект с таким же session_id
+            for filename in os.listdir(projects_dir):
+                if filename.endswith('.json'):
+                    filepath = os.path.join(projects_dir, filename)
+                    with open(filepath, 'r', encoding='utf-8') as f:
+                        proj = json.load(f)
+                        if proj.get('session_id') == session_id:
+                            existing_project = proj
+                            project_id = proj.get('id')
+                            break
+        
+        # Создаем или обновляем проект
+        if existing_project:
+            # Обновляем существующий
+            project = existing_project
+            project['name'] = project_name
+            project['updated_at'] = datetime.now().isoformat()
+            project['data_info'] = data_info
+            project['data_mapping'] = data.get('data_mapping', {})
+            project['processed_data'] = data.get('processed_data', {})
+            project['current_step'] = current_step
+            project['forecast_settings'] = forecast_settings
+            project['training_results'] = training_results
+            project['forecast_result_info'] = forecast_result_info
+            print(f"📝 Обновление существующего проекта: {project_id}")
+        else:
+            # Создаем новый
+            project_id = str(uuid.uuid4())
+            project = {
+                'id': project_id,
+                'name': project_name,
+                'created_at': datetime.now().isoformat(),
+                'updated_at': datetime.now().isoformat(),
+                'session_id': session_id,
+                'data_info': data_info,
+                'data_mapping': data.get('data_mapping', {}),
+                'processed_data': data.get('processed_data', {}),
+                'current_step': current_step,
+                'status': 'saved',
+                'forecast_settings': forecast_settings,
+                'training_results': training_results,
+                'forecast_result_info': forecast_result_info
+            }
+            print(f"🆕 Создание нового проекта: {project_id}")
+        
+        # Сохраняем в файл
+        project_file = os.path.join(projects_dir, f"{project_id}.json")
         with open(project_file, 'w', encoding='utf-8') as f:
             json.dump(project, f, ensure_ascii=False, indent=2)
         
         return jsonify({
             'success': True,
             'message': 'Проект сохранен успешно',
-            'project_id': project['id']
+            'project_id': project_id
         })
         
     except Exception as e:
@@ -1865,6 +1944,44 @@ def load_project(project_id):
             else:
                 return obj
         
+        # Восстанавливаем состояние приложения
+        if session_id:
+            # Восстанавливаем настройки прогноза
+            if project.get('forecast_settings'):
+                if not hasattr(forecast_app, 'forecast_settings'):
+                    forecast_app.forecast_settings = {}
+                forecast_app.forecast_settings[session_id] = project['forecast_settings']
+                print(f"✅ Восстановлены настройки прогноза")
+            
+            # Восстанавливаем результаты обучения
+            if project.get('training_results'):
+                if not hasattr(forecast_app, 'training_results'):
+                    forecast_app.training_results = {}
+                forecast_app.training_results[session_id] = project['training_results']
+                print(f"✅ Восстановлены результаты обучения")
+            
+            # НЕ восстанавливаем forecast_results - они слишком большие
+            # Пользователь должен будет перегенерировать прогноз
+        
+        # Определяем, куда перенаправить пользователя
+        current_step = project.get('current_step', 2)
+        redirect_url = '/data_mapping'  # По умолчанию
+        
+        if current_step == 6 and project.get('forecast_result_info'):
+            # Если есть прогноз - показываем информацию, но не переходим автоматически
+            # (данные прогноза слишком большие, нужно пересчитать)
+            redirect_url = '/forecast/training'
+            print(f"⚠️ Проект имеет результаты прогноза, но данные не сохранены")
+            print(f"   Необходимо заново сгенерировать прогноз")
+        elif current_step == 5:
+            redirect_url = '/forecast/training'
+        elif current_step == 4:
+            redirect_url = '/forecast/settings'
+        elif current_step == 3:
+            redirect_url = '/forecast'
+        else:
+            redirect_url = '/data_mapping'
+        
         # Очищаем только метаданные, но не full_data (он может быть большим)
         project_clean = {
             'id': project.get('id'),
@@ -1873,13 +1990,19 @@ def load_project(project_id):
             'updated_at': datetime.now().isoformat(),
             'session_id': project.get('session_id'),
             'mapping_config': clean_nan_values(project.get('mapping_config', {})),
-            'csv_loaded': csv_loaded
+            'csv_loaded': csv_loaded,
+            'current_step': current_step,
+            'redirect_url': redirect_url,
+            'forecast_result_info': project.get('forecast_result_info')
         }
         
         # Обновляем время последнего доступа
         project['updated_at'] = datetime.now().isoformat()
         with open(project_file, 'w', encoding='utf-8') as f:
             json.dump(project, f, ensure_ascii=False, indent=2)
+        
+        print(f"📂 Проект загружен: {project.get('name')}")
+        print(f"   Шаг: {current_step}, Перенаправление: {redirect_url}")
         
         return jsonify({
             'success': True,
