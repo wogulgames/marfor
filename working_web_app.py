@@ -1455,6 +1455,9 @@ def get_time_series_data(session_id):
                 return jsonify({'success': False, 'message': 'Данные не загружены'})
             
             df = forecast_app.df.copy()
+            # Заменяем NaN в категориальных полях
+            categorical_cols = df.select_dtypes(include=['object', 'category']).columns
+            df[categorical_cols] = df[categorical_cols].fillna('Не указано')
             print(f"DEBUG: Используем обычные данные: {len(df)} строк")
         
         # Отладочная информация
