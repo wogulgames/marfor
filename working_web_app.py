@@ -1863,11 +1863,15 @@ def get_time_series_data(session_id):
 
 def auto_save_project_state(session_id, current_step=None):
     """Автоматическое сохранение состояния проекта"""
+    print(f"\n💾 === AUTO_SAVE_PROJECT_STATE ===", flush=True)
+    print(f"   Session ID: {session_id}", flush=True)
+    print(f"   Current Step: {current_step}", flush=True)
+    
     try:
         # Ищем существующий проект по session_id
         projects_dir = 'projects'
         if not os.path.exists(projects_dir):
-            print(f"   ⚠️ Директория {projects_dir} не существует")
+            print(f"   ⚠️ Директория {projects_dir} не существует", flush=True)
             return
         
         existing_project = None
