@@ -1475,7 +1475,6 @@ def get_time_series_data(session_id):
         
         # Получаем маппинг из параметров запроса
         mapping_data = request.args.get('mapping_data', '{}')
-        import json
         try:
             mapping_config = json.loads(mapping_data) if mapping_data else {}
         except json.JSONDecodeError as e:
@@ -1587,7 +1586,6 @@ def get_time_series_data(session_id):
             try:
                 # Получаем настройки маппинга из sessionStorage (передаем через параметры)
                 mapping_data = request.args.get('mapping_data', '{}')
-                import json
                 mapping = json.loads(mapping_data) if mapping_data else {}
                 
                 print(f"DEBUG: Получен маппинг: {mapping}")
@@ -2922,7 +2920,6 @@ def upload_file():
             data_info = forecast_app.get_data_info()
             
             # Очищаем NaN значения для JSON
-            import json
             data_info_json = json.dumps(data_info, default=str)
             data_info_clean = json.loads(data_info_json)
             
@@ -2954,8 +2951,7 @@ def get_time_series_values(session_id):
         if not mapping_data:
             return jsonify({'success': False, 'message': 'Маппинг не передан. Отправьте параметр mapping.'})
         
-        import json as json_lib
-        mapping = json_lib.loads(mapping_data)
+        mapping = json.loads(mapping_data)
         
         # Определяем временные поля из маппинга
         time_fields = {}
@@ -3350,7 +3346,6 @@ def generate_forecast():
             print("   ✅ Маппинг получен из forecast_app", flush=True)
         else:
             # Пытаемся загрузить из проекта (ищем по session_id)
-            import json
             projects_dir = 'projects'
             mapping_config = None
             
