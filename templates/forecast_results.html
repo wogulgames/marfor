@@ -640,6 +640,22 @@
 
     <!-- Хлебные крошки -->
     <div id="breadcrumbContainer"></div>
+    
+    <!-- Панель действий -->
+    <div class="container my-3" id="actionsPanel" style="display: none;">
+        <div class="d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">
+                <i class="fas fa-chart-line me-2"></i>
+                <span id="forecastTitle">Результаты прогноза</span>
+            </h5>
+            <div>
+                <button class="btn btn-primary" onclick="exportForecastToCSV()">
+                    <i class="fas fa-download me-2"></i>Скачать прогноз (CSV)
+                </button>
+            </div>
+        </div>
+        <hr>
+    </div>
 
     <!-- Основной контент -->
     <div class="container my-3">
@@ -1852,6 +1868,94 @@
             `;
             
             container.innerHTML = infoHtml;
+            
+            // Показываем панель действий с кнопкой экспорта
+            const actionsPanel = document.getElementById('actionsPanel');
+            if (actionsPanel) {
+                actionsPanel.style.display = 'block';
+            }
+        }
+        
+        function exportForecastToCSV() {
+            if (!rawPivotData || rawPivotData.length === 0) {
+                alert('Нет данных для экспорта');
+                return;
+            }
+            
+            console.log('📥 Экспорт прогноза в CSV...');
+            console.log('📊 Данных для экспорта:', rawPivotData.length);
+            
+            // Получаем заголовки из первой строки
+            const headers = Object.keys(rawPivotData[0]);
+            
+            // Формируем CSV
+            let csv = headers.join(',') + '\n';
+            
+            rawPivotData.forEach(row => {
+                const values = headers.map(header => {
+                    let value = row[header];
+                    
+                    // Обработка значений
+                    if (value === null || value === undefined) {
+                        return '';
+                    }
+                    
+                    // Если строка содержит запятую или кавычки - экранируем
+                    if (typeof value === 'string' && (value.includes(',') || value.includes('"') || value.includes('\n'))) {
+                        value = '"' + value.replace(/"/g, '""') + '"';
+                    }
+                    
+                    return value;
+                });
+                
+                csv += values.join(',') + '\n';
+            });
+            
+            // Создаем Blob и скачиваем
+            const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' }); // \uFEFF - BOM для UTF-8
+            const link = document.createElement('a');
+            const url = URL.createObjectURL(blob);
+            
+            // Формируем имя файла
+            const forecastMetric = sessionStorage.getItem('forecastMetric') || 'forecast';
+            const timestamp = new Date().toISOString().slice(0, 10);
+            const filename = `MARFOR_Forecast_${forecastMetric}_${timestamp}.csv`;
+            
+            link.setAttribute('href', url);
+            link.setAttribute('download', filename);
+            link.style.visibility = 'hidden';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            
+            console.log('✅ Файл скачан:', filename);
+            
+            // Показываем уведомление
+            const toast = `
+                <div class="position-fixed bottom-0 end-0 p-3" style="z-index: 11">
+                    <div class="toast show" role="alert">
+                        <div class="toast-header bg-success text-white">
+                            <i class="fas fa-check-circle me-2"></i>
+                            <strong class="me-auto">Экспорт завершен</strong>
+                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="toast"></button>
+                        </div>
+                        <div class="toast-body">
+                            Файл <strong>${filename}</strong> успешно скачан!<br>
+                            <small>${rawPivotData.length} строк</small>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            document.body.insertAdjacentHTML('beforeend', toast);
+            
+            setTimeout(() => {
+                const toastEl = document.querySelector('.toast');
+                if (toastEl) {
+                    const bsToast = new bootstrap.Toast(toastEl);
+                    bsToast.hide();
+                }
+            }, 3000);
         }
         
         function showForecastResultsInterface(processedData, mapping) {
@@ -2013,7 +2117,8 @@
             const names = {
                 'arima': 'ARIMA',
                 'prophet': 'Prophet',
-                'random_forest': 'Random Forest'
+                'random_forest': 'Random Forest',
+                'random_forest_hierarchy': 'Random Forest Hierarchy'
             };
             return names[modelName] || modelName;
         }
