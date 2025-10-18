@@ -363,7 +363,7 @@
                             <i class="fas fa-arrow-left me-2"></i>Изменить настройки
                         </button>
                         <button class="btn btn-success btn-lg" onclick="proceedToForecast()">
-                            <i class="fas fa-rocket me-2"></i>Перейти к прогнозированию
+                            <i class="fas fa-rocket me-2"></i>Запустить прогноз
                         </button>
                     </div>
                 </div>
@@ -1116,15 +1116,24 @@
                 return;
             }
             
-            if (!confirm(`Построить прогноз с использованием модели ${getModelDisplayName(selectedModel)}?`)) {
+            // Проверяем есть ли уже прогноз
+            const hasExistingForecast = sessionStorage.getItem('maxCompletedStep') >= 6;
+            
+            let confirmMessage = `Запустить прогноз с моделью ${getModelDisplayName(selectedModel)}?`;
+            if (hasExistingForecast) {
+                confirmMessage = `⚠️ ВНИМАНИЕ: Существующий прогноз будет ПЕРЕЗАПИСАН!\n\nЗапустить новый прогноз с моделью ${getModelDisplayName(selectedModel)}?`;
+            }
+            
+            if (!confirm(confirmMessage)) {
                 return;
             }
             
             // Сохраняем выбранную модель в sessionStorage
             sessionStorage.setItem('selectedForecastModel', selectedModel);
             
-            // Сразу переходим на страницу результатов
-            // Генерация прогноза запустится там с прогресс-баром
+            // Переходим на страницу результатов
+            // Генерация прогноза запустится автоматически с прогресс-баром
+            // Старый прогноз будет перезаписан
             window.location.href = `/forecast/results?session_id=${currentSessionId}&model=${selectedModel}`;
         }
 
