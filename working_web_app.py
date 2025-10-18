@@ -3287,14 +3287,24 @@ def generate_forecast():
             mapping_config = forecast_app.mapping_config
             print("   ✅ Маппинг получен из forecast_app", flush=True)
         else:
-            # Пытаемся загрузить из проекта
+            # Пытаемся загрузить из проекта (ищем по session_id)
             import json
-            project_file = f'projects/{session_id}.json'
-            if os.path.exists(project_file):
-                with open(project_file, 'r', encoding='utf-8') as f:
-                    project_data = json.load(f)
-                    mapping_config = project_data.get('data_mapping', {})
-                    print("   ✅ Маппинг загружен из файла проекта", flush=True)
+            projects_dir = 'projects'
+            mapping_config = None
+            
+            if os.path.exists(projects_dir):
+                for filename in os.listdir(projects_dir):
+                    if filename.endswith('.json'):
+                        filepath = os.path.join(projects_dir, filename)
+                        try:
+                            with open(filepath, 'r', encoding='utf-8') as f:
+                                proj = json.load(f)
+                                if proj.get('session_id') == session_id:
+                                    mapping_config = proj.get('data_mapping', {})
+                                    print(f"   ✅ Маппинг загружен из проекта {proj.get('name')}", flush=True)
+                                    break
+                        except:
+                            continue
         
         if not mapping_config or not mapping_config.get('columns'):
             print("   ⚠️ Маппинг не найден, будет использован базовый набор метрик", flush=True)
