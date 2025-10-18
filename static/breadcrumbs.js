@@ -114,16 +114,15 @@ class BreadcrumbsModule {
         const title = isClickable ? `title="Перейти к шагу: ${step.name}"` : '';
 
         // Определяем что показывать в кружке
+        // CSS автоматически добавляет ✓ через ::before для .completed
+        // Поэтому мы НЕ добавляем галочку в HTML, только номера
         let circleContent;
         if (step.id === currentStep) {
             // Текущий шаг - показываем номер
             circleContent = step.id;
-        } else if (step.id < currentStep) {
-            // Пройденные шаги позади - показываем галочку
-            circleContent = '✓';
-        } else if (step.id <= maxCompletedStep) {
-            // Пройденные шаги впереди (вернулись назад) - показываем галочку
-            circleContent = '✓';
+        } else if (step.id < currentStep || step.id <= maxCompletedStep) {
+            // Пройденные шаги - НЕ добавляем контент (галочка из CSS)
+            circleContent = '';
         } else {
             // Непройденные шаги - показываем номер
             circleContent = step.id;
