@@ -1336,6 +1336,25 @@ def apply_mapping():
         # Применяем маппинг
         processed_data = forecast_app.apply_data_mapping(mapping_config)
         
+        # Сохраняем обработанные данные в CSV для последующего использования
+        try:
+            processed_dir = 'processed'
+            os.makedirs(processed_dir, exist_ok=True)
+            
+            processed_filename = f'processed_{session_id}.csv'
+            processed_path = os.path.join(processed_dir, processed_filename)
+            
+            processed_data.to_csv(processed_path, index=False, encoding='utf-8')
+            print(f"✅ Обработанные данные сохранены: {processed_path}")
+            
+            # Сохраняем путь в forecast_app для быстрого доступа
+            if not hasattr(forecast_app, 'processed_files'):
+                forecast_app.processed_files = {}
+            forecast_app.processed_files[session_id] = processed_path
+            
+        except Exception as e:
+            print(f"⚠️ Ошибка сохранения обработанных данных: {e}")
+        
         return jsonify({
             'success': True,
             'message': 'Маппинг применен успешно',
@@ -1450,15 +1469,27 @@ def get_time_series_data(session_id):
             else:
                 print(f"WARNING: Колонка 'is_forecast' отсутствует в прогнозных данных!")
         else:
-            # Используем обычные данные
-            if forecast_app.df is None:
-                return jsonify({'success': False, 'message': 'Данные не загружены'})
+            # Используем обычные данные (после маппинга)
+            # Сначала пытаемся загрузить обработанные данные из CSV
+            processed_file = f'processed/processed_{session_id}.csv'
             
-            df = forecast_app.df.copy()
-            # Заменяем NaN в категориальных полях
-            categorical_cols = df.select_dtypes(include=['object', 'category']).columns
-            df[categorical_cols] = df[categorical_cols].fillna('Не указано')
-            print(f"DEBUG: Используем обычные данные: {len(df)} строк")
+            if os.path.exists(processed_file):
+                print(f"✅ Загрузка обработанных данных из CSV: {processed_file}")
+                df = pd.read_csv(processed_file)
+                # Заменяем NaN в категориальных полях
+                categorical_cols = df.select_dtypes(include=['object', 'category']).columns
+                df[categorical_cols] = df[categorical_cols].fillna('Не указано')
+                print(f"✅ Загружено {len(df)} строк обработанных данных")
+            elif forecast_app.df is not None:
+                # Fallback: используем данные из памяти
+                print(f"⚠️ CSV с обработанными данными не найден, используем forecast_app.df")
+                df = forecast_app.df.copy()
+                # Заменяем NaN в категориальных полях
+                categorical_cols = df.select_dtypes(include=['object', 'category']).columns
+                df[categorical_cols] = df[categorical_cols].fillna('Не указано')
+                print(f"DEBUG: Используем данные из памяти: {len(df)} строк")
+            else:
+                return jsonify({'success': False, 'message': 'Данные не загружены'})
         
         # Отладочная информация
         print(f"DEBUG: Загружено {len(df)} строк данных")
