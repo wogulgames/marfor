@@ -328,12 +328,63 @@
                         // Автоматически устанавливаем горизонт
                         forecastMonthsCount = settings.forecast_months;
                         
-                        // Восстанавливаем прогнозные периоды
-                        if (settings.forecast_periods && settings.forecast_periods.length > 0) {
-                            forecastPeriods = settings.forecast_periods;
+                        // Пересоздаем прогнозные периоды (они могли не сохраниться)
+                        console.log('🔄 Пересоздание прогнозных периодов...');
+                        
+                        // Очищаем старые прогнозные периоды
+                        timelineData = timelineData.filter(p => !p.isForecast);
+                        forecastPeriods = [];
+                        
+                        // Находим последний фактический период
+                        if (timelineData.length > 0) {
+                            const lastPeriod = timelineData[timelineData.length - 1];
+                            let currentYear = lastPeriod.year;
+                            let currentMonth = lastPeriod.month;
                             
-                            // Обновляем timeline с прогнозными периодами
-                            buildTimelineData();
+                            // Добавляем прогнозные месяцы
+                            for (let i = 0; i < settings.forecast_months; i++) {
+                                currentMonth++;
+                                if (currentMonth > 12) {
+                                    currentMonth = 1;
+                                    currentYear++;
+                                }
+                                
+                                const quarter = Math.ceil(currentMonth / 3);
+                                const halfyear = currentMonth <= 6 ? 1 : 2;
+                                
+                                // Добавляем в timeline
+                                timelineData.push({
+                                    year: currentYear,
+                                    month: currentMonth,
+                                    quarter: quarter,
+                                    halfyear: halfyear,
+                                    isForecast: true
+                                });
+                                
+                                // Обновляем forecastPeriods
+                                let yearPeriod = forecastPeriods.find(p => p.year === currentYear);
+                                if (!yearPeriod) {
+                                    yearPeriod = {
+                                        year: currentYear,
+                                        months: [],
+                                        quarters: new Set(),
+                                        halfyears: new Set()
+                                    };
+                                    forecastPeriods.push(yearPeriod);
+                                }
+                                
+                                yearPeriod.months.push(currentMonth);
+                                yearPeriod.quarters.add(`Q${quarter}`);
+                                yearPeriod.halfyears.add(`H${halfyear}`);
+                            }
+                            
+                            // Конвертируем Sets в Arrays
+                            forecastPeriods.forEach(p => {
+                                p.quarters = Array.from(p.quarters).sort();
+                                p.halfyears = Array.from(p.halfyears).sort();
+                            });
+                            
+                            // Обновляем timeline и график
                             renderTimeline();
                             
                             // Обновляем график (нужно подождать загрузки данных метрики)
@@ -341,7 +392,7 @@
                                 renderMetricChart();
                             }, 500);
                             
-                            console.log(`✅ Восстановлен горизонт: ${settings.forecast_months} месяцев`);
+                            console.log(`✅ Восстановлен горизонт: ${settings.forecast_months} месяцев, ${forecastPeriods.length} годов`);
                         }
                     }
                 }
