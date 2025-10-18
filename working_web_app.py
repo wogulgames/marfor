@@ -1815,7 +1815,7 @@ def auto_save_project_state(session_id, current_step=None):
             existing_project['training_results'] = training_metrics
             print(f"      ✅ Сохранены метрики обучения (БЕЗ моделей sklearn)")
         
-        # Обновляем forecast_result_info (метаданные, не сами данные)
+        # Обновляем forecast_result_info (метаданные + ссылки на файлы)
         if hasattr(forecast_app, 'forecast_results') and session_id in forecast_app.forecast_results:
             forecast_result = forecast_app.forecast_results[session_id]
             existing_project['forecast_result_info'] = {
@@ -1824,8 +1824,14 @@ def auto_save_project_state(session_id, current_step=None):
                 'forecast_periods': forecast_result.get('forecast_periods'),
                 'historical_periods': forecast_result.get('historical_periods'),
                 'total_rows': len(forecast_result.get('combined_data', [])),
-                'created_at': datetime.now().isoformat()
+                'created_at': datetime.now().isoformat(),
+                # Ссылки на CSV файлы
+                'csv_files': {
+                    'combined': forecast_result.get('combined_file'),
+                    'forecast_only': forecast_result.get('forecast_file')
+                }
             }
+            print(f"      ✅ Сохранены ссылки на CSV файлы прогноза")
         
         # Сохраняем проект
         project_file = os.path.join(projects_dir, f"{project_id}.json")
@@ -2045,13 +2051,24 @@ def load_project(project_id):
         # Определяем, куда перенаправить пользователя
         current_step = project.get('current_step', 2)
         redirect_url = '/forecast/mapping'  # По умолчанию
+        has_forecast_csv = False
         
+        # Проверяем наличие CSV файлов с прогнозом
         if current_step == 6 and project.get('forecast_result_info'):
-            # Если есть прогноз - показываем информацию, но не переходим автоматически
-            # (данные прогноза слишком большие, нужно пересчитать)
-            redirect_url = '/forecast/training'
-            print(f"⚠️ Проект имеет результаты прогноза, но данные не сохранены")
-            print(f"   Необходимо заново сгенерировать прогноз")
+            forecast_info = project['forecast_result_info']
+            csv_files = forecast_info.get('csv_files', {})
+            combined_file = csv_files.get('combined')
+            
+            # Проверяем существование файла
+            if combined_file and os.path.exists(combined_file):
+                has_forecast_csv = True
+                redirect_url = '/forecast/results'
+                print(f"✅ Найден CSV с прогнозом: {combined_file}")
+                print(f"   Переход на страницу результатов")
+            else:
+                redirect_url = '/forecast/training'
+                print(f"⚠️ CSV файл прогноза не найден: {combined_file}")
+                print(f"   Необходимо заново сгенерировать прогноз")
         elif current_step == 5:
             redirect_url = '/forecast/training'
         elif current_step == 4:
@@ -3649,32 +3666,75 @@ def generate_forecast():
 
 @app.route('/api/get_forecast_results/<session_id>')
 def get_forecast_results(session_id):
-    """Получение результатов прогноза"""
+    """Получение результатов прогноза (из памяти или CSV)"""
     try:
-        if not hasattr(forecast_app, 'forecast_results') or session_id not in forecast_app.forecast_results:
+        # Сначала пытаемся взять из памяти
+        if hasattr(forecast_app, 'forecast_results') and session_id in forecast_app.forecast_results:
+            print(f"✅ Загрузка результатов из памяти для {session_id}")
+            results = forecast_app.forecast_results[session_id]
+            
+            return jsonify({
+                'success': True,
+                'forecast_data': {
+                    'raw_data': results['combined_data'],
+                    'pivot_data': None  # Будет построена на фронтенде
+                },
+                'info': {
+                    'model': results['model'],
+                    'metric': results['metric'],
+                    'historical_periods': results['historical_periods'],
+                    'forecast_periods': results['forecast_periods'],
+                }
+            })
+        
+        # Если в памяти нет - пытаемся загрузить из CSV
+        print(f"⚠️ Результатов нет в памяти, ищем CSV файл для {session_id}")
+        
+        # Ищем проект
+        projects_dir = 'projects'
+        project_data = None
+        
+        for filename in os.listdir(projects_dir):
+            if filename.endswith('.json'):
+                filepath = os.path.join(projects_dir, filename)
+                with open(filepath, 'r', encoding='utf-8') as f:
+                    proj = json.load(f)
+                    if proj.get('session_id') == session_id:
+                        project_data = proj
+                        break
+        
+        if not project_data or not project_data.get('forecast_result_info'):
             return jsonify({'success': False, 'message': 'Результаты прогноза не найдены'})
         
-        results = forecast_app.forecast_results[session_id]
+        forecast_info = project_data['forecast_result_info']
+        csv_files = forecast_info.get('csv_files', {})
+        combined_file = csv_files.get('combined')
+        
+        if not combined_file or not os.path.exists(combined_file):
+            return jsonify({'success': False, 'message': 'CSV файл прогноза не найден'})
+        
+        print(f"✅ Загрузка результатов из CSV: {combined_file}")
+        
+        # Загружаем данные из CSV
+        forecast_df = pd.read_csv(combined_file)
         
         return jsonify({
             'success': True,
             'forecast_data': {
-                'raw_data': results['combined_data'],
-                'pivot_data': None  # Будет построена на фронтенде
+                'raw_data': forecast_df.to_dict('records'),
+                'pivot_data': None
             },
             'info': {
-                'model': results['model'],
-                'metric': results['metric'],
-                'historical_periods': results['historical_periods'],
-                'forecast_periods': results['forecast_periods'],
-                'files': {
-                    'combined': results.get('combined_file'),
-                    'forecast_only': results.get('forecast_file')
-                }
+                'model': forecast_info.get('model'),
+                'metric': forecast_info.get('metric'),
+                'historical_periods': forecast_info.get('historical_periods'),
+                'forecast_periods': forecast_info.get('forecast_periods'),
             }
         })
         
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         return jsonify({'success': False, 'message': f'Ошибка: {str(e)}'})
 
 @app.route('/api/export_forecast/<session_id>')
