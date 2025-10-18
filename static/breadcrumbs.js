@@ -116,7 +116,7 @@ class BreadcrumbsModule {
         return `
             <div class="${stepClass}">
                 <div class="step-circle" ${onClick} style="${cursor}" ${title}>
-                    ${step.id <= maxCompletedStep ? '✓' : step.id}
+                    ${step.id === currentStep ? step.id : (step.id < maxCompletedStep ? '✓' : step.id)}
                 </div>
                 <div class="step-label">${step.shortName}</div>
                 ${index < this.steps.length - 1 ? '<div class="step-connector"></div>' : ''}
