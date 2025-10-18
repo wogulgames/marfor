@@ -1609,15 +1609,13 @@
             // Рендерим хлебные крошки (шаг 6 - Результаты прогноза)
             breadcrumbsModule.render(6);
             
-            // Получаем session_id и model из URL
+            // Получаем session_id из URL или sessionStorage
             const urlParams = new URLSearchParams(window.location.search);
             currentSessionId = urlParams.get('session_id') || sessionStorage.getItem('currentSessionId');
-            const selectedModel = urlParams.get('model') || sessionStorage.getItem('selectedForecastModel');
             
             console.log('🆔 session_id из URL:', urlParams.get('session_id'));
             console.log('🆔 session_id из sessionStorage:', sessionStorage.getItem('currentSessionId'));
             console.log('🆔 currentSessionId итоговый:', currentSessionId);
-            console.log('🎯 Модель для прогноза:', selectedModel);
             
             if (!currentSessionId) {
                 console.error('❌ Ошибка: session_id не найден!');
@@ -1626,23 +1624,58 @@
                 return;
             }
             
-            console.log('📊 Генерация прогноза для сессии:', currentSessionId);
-            
             // Скрываем секции, которые не нужны на странице результатов
             const uploadSection = document.getElementById('uploadSection');
             if (uploadSection) {
                 uploadSection.style.display = 'none';
             }
             
-            // Проверяем, есть ли уже готовый прогноз
-            if (selectedModel) {
-                // Модель передана - нужно сгенерировать прогноз
-                await generateAndLoadForecast(selectedModel);
-            } else {
-                // Прогноз уже есть - просто загружаем
+            // СНАЧАЛА пытаемся загрузить готовый прогноз
+            console.log('📊 Попытка загрузить готовый прогноз...');
+            const existingForecast = await tryLoadExistingForecast();
+            
+            if (existingForecast) {
+                // Прогноз найден - загружаем его
+                console.log('✅ Найден готовый прогноз, загружаем из CSV');
                 await loadForecastResults();
+            } else {
+                // Прогноза нет - проверяем, передана ли модель для генерации
+                const selectedModel = urlParams.get('model') || sessionStorage.getItem('selectedForecastModel');
+                console.log('🎯 Модель для генерации:', selectedModel);
+                
+                if (selectedModel) {
+                    // Генерируем новый прогноз
+                    console.log('🚀 Генерация нового прогноза...');
+                    sessionStorage.removeItem('selectedForecastModel'); // Очищаем после использования
+                    await generateAndLoadForecast(selectedModel);
+                } else {
+                    // Нет ни прогноза, ни модели
+                    console.error('❌ Нет готового прогноза и не указана модель');
+                    alert('❌ Нет данных для отображения. Вернитесь на страницу обучения.');
+                    window.location.href = `/forecast/training?session_id=${currentSessionId}`;
+                }
             }
         });
+        
+        async function tryLoadExistingForecast() {
+            try {
+                console.log('🔍 Проверка наличия готового прогноза...');
+                const response = await fetch(`/api/get_forecast_results/${currentSessionId}`);
+                const result = await response.json();
+                
+                if (result.success) {
+                    console.log('✅ Готовый прогноз найден!');
+                    console.log('📊 Данных:', result.forecast_data.raw_data.length, 'строк');
+                    return true;
+                } else {
+                    console.log('ℹ️ Готовый прогноз не найден:', result.message);
+                    return false;
+                }
+            } catch (error) {
+                console.error('❌ Ошибка проверки прогноза:', error);
+                return false;
+            }
+        }
         
         async function generateAndLoadForecast(selectedModel) {
             console.log('🚀 Генерация прогноза с моделью:', selectedModel);
