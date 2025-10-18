@@ -671,6 +671,10 @@ def generate_random_forest_hierarchy_forecast_detailed(df_agg, metric, year_col,
                     # Берем значение lag месяцев назад
                     lag_value = extended_data.iloc[-lag][metric] if metric in extended_data.columns else 0
                     forecast_row[lag_col] = lag_value
+                    
+                    # Логируем только для первого среза и ноября (месяц 11)
+                    if fm_idx == 0 and fm['month'] == 11 and lag == 12:
+                        print(f"      🔍 Ноябрь прогноз: lag_12 = {lag_value:,.0f} (ноябрь прошлого года)", flush=True)
                 else:
                     forecast_row[lag_col] = 0
             
@@ -697,11 +701,23 @@ def generate_random_forest_hierarchy_forecast_detailed(df_agg, metric, year_col,
                 if col not in forecast_row:
                     forecast_row[col] = 0
             
+            # Логируем признаки для ноября (первый срез)
+            if fm_idx == 0 and fm['month'] == 11:
+                print(f"      🔍 Признаки для ноября {fm['year']}:", flush=True)
+                print(f"         is_month_11: {forecast_row.get('is_month_11', 0)}", flush=True)
+                print(f"         is_peak_month: {forecast_row.get('is_peak_month', 0)}", flush=True)
+                print(f"         lag_1: {forecast_row.get(f'{metric}_lag_1', 0):,.0f}", flush=True)
+                print(f"         lag_12: {forecast_row.get(f'{metric}_lag_12', 0):,.0f}", flush=True)
+            
             # Формируем вектор признаков
             X_forecast = np.array([[forecast_row.get(col, 0) for col in feature_cols]])
             
             # Прогноз
             predicted_value = model.predict(X_forecast)[0]
+            
+            # Логируем прогноз для ноября
+            if fm_idx == 0 and fm['month'] == 11:
+                print(f"      🎯 Прогноз для ноября {fm['year']}: {predicted_value:,.0f}", flush=True)
             
             all_forecasts.append({
                 'year': fm['year'],
