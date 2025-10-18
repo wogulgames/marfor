@@ -2217,6 +2217,8 @@ def load_project(project_id):
             'csv_loaded': csv_loaded,
             'current_step': current_step,
             'redirect_url': redirect_url,
+            'forecast_settings': project.get('forecast_settings'),
+            'training_results': project.get('training_results'),
             'forecast_result_info': project.get('forecast_result_info')
         }
         
