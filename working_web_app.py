@@ -3440,6 +3440,9 @@ def generate_forecast():
             print("   ⚠️ Маппинг не найден, будет использован базовый набор метрик", flush=True)
             mapping_config = {'columns': []}
         
+        # Подготовка данных для прогноза (нужно для восстановления forecast_periods)
+        df = forecast_app.df
+        
         # Если forecast_periods пустой, но есть forecast_months - пересоздаем
         if not forecast_periods and settings.get('forecast_months', 0) > 0:
             print(f"   ⚠️ forecast_periods пустой, восстанавливаем из forecast_months ({settings['forecast_months']})", flush=True)
@@ -3497,9 +3500,6 @@ def generate_forecast():
             del forecast_app.forecast_results[session_id]
         else:
             print(f"   ℹ️ Старого прогноза нет, создаем новый", flush=True)
-        
-        # Подготовка данных для прогноза
-        df = forecast_app.df
         
         # Находим временные поля и поля срезов из маппинга
         year_col = None
