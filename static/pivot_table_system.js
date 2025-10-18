@@ -2559,6 +2559,7 @@ function populateChartDepthSelect(config) {
 
 // Подготовка данных для графика
 function prepareChartData(pivotData, config, targetLevel) {
+    console.log('📊 ВЕРСИЯ: 2025-10-18 с разделением факт/прогноз');
     console.log('Подготовка данных для графика, уровень:', targetLevel);
     
     const labels = [];
@@ -2677,26 +2678,28 @@ function prepareChartData(pivotData, config, targetLevel) {
             
             console.log(`📊 ${valueField.label}: последняя фактическая точка на индексе ${lastFactIndex} из ${dataValues.length}`);
             
-            // Если есть разделение на факт/прогноз, создаем два dataset'а
+            // Если есть разделение на факт/прогноз, создаем два dataset'а с одинаковым label
             if (lastFactIndex >= 0 && lastFactIndex < dataValues.length - 1 && config.mode === 'time-series') {
                 // Фактические данные (сплошная линия)
                 const factData = dataValues.slice(0, lastFactIndex + 1);
                 datasets.push({
-                    label: valueField.label,
+                    label: valueField.label, // Одинаковый label
                     data: factData,
                     borderWidth: 2,
-                    fill: false
+                    fill: false,
+                    isForecast: false // Метка для различения
                 });
                 
                 // Прогнозные данные (пунктирная линия)
                 // Начинаем с последней фактической точки для плавного перехода
                 const forecastData = new Array(lastFactIndex).fill(null).concat(dataValues.slice(lastFactIndex));
                 datasets.push({
-                    label: `${valueField.label} - Прогноз`,
+                    label: valueField.label, // Одинаковый label для единой легенды
                     data: forecastData,
                     borderWidth: 2,
                     fill: false,
-                    borderDash: [10, 5] // Пунктирная линия
+                    borderDash: [10, 5], // Пунктирная линия
+                    isForecast: true // Метка для различения
                 });
             } else {
                 // Нет прогнозных данных или не time-series режим - создаем один dataset
@@ -2704,7 +2707,8 @@ function prepareChartData(pivotData, config, targetLevel) {
                     label: valueField.label,
                     data: dataValues,
                     borderWidth: 2,
-                    fill: false
+                    fill: false,
+                    isForecast: false
                 });
             }
         });
@@ -2772,18 +2776,27 @@ function renderPivotChart(chartData, config) {
     const chartType = config.mode === 'time-series' ? 'line' : 'bar';
     console.log('📊 Тип графика:', chartType, '(режим:', config.mode + ')');
     
-    // Генерируем цвета для datasets
-    const colors = generateChartColors(chartData.datasets.length);
+    // Генерируем цвета для уникальных label'ов (не для каждого dataset'а)
+    const uniqueLabels = [...new Set(chartData.datasets.map(d => d.label))];
+    const colors = generateChartColors(uniqueLabels.length);
+    const labelColorMap = {};
+    uniqueLabels.forEach((label, index) => {
+        labelColorMap[label] = colors[index];
+    });
+    
+    console.log('🎨 Карта цветов для меток:', labelColorMap);
+    
     chartData.datasets.forEach((dataset, index) => {
-        dataset.borderColor = colors[index];
-        dataset.backgroundColor = chartType === 'bar' ? colors[index] + 'CC' : colors[index] + '33'; // Больше непрозрачности для столбиков
+        const color = labelColorMap[dataset.label];
+        dataset.borderColor = color;
+        dataset.backgroundColor = chartType === 'bar' ? color + 'CC' : color + '33'; // Больше непрозрачности для столбиков
         
         if (chartType === 'line') {
             // Настройки для линейного графика
             dataset.borderWidth = 4;
             dataset.pointRadius = 6;
             dataset.pointHoverRadius = 8;
-            dataset.pointBackgroundColor = colors[index];
+            dataset.pointBackgroundColor = color;
             dataset.pointBorderColor = '#fff';
             dataset.pointBorderWidth = 2;
             dataset.tension = 0.2;
@@ -2893,7 +2906,31 @@ function renderPivotChart(chartData, config) {
                 },
                 legend: {
                     display: true,
-                    position: 'top'
+                    position: 'top',
+                    labels: {
+                        // Фильтруем дублирующиеся label'ы (показываем только уникальные)
+                        filter: function(legendItem, chartData) {
+                            // Находим первый dataset с таким label
+                            const firstIndex = chartData.datasets.findIndex(d => d.label === legendItem.text);
+                            // Показываем только если это первое вхождение
+                            return legendItem.datasetIndex === firstIndex;
+                        }
+                    },
+                    // Обработчик клика - скрываем/показываем все dataset'ы с одинаковым label
+                    onClick: function(e, legendItem, legend) {
+                        const chart = legend.chart;
+                        const label = legendItem.text;
+                        
+                        // Находим все dataset'ы с этим label
+                        chart.data.datasets.forEach((dataset, index) => {
+                            if (dataset.label === label) {
+                                const meta = chart.getDatasetMeta(index);
+                                meta.hidden = !meta.hidden;
+                            }
+                        });
+                        
+                        chart.update();
+                    }
                 },
                 tooltip: {
                     mode: 'index',
