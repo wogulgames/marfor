@@ -113,10 +113,26 @@ class BreadcrumbsModule {
         const cursor = isClickable ? 'cursor: pointer;' : '';
         const title = isClickable ? `title="Перейти к шагу: ${step.name}"` : '';
 
+        // Определяем что показывать в кружке
+        let circleContent;
+        if (step.id === currentStep) {
+            // Текущий шаг - показываем номер
+            circleContent = step.id;
+        } else if (step.id < currentStep) {
+            // Пройденные шаги позади - показываем галочку
+            circleContent = '✓';
+        } else if (step.id <= maxCompletedStep) {
+            // Пройденные шаги впереди (вернулись назад) - показываем галочку
+            circleContent = '✓';
+        } else {
+            // Непройденные шаги - показываем номер
+            circleContent = step.id;
+        }
+        
         return `
             <div class="${stepClass}">
                 <div class="step-circle" ${onClick} style="${cursor}" ${title}>
-                    ${step.id === currentStep ? step.id : (step.id <= maxCompletedStep ? '✓' : step.id)}
+                    ${circleContent}
                 </div>
                 <div class="step-label">${step.shortName}</div>
                 ${index < this.steps.length - 1 ? '<div class="step-connector"></div>' : ''}
