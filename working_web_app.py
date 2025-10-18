@@ -620,11 +620,12 @@ def generate_random_forest_hierarchy_forecast_detailed(df_agg, metric, year_col,
         fb.peak_months = peak_months  # Используем пиковые месяцы из обучения
         df_with_features, _ = fb.build_all_features(categorical_cols=[f'{col}_encoded' for col in slice_cols])
         
+        # Создаем список для хранения всех данных (исторические + прогноз)
+        # Это нужно для корректного расчета лагов при прогнозе
+        extended_data = df_with_features.copy()
+        
         # Для каждого будущего периода
-        for fm in forecast_months:
-            # Берем последние N строк для вычисления лагов и rolling
-            recent_data = df_with_features.tail(15).copy()
-            
+        for fm_idx, fm in enumerate(forecast_months):
             # Создаем строку для прогноза
             forecast_row = {
                 year_col: fm['year'],
@@ -663,15 +664,38 @@ def generate_random_forest_hierarchy_forecast_detailed(df_agg, metric, year_col,
             # 4. Q4
             forecast_row['is_q4'] = 1 if fm['month'] >= 10 else 0
             
-            # Лаги и rolling - берем из последних данных
-            # Это упрощенная версия - в реальности нужно рекурсивно обновлять
+            # Лаги - берем из extended_data (исторические + уже спрогнозированные)
+            for lag in [1, 2, 3, 4, 6, 12]:
+                lag_col = f'{metric}_lag_{lag}'
+                if len(extended_data) >= lag:
+                    # Берем значение lag месяцев назад
+                    lag_value = extended_data.iloc[-lag][metric] if metric in extended_data.columns else 0
+                    forecast_row[lag_col] = lag_value
+                else:
+                    forecast_row[lag_col] = 0
+            
+            # YoY признаки (на основе lag_12)
+            if f'{metric}_lag_12' in forecast_row and forecast_row[f'{metric}_lag_12'] > 0:
+                # Для прогноза берем последнее известное YoY отношение
+                forecast_row[f'{metric}_yoy_ratio'] = extended_data[f'{metric}_yoy_ratio'].iloc[-1] if f'{metric}_yoy_ratio' in extended_data.columns else 1.0
+                forecast_row[f'{metric}_yoy_diff'] = 0  # Пока не можем предсказать точную разницу
+            else:
+                forecast_row[f'{metric}_yoy_ratio'] = 1.0
+                forecast_row[f'{metric}_yoy_diff'] = 0
+            
+            # Rolling признаки - берем из последних данных
+            for window in [3, 6]:
+                for stat in ['mean', 'std', 'min', 'max']:
+                    roll_col = f'{metric}_rolling_{stat}_{window}'
+                    if roll_col in extended_data.columns:
+                        forecast_row[roll_col] = extended_data[roll_col].iloc[-1]
+                    else:
+                        forecast_row[roll_col] = 0
+            
+            # Заполняем оставшиеся признаки нулями
             for col in feature_cols:
                 if col not in forecast_row:
-                    # Если признак не заполнен, берем среднее из последних данных
-                    if col in recent_data.columns:
-                        forecast_row[col] = recent_data[col].mean()
-                    else:
-                        forecast_row[col] = 0
+                    forecast_row[col] = 0
             
             # Формируем вектор признаков
             X_forecast = np.array([[forecast_row.get(col, 0) for col in feature_cols]])
@@ -685,6 +709,12 @@ def generate_random_forest_hierarchy_forecast_detailed(df_agg, metric, year_col,
                 **slice_combination,
                 'predicted': predicted_value
             })
+            
+            # ВАЖНО: Добавляем спрогнозированное значение в extended_data
+            # чтобы следующий месяц мог использовать его для лагов
+            new_row = forecast_row.copy()
+            new_row[metric] = predicted_value
+            extended_data = pd.concat([extended_data, pd.DataFrame([new_row])], ignore_index=True)
     
     print(f"   ✅ Создано прогнозов: {len(all_forecasts)}", flush=True)
     
